@@ -1,0 +1,716 @@
+/* Wound Up: landing + desktop-preview chrome.
+   World: a clockmaker's bench at night, one lamp lit. The frozen town is deep teal; everything you
+   can read or press is cream paper or brass. Palette = docs/PROJECT_BIBLE section 4 only, every other
+   value here is a tint or shade of those five. Nothing is ever printed straight onto the 3D canvas:
+   all text sits on paper, so contrast never depends on what the camera happens to show.
+   Type: Elsie Swash Caps (wordmark), Elsie (tagline + heading) are decorative; everything you must read or
+   press is Cabin, per docs/UI_UX_SPEC section 4.
+   Layout: on wide landscape screens the plate and its margin take the left ~35vw (28rem at most), so a
+   centred diorama stays mostly clear (options.onStage reports the free area). Everywhere else the plate is
+   a sheet along the bottom: single column on phones, two columns on tablets. */
+
+@font-face {
+  font-family: "Elsie Swash Caps";
+  src: url("/fonts/elsie-swash-caps-900.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Elsie";
+  src: url("/fonts/elsie-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Cabin";
+  src: url("/fonts/cabin-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Cabin";
+  src: url("/fonts/cabin-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@property --p {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
+:root {
+  --brass: #c9a227;
+  --brass-lit: #ddb93a; /* brass tint: hover */
+  --brass-deep: #8a6d12; /* brass shade: ornament strokes on paper */
+  --walnut: #5b3a24;
+  --ink: #2a1a0f; /* walnut shade: primary text on paper */
+  --cream: #f2e6cf;
+  --paper-deep: #dccba6; /* cream shade: wells, disabled */
+  --teal: #1f5c5c;
+  --lamp: #ffc66d;
+  --night-0: #1b5051; /* teal shades: the frozen bench, lit from the middle */
+  --night-1: #0f2f30;
+  --night-2: #07191a;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1); /* exponential ease-out */
+  --display: "Elsie Swash Caps", "Bodoni 72", Didot, "Bodoni MT", Georgia, serif;
+  --serif: "Elsie", Georgia, "Times New Roman", serif;
+  --sans: "Cabin", "Gill Sans", "Trebuchet MS", system-ui, sans-serif;
+}
+
+html {
+  background: var(--night-2);
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: radial-gradient(ellipse 85% 75% at 50% 46%, var(--night-0), var(--night-1) 55%, var(--night-2));
+}
+::selection {
+  background: var(--lamp);
+  color: var(--ink);
+}
+
+/* ---------- root + modes ---------- */
+.wu {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0.75rem 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  pointer-events: none;
+  color: var(--ink);
+  font: 400 1.0625rem/1.55 var(--sans);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+.wu *,
+.wu *::before,
+.wu *::after {
+  box-sizing: border-box;
+}
+.wu[data-mode="xr"] {
+  visibility: hidden;
+}
+
+/* ---------- the plate ---------- */
+.wu-plate {
+  position: relative;
+  pointer-events: auto;
+  width: min(100%, 31rem);
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--brass) transparent;
+  padding: 0 1.75rem 1.25rem;
+  border-radius: 3px;
+  background-color: var(--cream);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .36 0 0 0 0 .23 0 0 0 0 .14 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* inset rules = the printed double border; the rest is the plate resting on the bench */
+  box-shadow:
+    inset 0 0 0 7px var(--cream),
+    inset 0 0 0 8px rgba(91, 58, 36, 0.5),
+    inset 0 0 0 11px var(--cream),
+    inset 0 0 0 12px rgba(91, 58, 36, 0.24),
+    inset 0 0 46px rgba(91, 58, 36, 0.16),
+    0 2px 4px rgba(0, 0, 0, 0.35),
+    0 30px 60px -24px rgba(0, 0, 0, 0.7);
+  transition: opacity 0.4s var(--ease), transform 0.4s var(--ease), visibility 0s;
+}
+/* scroll cue: when the sheet has more below, its foot fades to paper (the .more class is set from landing.ts) */
+.wu-plate::after {
+  content: "";
+  grid-column: 1 / -1;
+  position: sticky;
+  bottom: 0;
+  display: block;
+  height: 2.4rem;
+  margin-top: -2.4rem;
+  background: linear-gradient(to top, var(--cream) 20%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.wu-plate.more::after {
+  opacity: 1;
+}
+.wu[data-ready="0"] .wu-plate {
+  opacity: 0;
+}
+.wu[data-mode="preview"] .wu-plate,
+.wu[data-mode="xr"] .wu-plate {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 0.35s var(--ease), transform 0.35s var(--ease), visibility 0s 0.35s;
+}
+
+/* measuring scale: the loader. Cold ticks = frozen town, brass ticks = the wound-up part, lamp = the leading edge */
+.wu-scale {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 1.05rem;
+  margin: 0 -1.75rem 1.3rem;
+  overflow: hidden;
+  background: var(--ink);
+  border-radius: 3px 3px 0 0;
+}
+.wu-scale::before,
+.wu-scale i {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-bottom: 2px solid var(--tk);
+  background-repeat: repeat-x;
+  background-position: 0 100%;
+  background-size: 30px 14px; /* one long graduation and four short ones per tile, drawn as an SVG tile */
+}
+.wu-scale::before {
+  --tk: rgba(190, 214, 211, 0.4);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='14'%3E%3Cpath d='M.5 2v12M6.5 7v7M12.5 7v7M18.5 7v7M24.5 7v7' stroke='%23bed6d3' stroke-opacity='.4'/%3E%3C/svg%3E");
+}
+/* --p is the wound fraction (set from JS while loading); registered so the indeterminate sweep can animate it.
+   Nothing here animates layout: the fill is revealed with clip-path and the lamp edge rides a transform. */
+.wu-scale i {
+  --tk: var(--brass);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='14'%3E%3Cpath d='M.5 2v12M6.5 7v7M12.5 7v7M18.5 7v7M24.5 7v7' stroke='%23c9a227'/%3E%3C/svg%3E");
+  clip-path: inset(0 calc((1 - var(--p)) * 100%) 0 0);
+  transition: clip-path 0.5s var(--ease);
+}
+.wu-scale i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-right: 2px solid var(--lamp);
+  opacity: 0;
+  transform: translateX(calc((var(--p) - 1) * 100%));
+  transition: transform 0.5s var(--ease), opacity 0.4s;
+}
+.wu[data-load="run"] .wu-scale i::after,
+.wu[data-load="wait"] .wu-scale i::after {
+  opacity: 1;
+}
+.wu[data-load="wait"] .wu-scale {
+  animation: wu-wind 2.8s var(--ease) infinite;
+}
+.wu[data-load="wait"] .wu-scale i,
+.wu[data-load="wait"] .wu-scale i::after {
+  transition: none; /* the animation already moves it every frame */
+}
+
+/* wordmark: Elsie Swash Caps Black, sized from its own column so it can never overflow it */
+.wu-a {
+  container-type: inline-size;
+}
+.wu-title {
+  margin: 0;
+  font: 900 min(16.2cqi, 6rem) / 0.98 var(--display);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  color: var(--ink);
+}
+/* the wordmark's full stop: a 12-tooth gear driving an 8-tooth one */
+.wu-cog {
+  width: 0.78em;
+  height: auto;
+  margin-left: 0.04em;
+  overflow: visible;
+  fill: none;
+  stroke: var(--brass-deep);
+  stroke-width: 5.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.wu-g1,
+.wu-g2 {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.wu-tag {
+  margin: 0.6rem 0 0;
+  font: 400 1.42rem/1.26 var(--serif);
+  color: var(--teal);
+}
+.wu-tag span {
+  display: block;
+}
+.wu-lede {
+  max-width: 38ch;
+  margin: 1rem 0 0;
+  color: var(--walnut);
+  text-wrap: pretty;
+}
+
+/* instrument window: support gauge + status line */
+.wu-status {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.95rem;
+  margin-top: 1.2rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 3px;
+  background: rgba(91, 58, 36, 0.075);
+  box-shadow: inset 0 0 0 1px rgba(91, 58, 36, 0.24), inset 0 1px 3px rgba(91, 58, 36, 0.2);
+}
+.wu-msg {
+  display: grid;
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.45;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums lining-nums;
+  text-wrap: pretty;
+}
+.wu-msg > span {
+  grid-area: 1 / 1;
+  align-self: center;
+  visibility: hidden;
+}
+.wu-msg > .on {
+  visibility: visible;
+}
+.wu-pct {
+  font-weight: 400;
+}
+.wu-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.wu-gauge {
+  width: 4.6rem;
+  height: auto;
+  overflow: visible;
+  fill: none;
+  stroke: var(--walnut);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+.wu-zone {
+  stroke: var(--brass);
+  stroke-width: 4.5;
+}
+.wu-needle {
+  stroke: var(--ink);
+  stroke-width: 2.2;
+  transform-origin: 38px 42px;
+  transform: rotate(-72deg);
+  transition: transform 0.9s var(--ease), opacity 0.4s;
+}
+.wu-hub {
+  fill: var(--ink);
+  stroke: none;
+}
+.wu[data-support="vr"] .wu-needle {
+  transform: rotate(0deg);
+}
+.wu[data-support="ar"] .wu-needle {
+  transform: rotate(72deg);
+}
+.wu[data-support="checking"] .wu-needle {
+  opacity: 0.4;
+}
+
+/* problem slip: sits under the actions so the pressed button never moves */
+.wu-slip {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding: 0.75rem 0.6rem 0.75rem 0.95rem;
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+  background: var(--lamp);
+  color: var(--ink);
+  box-shadow: 0 8px 16px -10px rgba(42, 26, 15, 0.7);
+}
+.wu-slip[hidden] {
+  display: none;
+}
+.wu-slip p {
+  margin: 0.15rem 0 0;
+  font-size: 0.96rem;
+  line-height: 1.42;
+}
+.wu-x {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: -0.3rem 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.wu-x:hover {
+  background: rgba(42, 26, 15, 0.12);
+}
+.wu-x svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+/* actions: functional text, so Cabin Bold */
+.wu-acts {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+.wu-btn {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  width: 100%;
+  margin: 0;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  font: 700 1.1rem/1.15 var(--sans);
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: transform 0.25s var(--ease), background-color 0.25s, box-shadow 0.25s;
+}
+.wu-btn svg {
+  flex: none;
+  width: 1.45rem;
+  height: 1.45rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* flat brass plate with a printed rule inset, echoing the paper's double rule */
+.wu-go {
+  --plate: var(--brass);
+  --depth: inset 0 0 0 4px var(--plate), inset 0 0 0 5px rgba(42, 26, 15, 0.5), 0 10px 18px -10px rgba(42, 26, 15, 0.75);
+  min-height: 3.6rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--plate);
+  color: var(--ink);
+  font-size: 1.18rem;
+  box-shadow: var(--depth);
+}
+.wu-go:hover {
+  --plate: var(--brass-lit);
+  transform: translateY(-1px);
+}
+.wu-go:active {
+  transform: translateY(1px);
+}
+.wu-alt {
+  min-height: 2.9rem;
+  padding: 0.4rem 1rem;
+  border-color: rgba(91, 58, 36, 0.5);
+  background: transparent;
+  color: var(--walnut);
+  font-size: 1.02rem;
+}
+.wu-alt:hover {
+  border-color: var(--walnut);
+  background: rgba(91, 58, 36, 0.09);
+}
+.wu-btn[aria-disabled="true"] {
+  --plate: var(--paper-deep);
+  border: 2px dashed rgba(91, 58, 36, 0.45);
+  background: var(--paper-deep);
+  color: var(--walnut);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+.wu :focus-visible {
+  outline: 3px solid var(--teal);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--cream);
+}
+.wu-go:focus-visible {
+  box-shadow: 0 0 0 3px var(--cream), var(--depth);
+}
+
+/* what you will need: a parts list */
+.wu-need {
+  margin-top: 1.4rem;
+}
+.wu-need h2 {
+  margin: 0 0 0.3rem;
+  font: 400 1.3rem/1.2 var(--serif);
+  color: var(--ink);
+}
+.wu-need dl {
+  margin: 0;
+}
+.wu-need dl > div {
+  display: grid;
+  grid-template-columns: 4.9rem 1fr;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-top: 1px dotted rgba(91, 58, 36, 0.55);
+}
+.wu-need dt {
+  font: 700 0.78rem/1.5 var(--sans);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.wu-need dd {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--walnut);
+}
+.wu-fine {
+  margin: 0.4rem 0 0;
+  padding-top: 0.7rem;
+  border-top: 1px dotted rgba(91, 58, 36, 0.55);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--walnut);
+}
+
+/* ---------- desktop preview chrome: two paper tags, nothing else ---------- */
+.wu-pv {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s var(--ease), visibility 0s 0.4s;
+}
+.wu[data-mode="preview"] .wu-pv {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+.wu-back {
+  --depth: 0 2px 4px rgba(0, 0, 0, 0.4), 0 14px 24px -12px rgba(0, 0, 0, 0.7);
+  position: absolute;
+  top: max(1rem, env(safe-area-inset-top));
+  left: max(1rem, env(safe-area-inset-left));
+  width: auto;
+  min-height: 3.1rem;
+  padding: 0.4rem 1.15rem 0.4rem 0.9rem;
+  gap: 0.55rem;
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 1.02rem;
+  pointer-events: auto;
+  box-shadow: var(--depth);
+}
+.wu-back:hover {
+  background: #fff3d8;
+  transform: translateY(-1px);
+}
+/* the preview scene is dark teal, so the ring here is lamp, not teal */
+.wu-pv :focus-visible {
+  outline-color: var(--lamp);
+}
+.wu-back:focus-visible {
+  box-shadow: 0 0 0 3px var(--ink), var(--depth);
+}
+.wu-slip :focus-visible {
+  outline-color: var(--ink);
+}
+.wu-hint {
+  position: absolute;
+  right: 0;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  left: 0;
+  width: fit-content;
+  max-width: min(34rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 0.8rem 1.25rem;
+  border-radius: 3px;
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 1.04rem;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 14px 24px -12px rgba(0, 0, 0, 0.7);
+  text-wrap: balance;
+}
+.wu-pv .wu-slip {
+  position: absolute;
+  top: max(4.7rem, calc(env(safe-area-inset-top) + 3.7rem));
+  left: max(1rem, env(safe-area-inset-left));
+  width: min(30rem, calc(100% - 2rem));
+  margin: 0;
+  pointer-events: auto;
+}
+
+/* ---------- phones: a sheet, not a page, so the diorama can show above it ---------- */
+@media (max-width: 39.99rem) {
+  .wu-plate {
+    max-height: min(100%, 76vh);
+    max-height: min(100%, 76dvh);
+  }
+}
+/* ---------- tablets: a wide two-column sheet along the bottom ---------- */
+@media (min-width: 40rem) and (max-width: 62.49rem), (min-width: 40rem) and (max-aspect-ratio: 1249 / 1000) {
+  .wu-plate {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 2.25rem;
+    align-content: start;
+    width: min(100%, 46rem);
+  }
+  .wu-scale {
+    grid-column: 1 / -1;
+  }
+  .wu-b {
+    padding-top: 0.2rem;
+  }
+  .wu-b > .wu-acts {
+    margin-top: 0;
+  }
+}
+/* ---------- stage-left layout: wide, landscape screens, one column on the left.
+   Anchored from the top (centred for a plate this tall) so it never re-centres when a problem slip appears. ---------- */
+@media (min-width: 62.5rem) and (min-aspect-ratio: 5 / 4) {
+  .wu {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: max(2rem, calc((100vh - 49rem) / 2)) clamp(1.5rem, 4.4vw, 5rem) 2rem;
+    padding-top: max(2rem, calc((100dvh - 49rem) / 2));
+  }
+  .wu-plate {
+    width: clamp(21rem, 31vw, 28rem);
+  }
+}
+@media (max-height: 50rem) {
+  .wu-scale {
+    margin-bottom: 1rem;
+  }
+  .wu-lede {
+    margin-top: 0.6rem;
+  }
+  .wu-status,
+  .wu-acts {
+    margin-top: 0.9rem;
+  }
+  .wu-need {
+    margin-top: 1rem;
+  }
+  .wu-need dl > div {
+    padding: 0.5rem 0;
+  }
+}
+/* laptop screens under 800px tall: keep the premise, drop the fine print, run the tagline inline (beats stay whole) */
+@media (max-height: 50rem) and (min-width: 62.5rem) and (min-aspect-ratio: 5 / 4) {
+  .wu-fine {
+    display: none;
+  }
+  .wu-tag {
+    text-wrap: balance; /* with whole beats this breaks after the first, never orphaning the last */
+  }
+  .wu-tag span {
+    display: inline;
+    white-space: nowrap;
+  }
+}
+@media (max-height: 44rem) and (min-width: 62.5rem) and (min-aspect-ratio: 5 / 4) {
+  .wu-lede {
+    font-size: 0.98rem;
+    line-height: 1.45;
+  }
+  .wu-need dd {
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+}
+
+/* ---------- the one authored moment: the plate is laid on the bench, the cogs tick forward ---------- */
+.wu[data-ready="1"] .wu-plate {
+  animation: wu-in 1000ms var(--ease) backwards;
+}
+.wu[data-ready="1"] :is(.wu-a, .wu-b) > * {
+  animation: wu-in-child 900ms var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms + 150ms);
+}
+.wu[data-ready="1"] .wu-g1 {
+  animation: wu-tick-a 1200ms var(--ease) 700ms backwards;
+}
+.wu[data-ready="1"] .wu-g2 {
+  animation: wu-tick-b 1200ms var(--ease) 700ms backwards;
+}
+@keyframes wu-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) rotate(-0.5deg);
+  }
+}
+@keyframes wu-in-child {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+}
+/* one tooth each way: 30 deg on the 12-tooth gear, 45 deg back on the 8-tooth one, so they stay meshed */
+@keyframes wu-tick-a {
+  from {
+    transform: rotate(-30deg);
+  }
+}
+@keyframes wu-tick-b {
+  from {
+    transform: rotate(45deg);
+  }
+}
+@keyframes wu-wind {
+  from {
+    --p: 0;
+  }
+  to {
+    --p: 1;
+  }
+}
+
+/* Elsie's decorative st ligature makes "Quest" hard to read at label size. Last on purpose: every font shorthand above resets this. */
+.wu,
+.wu * {
+  font-variant-ligatures: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wu *,
+  .wu *::before,
+  .wu *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+  .wu[data-load="wait"] .wu-scale {
+    --p: 0.35;
+  }
+}
+@media (forced-colors: active) {
+  .wu-btn,
+  .wu-slip,
+  .wu-plate {
+    border: 2px solid CanvasText;
+  }
+}
