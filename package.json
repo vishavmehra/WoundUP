@@ -1,0 +1,45 @@
+{
+  "name": "wound-up",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wound Up — a seated, hands-only mixed-reality clockwork building game for Meta Quest 3/3S (WebXR, IWSDK).",
+  "type": "module",
+  "scripts": {
+    "dev": "iwsdk dev restart --open --foreground",
+    "dev:runtime": "vite",
+    "dev:down": "iwsdk dev down",
+    "dev:status": "iwsdk dev status",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests vitest.config.ts playwright.config.ts",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@iwsdk/core": "1.1.0-rc.2",
+    "@pmndrs/uikit": "^1.0.74",
+    "@pmndrs/uikit-horizon": "^1.0.74",
+    "@pmndrs/uikit-lucide": "^1.0.74",
+    "three": "npm:super-three@0.185.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@iwsdk/cli": "1.1.0-rc.2",
+    "@iwsdk/vite-plugin-dev": "1.1.0-rc.2",
+    "@playwright/test": "^1.64.1",
+    "@types/three": "^0.185.0",
+    "eslint": "^10.14.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^7.1.4",
+    "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "sharp": "0.35.4",
+    "three": "npm:super-three@0.185.0"
+  },
+  "engines": {
+    "node": ">=20.19.0 <21.0.0-0 || >=22.12.0 <23.0.0-0 || >=24.0.0"
+  }
+}

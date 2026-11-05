@@ -1,0 +1,12 @@
+# Not needed to build or serve the app; keeps uploads small.
+References/
+blender/
+docs/
+tests/
+.claude/
+.remember/
+.iwsdk/
+.env*
+dist/
+test-results/
+playwright-report/
