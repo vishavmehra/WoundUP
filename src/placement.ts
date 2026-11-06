@@ -1,6 +1,10 @@
-/** PRODUCT_SPEC §3.2 fallback "velvet stand": ~55 cm ahead of the player, ~45 cm below their eyes. */
+/**
+ * PRODUCT_SPEC §3.2 fallback "velvet stand": ~55 cm ahead of the player and ~38 cm below their eyes, which is about 35°
+ * below head-forward (INTERACTION_SPEC §3). Both are measured from the eyes, never from the floor.
+ * These two numbers are the tuning knob once a Quest tester reports on comfort.
+ */
 export const STAND_AHEAD_M = 0.55;
-export const STAND_BELOW_EYE_M = 0.45;
+export const STAND_BELOW_EYE_M = 0.38;
 
 export interface Vec3Like {
   x: number;

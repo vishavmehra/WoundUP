@@ -1,13 +1,10 @@
-/* Wound Up: landing + desktop-preview chrome.
-   World: a clockmaker's bench at night, one lamp lit. The frozen town is deep teal; everything you
-   can read or press is cream paper or brass. Palette = docs/PROJECT_BIBLE section 4 only, every other
-   value here is a tint or shade of those five. Nothing is ever printed straight onto the 3D canvas:
-   all text sits on paper, so contrast never depends on what the camera happens to show.
-   Type: Elsie Swash Caps (wordmark), Elsie (tagline + heading) are decorative; everything you must read or
-   press is Cabin, per docs/UI_UX_SPEC section 4.
-   Layout: on wide landscape screens the plate and its margin take the left ~35vw (28rem at most), so a
-   centred diorama stays mostly clear (options.onStage reports the free area). Everywhere else the plate is
-   a sheet along the bottom: single column on phones, two columns on tablets. */
+/* Wound Up: entry screen and preview chrome. THE FRONTISPIECE.
+   The window is the page of an antique horology catalogue: title, device, imprint, printed in cream and brass
+   on the night, with the world out of focus behind the print. Palette = the five bible colours; every other
+   value is a tint or shade of them. Elsie Swash Caps + Elsie are for the name and tagline; everything you read
+   or press is Cabin.
+   Sizing: every length derives from the window (--title from height and width, the body em from the short side),
+   so the composition scales as one object and never scrolls. Below a few heights, spare lines are dropped. */
 
 @font-face {
   font-family: "Elsie Swash Caps";
@@ -46,50 +43,90 @@
 
 :root {
   --brass: #c9a227;
-  --brass-lit: #ddb93a; /* brass tint: hover */
-  --brass-deep: #8a6d12; /* brass shade: ornament strokes on paper */
+  --brass-lit: #f2da86; /* brass tint: line art printed in brass (the gear device) */
   --walnut: #5b3a24;
-  --ink: #2a1a0f; /* walnut shade: primary text on paper */
-  --cream: #f2e6cf;
-  --paper-deep: #dccba6; /* cream shade: wells, disabled */
-  --teal: #1f5c5c;
+  --ink: #2a1a0f; /* walnut shade */
+  --cream: #f2e6cf; /* every word on the world */
   --lamp: #ffc66d;
-  --night-0: #1b5051; /* teal shades: the frozen bench, lit from the middle */
-  --night-1: #0f2f30;
-  --night-2: #07191a;
-  --ease: cubic-bezier(0.16, 1, 0.3, 1); /* exponential ease-out */
+  --teal: #1f5c5c;
+  --night: #07191a; /* deep teal shade */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --display: "Elsie Swash Caps", "Bodoni 72", Didot, "Bodoni MT", Georgia, serif;
   --serif: "Elsie", Georgia, "Times New Roman", serif;
   --sans: "Cabin", "Gill Sans", "Trebuchet MS", system-ui, sans-serif;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .9 0 0 0 0 .81 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* frame: a thick-and-thin rule ticked like a watch's railroad minute track, with a clock dial quartered into the corners (hub, ring, ticks, rim) */
+  --frame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' fill='none' stroke='%23c9a227'%3E%3Cg id='c'%3E%3Cpath stroke-width='1.6' d='M100 .8H30.8A30 30 0 0 1 .8 30.8V100'/%3E%3Cpath stroke-width='.9' d='M100 6.5H36.35A36 36 0 0 1 6.5 36.35V100'/%3E%3Cpath stroke-width='.7' d='M51 1.6V6M1.6 51H6M65 1.6V6M1.6 65H6M79 1.6V6M1.6 79H6M93 1.6V6M1.6 93H6M29.26 12.59L33.64 14.4M22.58 22.58L25.94 25.94M12.59 29.26L14.4 33.64'/%3E%3Cpath stroke-width='.9' d='M19.74 8.65L23.9 10.37M12.47 12.47L18.48 18.48M8.65 19.74L10.37 23.9'/%3E%3Cpath stroke-width='.7' d='M13.3 .8A12.5 12.5 0 0 1 .8 13.3'/%3E%3Cpath fill='%23c9a227' stroke='none' d='M.8 .8H9A8.2 8.2 0 0 1 .8 9Z'/%3E%3C/g%3E%3Cuse href='%23c' transform='rotate(90 100 100)'/%3E%3Cuse href='%23c' transform='rotate(180 100 100)'/%3E%3Cuse href='%23c' transform='rotate(270 100 100)'/%3E%3C/svg%3E");
+  /* plaques: concave corners, nine-sliced so they fit any label */
+  --plaque-brass: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36'%3E%3ClinearGradient id='b' x2='0' y2='1'%3E%3Cstop stop-color='%23dcb944'/%3E%3Cstop offset='.5' stop-color='%23c9a227'/%3E%3Cstop offset='1' stop-color='%23b18e1d'/%3E%3C/linearGradient%3E%3Cpath fill='url(%23b)' d='M6 0H30A6 6 0 0 0 36 6V30A6 6 0 0 0 30 36H6A6 6 0 0 0 0 30V6A6 6 0 0 0 6 0Z'/%3E%3Cpath fill='none' stroke='%232a1a0f' stroke-opacity='.6' d='M8.83 3.5H27.17A9.5 9.5 0 0 0 32.5 8.83V27.17A9.5 9.5 0 0 0 27.17 32.5H8.83A9.5 9.5 0 0 0 3.5 27.17V8.83A9.5 9.5 0 0 0 8.83 3.5Z'/%3E%3C/svg%3E");
+  --plaque-ghost: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36'%3E%3Cpath fill='%2307191a' fill-opacity='.44' stroke='%23c9a227' d='M5.98 .5H30.02A6 6 0 0 0 35.5 5.98V30.02A6 6 0 0 0 30.02 35.5H5.98A6 6 0 0 0 .5 30.02V5.98A6 6 0 0 0 5.98 .5Z'/%3E%3C/svg%3E");
+  --plaque-slip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36'%3E%3Cpath fill='%23ffc66d' d='M6 0H30A6 6 0 0 0 36 6V30A6 6 0 0 0 30 36H6A6 6 0 0 0 0 30V6A6 6 0 0 0 6 0Z'/%3E%3Cpath fill='none' stroke='%232a1a0f' stroke-opacity='.6' d='M8.83 3.5H27.17A9.5 9.5 0 0 0 32.5 8.83V27.17A9.5 9.5 0 0 0 27.17 32.5H8.83A9.5 9.5 0 0 0 3.5 27.17V8.83A9.5 9.5 0 0 0 8.83 3.5Z'/%3E%3C/svg%3E");
 }
 
-html {
-  background: var(--night-2);
+/* Page-level rules, scoped to html[data-wu-mode] so they hold only while the landing is mounted (mountLanding sets
+   it, destroy() removes it): the window never scrolls and the world fills it. IWSDK sets no inline style on
+   #scene-container; three.js gives its canvas display:block plus the window size inline (renderer.setSize). */
+html[data-wu-mode] {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--night);
   color-scheme: dark;
 }
-body {
+/* the night workshop: deep teal walls, one lamp overhead on walnut, the bench rising from below. The warm light and the teal only ever meet in the dark: a thin mix of the two complementaries is khaki. */
+html[data-wu-mode] body {
+  height: 100%;
   margin: 0;
-  min-height: 100vh;
-  min-height: 100dvh;
-  background: radial-gradient(ellipse 85% 75% at 50% 46%, var(--night-0), var(--night-1) 55%, var(--night-2));
+  overflow: hidden;
+  background:
+    var(--grain),
+    radial-gradient(34% 36% at 50% 4%, rgba(255, 198, 109, 0.24), rgba(255, 198, 109, 0.08) 50%, transparent 82%),
+    radial-gradient(58% 64% at 50% -6%, var(--walnut), rgba(91, 58, 36, 0.55) 44%, transparent 84%),
+    radial-gradient(120% 50% at 50% 112%, rgba(91, 58, 36, 0.95), rgba(42, 26, 15, 0.72) 52%, transparent 86%),
+    radial-gradient(60% 92% at -8% 46%, var(--teal), rgba(31, 92, 92, 0.42) 54%, transparent 88%),
+    radial-gradient(60% 92% at 108% 46%, var(--teal), rgba(31, 92, 92, 0.42) 54%, transparent 88%),
+    var(--night);
 }
 ::selection {
   background: var(--lamp);
   color: var(--ink);
 }
 
-/* ---------- root + modes ---------- */
+/* ---------- the world: frozen, out of focus and set low on the title page; sharp, in colour and in place past it ---------- */
+html[data-wu-mode] #scene-container {
+  position: fixed;
+  inset: 0;
+}
+/* frozen = the art bible's cold, desaturated town; the stand sits low, behind the actions, and rises as it wakes.
+   The blur is capped at 14px: it is a full-window filter, and the canvas only redraws while something moves. */
+html[data-wu-mode="landing"] #scene-container {
+  filter: blur(clamp(5px, 1.1dvh, 14px)) saturate(0.35) brightness(0.82);
+  transform: translateY(9dvh) scale(1.06);
+}
+html[data-wu-mode="preview"] #scene-container,
+html[data-wu-mode="xr"] #scene-container {
+  filter: none;
+  transform: none;
+}
+html[data-wu-moved] #scene-container {
+  transition: filter 1.25s var(--ease), transform 1.25s var(--ease);
+}
+
+/* ---------- root + scrim ---------- */
 .wu {
+  --title: min(17dvh, 15.5vw);
+  --m: clamp(0.375rem, 1.5vmin, 1.5rem); /* frame to window edge */
+  --c: clamp(2.75rem, 7.8vmin, 7.5rem); /* frame corner cell */
+  --rh: clamp(0.6rem, 1.4vmin, 1rem); /* ruler height */
+  --pad: clamp(0.85rem, 2.4vmin, 2.5rem); /* frame to print */
+  --gap: clamp(0.4rem, 2.2dvh, 1.75rem);
   position: fixed;
   inset: 0;
   z-index: 10;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0.75rem 0.75rem max(0.75rem, env(safe-area-inset-bottom));
-  pointer-events: none;
-  color: var(--ink);
-  font: 400 1.0625rem/1.55 var(--sans);
+  overflow: hidden;
+  color: var(--cream);
+  font: 400 clamp(0.9rem, 0.62rem + 0.85vmin, 1.7rem) / 1.5 var(--sans);
+  text-align: center;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
@@ -102,88 +139,98 @@ body {
 .wu[data-mode="xr"] {
   visibility: hidden;
 }
-
-/* ---------- the plate ---------- */
-.wu-plate {
-  position: relative;
-  pointer-events: auto;
-  width: min(100%, 31rem);
-  max-height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--brass) transparent;
-  padding: 0 1.75rem 1.25rem;
-  border-radius: 3px;
-  background-color: var(--cream);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .36 0 0 0 0 .23 0 0 0 0 .14 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* inset rules = the printed double border; the rest is the plate resting on the bench */
-  box-shadow:
-    inset 0 0 0 7px var(--cream),
-    inset 0 0 0 8px rgba(91, 58, 36, 0.5),
-    inset 0 0 0 11px var(--cream),
-    inset 0 0 0 12px rgba(91, 58, 36, 0.24),
-    inset 0 0 46px rgba(91, 58, 36, 0.16),
-    0 2px 4px rgba(0, 0, 0, 0.35),
-    0 30px 60px -24px rgba(0, 0, 0, 0.7);
-  transition: opacity 0.4s var(--ease), transform 0.4s var(--ease), visibility 0s;
+.wu[data-mode="preview"] {
+  pointer-events: none; /* the world takes the mouse now */
 }
-/* scroll cue: when the sheet has more below, its foot fades to paper (the .more class is set from landing.ts) */
-.wu-plate::after {
+/* the frosted glass: a pool of lamplight behind the name, the page edge falling off into the night, a little paper tooth */
+.wu::before {
   content: "";
-  grid-column: 1 / -1;
-  position: sticky;
-  bottom: 0;
-  display: block;
-  height: 2.4rem;
-  margin-top: -2.4rem;
-  background: linear-gradient(to top, var(--cream) 20%, transparent);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s;
+  position: absolute;
+  inset: 0;
+  background:
+    var(--grain),
+    radial-gradient(38% 28% at 50% 27%, rgba(255, 198, 109, 0.22), rgba(255, 198, 109, 0.06) 60%, transparent 88%),
+    radial-gradient(46% 28% at 50% 26%, rgba(91, 58, 36, 0.46), rgba(91, 58, 36, 0.12) 60%, transparent 90%),
+    radial-gradient(130% 34% at 50% 104%, rgba(91, 58, 36, 0.55), rgba(91, 58, 36, 0.2) 55%, transparent 90%),
+    linear-gradient(rgba(31, 92, 92, 0.14), rgba(31, 92, 92, 0.14)),
+    radial-gradient(115% 98% at 50% 46%, rgba(7, 25, 26, 0.1), rgba(7, 25, 26, 0.3) 60%, rgba(7, 25, 26, 0.72));
+  transition: opacity 1s var(--ease);
 }
-.wu-plate.more::after {
-  opacity: 1;
-}
-.wu[data-ready="0"] .wu-plate {
+.wu[data-mode="preview"]::before {
   opacity: 0;
 }
-.wu[data-mode="preview"] .wu-plate,
-.wu[data-mode="xr"] .wu-plate {
+
+/* ---------- the page furniture ---------- */
+.wu-frame {
+  position: absolute;
+  inset: calc(var(--rh) + var(--m)) var(--m) var(--m);
+  border: var(--c) solid transparent;
+  border-image: var(--frame) 72 round;
+  transition: opacity 0.9s var(--ease), transform 1.25s var(--ease), visibility 0s;
+}
+.wu-page {
+  position: absolute;
+  inset: calc(var(--rh) + var(--m) + var(--pad)) calc(var(--m) + var(--pad)) calc(var(--m) + var(--pad));
+  display: grid;
+  grid-template-rows: 2fr auto 3fr; /* the optical centre of a title page sits above the true one */
+  grid-template-columns: minmax(0, 1fr); /* the column is the page, never wider */
+  justify-items: center;
+  /* Safety valve, never seen at normal sizes (the print fits, so nothing scrolls): when someone enlarges text or
+     its spacing (WCAG 1.4.12), the page scrolls rather than pushing actions out of the window. */
+  overflow-y: auto;
+  transition: opacity 0.9s var(--ease), transform 0.9s var(--ease), visibility 0s;
+}
+.wu[data-ready="0"] :is(.wu-frame, .wu-page) {
+  opacity: 0;
+}
+/* the authored moment: the print lifts off the page while the world behind it comes into focus */
+.wu[data-mode="preview"] .wu-frame,
+.wu[data-mode="xr"] .wu-frame {
   opacity: 0;
   visibility: hidden;
-  pointer-events: none;
-  transform: translateY(10px);
-  transition: opacity 0.35s var(--ease), transform 0.35s var(--ease), visibility 0s 0.35s;
+  transform: scale(1.03);
+  transition: opacity 0.6s var(--ease), transform 1.25s var(--ease), visibility 0s 1.25s;
+}
+.wu[data-mode="preview"] .wu-page,
+.wu[data-mode="xr"] .wu-page {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4dvh);
+  transition: opacity 0.5s var(--ease), transform 0.9s var(--ease), visibility 0s 0.9s;
 }
 
-/* measuring scale: the loader. Cold ticks = frozen town, brass ticks = the wound-up part, lamp = the leading edge */
+/* measuring scale along the window's top edge: the loader. Cold ticks = frozen town, brass ticks = wound up, lamp = the leading edge */
 .wu-scale {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  height: 1.05rem;
-  margin: 0 -1.75rem 1.3rem;
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--rh);
   overflow: hidden;
   background: var(--ink);
-  border-radius: 3px 3px 0 0;
+  transition: transform 0.7s var(--ease), visibility 0s;
+}
+/* the loader is transient: once the world is ready the ruler slides off and the frame is the only edge ornament */
+.wu[data-load="done"] .wu-scale,
+.wu[data-mode="preview"] .wu-scale,
+.wu[data-mode="xr"] .wu-scale {
+  visibility: hidden;
+  transform: translateY(-100%);
+  transition: transform 0.7s var(--ease), visibility 0s 0.7s;
 }
 .wu-scale::before,
 .wu-scale i {
   content: "";
   position: absolute;
   inset: 0;
-  border-bottom: 2px solid var(--tk);
+  border-bottom: 1px solid var(--tk);
   background-repeat: repeat-x;
   background-position: 0 100%;
-  background-size: 30px 14px; /* one long graduation and four short ones per tile, drawn as an SVG tile */
+  background-size: calc(var(--rh) * 2.2) calc(var(--rh) * 1.05);
 }
 .wu-scale::before {
   --tk: rgba(190, 214, 211, 0.4);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='14'%3E%3Cpath d='M.5 2v12M6.5 7v7M12.5 7v7M18.5 7v7M24.5 7v7' stroke='%23bed6d3' stroke-opacity='.4'/%3E%3C/svg%3E");
 }
-/* --p is the wound fraction (set from JS while loading); registered so the indeterminate sweep can animate it.
-   Nothing here animates layout: the fill is revealed with clip-path and the lamp edge rides a transform. */
+/* --p is the wound fraction (set from JS while loading); registered so the indeterminate sweep can animate it. */
 .wu-scale i {
   --tk: var(--brass);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='14'%3E%3Cpath d='M.5 2v12M6.5 7v7M12.5 7v7M18.5 7v7M24.5 7v7' stroke='%23c9a227'/%3E%3C/svg%3E");
@@ -211,25 +258,41 @@ body {
   transition: none; /* the animation already moves it every frame */
 }
 
-/* wordmark: Elsie Swash Caps Black, sized from its own column so it can never overflow it */
-.wu-a {
-  container-type: inline-size;
+/* ---------- the title block ---------- */
+.wu-body {
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 .wu-title {
   margin: 0;
-  font: 900 min(16.2cqi, 6rem) / 0.98 var(--display);
+  font: 900 var(--title) / 1 var(--display);
   letter-spacing: -0.005em;
-  white-space: nowrap;
-  color: var(--ink);
+  text-wrap: balance; /* one line at every size it was set for; wraps only when a reader's spacing makes it wider than the page */
+  text-shadow: 0 0.03em 0.28em rgba(7, 25, 26, 0.5);
 }
-/* the wordmark's full stop: a 12-tooth gear driving an 8-tooth one */
+/* printer's device: two swelled rules and the meshing gears */
+.wu-device {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  width: min(100%, calc(var(--title) * 4.75));
+}
+.wu-device i {
+  flex: 1;
+  height: max(2px, 0.17em);
+  border-radius: 50%;
+  background: var(--brass);
+}
 .wu-cog {
-  width: 0.78em;
+  flex: none;
+  width: max(2.2em, calc(var(--title) * 0.34));
   height: auto;
-  margin-left: 0.04em;
   overflow: visible;
   fill: none;
-  stroke: var(--brass-deep);
+  stroke: var(--brass-lit);
   stroke-width: 5.5;
   stroke-linejoin: round;
   stroke-linecap: round;
@@ -240,48 +303,43 @@ body {
   transform-origin: 50% 50%;
 }
 .wu-tag {
-  margin: 0.6rem 0 0;
-  font: 400 1.42rem/1.26 var(--serif);
-  color: var(--teal);
+  margin: calc(var(--gap) * 0.45) 0 0;
+  font: 400 max(1.2em, calc(var(--title) * 0.192)) / 1.2 var(--serif);
+  text-shadow: 0 0.05em 0.5em rgba(7, 25, 26, 0.45);
 }
 .wu-tag span {
-  display: block;
+  white-space: nowrap;
 }
 .wu-lede {
-  max-width: 38ch;
-  margin: 1rem 0 0;
-  color: var(--walnut);
-  text-wrap: pretty;
+  max-width: max(34em, calc(var(--title) * 4.5));
+  margin: calc(var(--gap) * 0.7) 0 0;
+  font-size: 1.05em;
+  line-height: 1.45;
+  text-wrap: balance;
+  text-shadow: 0 0.05em 0.6em rgba(7, 25, 26, 0.5);
 }
 
-/* instrument window: support gauge + status line */
+/* status: one line above the action it explains */
 .wu-status {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 0.95rem;
-  margin-top: 1.2rem;
-  padding: 0.7rem 0.95rem;
-  border-radius: 3px;
-  background: rgba(91, 58, 36, 0.075);
-  box-shadow: inset 0 0 0 1px rgba(91, 58, 36, 0.24), inset 0 1px 3px rgba(91, 58, 36, 0.2);
+  width: 100%;
+  max-width: 58em;
+  margin-top: calc(var(--gap) * 1.25);
 }
 .wu-msg {
   display: grid;
   margin: 0;
-  font-size: 0.96rem;
-  line-height: 1.45;
-  color: var(--ink);
+  font-size: 0.97em;
+  line-height: 1.38;
   font-variant-numeric: tabular-nums lining-nums;
-  text-wrap: pretty;
+  text-wrap: balance;
+  text-shadow: 0 0.05em 0.6em rgba(7, 25, 26, 0.55);
 }
 .wu-msg > span {
   grid-area: 1 / 1;
   align-self: center;
-  visibility: hidden;
 }
-.wu-msg > .on {
-  visibility: visible;
+.wu-msg > span:not(.on) {
+  visibility: hidden;
 }
 .wu-pct {
   font-weight: 400;
@@ -295,74 +353,134 @@ body {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.wu-gauge {
-  width: 4.6rem;
-  height: auto;
-  overflow: visible;
+
+/* ---------- actions: plaques, functional text, so Cabin Bold ---------- */
+.wu-acts {
+  display: grid;
+  gap: 0.55em;
+  width: min(100%, 24em);
+  margin-top: calc(var(--gap) * 0.6);
+}
+.wu-btn {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  width: 100%;
+  margin: 0;
+  padding: 0 0.25em;
+  border: 0.66em solid transparent;
+  border-image: var(--plaque-ghost) 12 fill stretch;
+  background: none;
+  color: var(--cream);
+  font: 700 1.03em/1.15 var(--sans);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.25s var(--ease), filter 0.25s var(--ease), opacity 0.25s var(--ease);
+}
+.wu-btn svg {
+  flex: none;
+  width: 1.3em;
+  height: 1.3em;
   fill: none;
-  stroke: var(--walnut);
-  stroke-width: 1.7;
+  stroke: currentColor;
+  stroke-width: 1.9;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
-.wu-zone {
-  stroke: var(--brass);
-  stroke-width: 4.5;
+.wu-go {
+  min-height: max(2.875rem, 3.2em);
+  border-image-source: var(--plaque-brass);
+  color: var(--ink);
+  font-size: 1.14em;
+  filter: drop-shadow(0 0.5em 0.7em rgba(7, 25, 26, 0.6));
 }
-.wu-needle {
-  stroke: var(--ink);
-  stroke-width: 2.2;
-  transform-origin: 38px 42px;
-  transform: rotate(-72deg);
-  transition: transform 0.9s var(--ease), opacity 0.4s;
+.wu-go:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.09) drop-shadow(0 0.6em 0.8em rgba(7, 25, 26, 0.6));
 }
-.wu-hub {
-  fill: var(--ink);
-  stroke: none;
+.wu-go:active {
+  transform: translateY(1px);
 }
-.wu[data-support="vr"] .wu-needle {
-  transform: rotate(0deg);
+.wu-alt {
+  min-height: max(2.75rem, 2.7em);
 }
-.wu[data-support="ar"] .wu-needle {
-  transform: rotate(72deg);
+.wu-alt:hover,
+.wu-back:hover {
+  filter: brightness(1.22);
 }
-.wu[data-support="checking"] .wu-needle {
-  opacity: 0.4;
+/* disabled keeps its plaque, so the brass primary still reads as the primary while the world loads */
+.wu-btn[aria-disabled="true"] {
+  opacity: 0.74;
+  filter: none;
+  cursor: not-allowed;
+  transform: none;
+}
+.wu-go[aria-disabled="true"] {
+  opacity: 1; /* see-through brass over teal turns khaki; dimmed brass stays brass */
+  filter: brightness(0.7);
+}
+.wu :focus-visible {
+  outline: 2px solid var(--lamp);
+  outline-offset: 3px;
 }
 
-/* problem slip: sits under the actions so the pressed button never moves */
+/* imprint: the foot of the title page */
+.wu-imprint {
+  grid-row: 3;
+  align-self: end;
+  margin: var(--gap) 0 0;
+  font-size: 0.9em;
+  line-height: 1.35;
+  color: rgba(242, 230, 207, 0.9);
+  text-shadow: 0 0.05em 0.6em rgba(7, 25, 26, 0.6);
+}
+.wu-imprint span {
+  display: inline-block;
+}
+
+/* erratum slip: tipped in at the foot of the page, so nothing above it moves */
 .wu-slip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: 1fr auto;
-  align-items: start;
-  gap: 0.5rem;
-  margin-top: 0.9rem;
-  padding: 0.75rem 0.6rem 0.75rem 0.95rem;
-  border: 1.5px solid var(--ink);
-  border-radius: 3px;
-  background: var(--lamp);
+  align-items: center;
+  gap: 0.35em;
+  width: min(100%, 36em);
+  margin-inline: auto;
+  padding: 0.1em 0 0.1em 0.3em;
+  border: 0.66em solid transparent;
+  border-image: var(--plaque-slip) 12 fill stretch;
   color: var(--ink);
-  box-shadow: 0 8px 16px -10px rgba(42, 26, 15, 0.7);
+  text-align: left;
+  filter: drop-shadow(0 0.5em 0.7em rgba(7, 25, 26, 0.6));
 }
 .wu-slip[hidden] {
   display: none;
 }
 .wu-slip p {
-  margin: 0.15rem 0 0;
-  font-size: 0.96rem;
-  line-height: 1.42;
+  margin: 0;
+  font-size: 0.96em;
+  line-height: 1.38;
 }
 .wu-x {
   display: grid;
   place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  margin: -0.3rem 0 0;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   border: 0;
   border-radius: 3px;
   background: transparent;
   color: var(--ink);
   cursor: pointer;
+  pointer-events: auto;
 }
 .wu-x:hover {
   background: rgba(42, 26, 15, 0.12);
@@ -371,130 +489,13 @@ body {
   width: 1.2rem;
   height: 1.2rem;
 }
-
-/* actions: functional text, so Cabin Bold */
-.wu-acts {
-  display: grid;
-  gap: 0.6rem;
-  margin-top: 1.25rem;
-}
-.wu-btn {
-  appearance: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.7rem;
-  width: 100%;
-  margin: 0;
-  border: 2px solid transparent;
-  border-radius: 4px;
-  font: 700 1.1rem/1.15 var(--sans);
-  text-align: center;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-  transition: transform 0.25s var(--ease), background-color 0.25s, box-shadow 0.25s;
-}
-.wu-btn svg {
-  flex: none;
-  width: 1.45rem;
-  height: 1.45rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-/* flat brass plate with a printed rule inset, echoing the paper's double rule */
-.wu-go {
-  --plate: var(--brass);
-  --depth: inset 0 0 0 4px var(--plate), inset 0 0 0 5px rgba(42, 26, 15, 0.5), 0 10px 18px -10px rgba(42, 26, 15, 0.75);
-  min-height: 3.6rem;
-  padding: 0.6rem 1.2rem;
-  background: var(--plate);
-  color: var(--ink);
-  font-size: 1.18rem;
-  box-shadow: var(--depth);
-}
-.wu-go:hover {
-  --plate: var(--brass-lit);
-  transform: translateY(-1px);
-}
-.wu-go:active {
-  transform: translateY(1px);
-}
-.wu-alt {
-  min-height: 2.9rem;
-  padding: 0.4rem 1rem;
-  border-color: rgba(91, 58, 36, 0.5);
-  background: transparent;
-  color: var(--walnut);
-  font-size: 1.02rem;
-}
-.wu-alt:hover {
-  border-color: var(--walnut);
-  background: rgba(91, 58, 36, 0.09);
-}
-.wu-btn[aria-disabled="true"] {
-  --plate: var(--paper-deep);
-  border: 2px dashed rgba(91, 58, 36, 0.45);
-  background: var(--paper-deep);
-  color: var(--walnut);
-  box-shadow: none;
-  cursor: not-allowed;
-  transform: none;
-}
-.wu :focus-visible {
-  outline: 3px solid var(--teal);
-  outline-offset: 3px;
-  box-shadow: 0 0 0 3px var(--cream);
-}
-.wu-go:focus-visible {
-  box-shadow: 0 0 0 3px var(--cream), var(--depth);
+.wu-slip :focus-visible {
+  outline-color: var(--ink);
 }
 
-/* what you will need: a parts list */
-.wu-need {
-  margin-top: 1.4rem;
-}
-.wu-need h2 {
-  margin: 0 0 0.3rem;
-  font: 400 1.3rem/1.2 var(--serif);
-  color: var(--ink);
-}
-.wu-need dl {
-  margin: 0;
-}
-.wu-need dl > div {
-  display: grid;
-  grid-template-columns: 4.9rem 1fr;
-  gap: 0.75rem;
-  padding: 0.6rem 0;
-  border-top: 1px dotted rgba(91, 58, 36, 0.55);
-}
-.wu-need dt {
-  font: 700 0.78rem/1.5 var(--sans);
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--teal);
-}
-.wu-need dd {
-  margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.45;
-  color: var(--walnut);
-}
-.wu-fine {
-  margin: 0.4rem 0 0;
-  padding-top: 0.7rem;
-  border-top: 1px dotted rgba(91, 58, 36, 0.55);
-  font-size: 0.85rem;
-  line-height: 1.4;
-  color: var(--walnut);
-}
-
-/* ---------- desktop preview chrome: two paper tags, nothing else ---------- */
+/* ---------- preview chrome: a running head and a footnote, off the stand ---------- */
 .wu-pv {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   opacity: 0;
@@ -504,170 +505,100 @@ body {
 .wu[data-mode="preview"] .wu-pv {
   opacity: 1;
   visibility: visible;
-  transition-delay: 0s;
+  transition: opacity 0.7s var(--ease) 0.35s, visibility 0s;
 }
+/* top left: clear of the stand, and of the emulator's "Enter XR" pill, which IWER pins at top centre in dev */
 .wu-back {
-  --depth: 0 2px 4px rgba(0, 0, 0, 0.4), 0 14px 24px -12px rgba(0, 0, 0, 0.7);
   position: absolute;
-  top: max(1rem, env(safe-area-inset-top));
-  left: max(1rem, env(safe-area-inset-left));
-  width: auto;
-  min-height: 3.1rem;
-  padding: 0.4rem 1.15rem 0.4rem 0.9rem;
-  gap: 0.55rem;
-  background: var(--cream);
-  color: var(--ink);
-  font-size: 1.02rem;
-  pointer-events: auto;
-  box-shadow: var(--depth);
-}
-.wu-back:hover {
-  background: #fff3d8;
-  transform: translateY(-1px);
-}
-/* the preview scene is dark teal, so the ring here is lamp, not teal */
-.wu-pv :focus-visible {
-  outline-color: var(--lamp);
-}
-.wu-back:focus-visible {
-  box-shadow: 0 0 0 3px var(--ink), var(--depth);
-}
-.wu-slip :focus-visible {
-  outline-color: var(--ink);
+  top: max(0.6rem, env(safe-area-inset-top));
+  left: max(0.75rem, env(safe-area-inset-left));
+  width: fit-content;
+  min-height: 2.75rem;
+  padding: 0 0.4em 0 0.1em;
+  font-size: 0.98em;
+  gap: 0.4em;
 }
 .wu-hint {
   position: absolute;
   right: 0;
-  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  bottom: max(0.6rem, env(safe-area-inset-bottom));
   left: 0;
   width: fit-content;
-  max-width: min(34rem, calc(100% - 2rem));
+  max-width: min(46em, 100% - 1.5rem);
   margin: 0 auto;
-  padding: 0.8rem 1.25rem;
-  border-radius: 3px;
-  background: var(--cream);
-  color: var(--ink);
-  font-size: 1.04rem;
-  line-height: 1.4;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 14px 24px -12px rgba(0, 0, 0, 0.7);
+  padding: 0 0.3em;
+  border: 0.55em solid transparent;
+  border-image: var(--plaque-ghost) 12 fill stretch;
+  font-size: 0.95em;
+  line-height: 1.32;
   text-wrap: balance;
 }
 .wu-pv .wu-slip {
-  position: absolute;
-  top: max(4.7rem, calc(env(safe-area-inset-top) + 3.7rem));
-  left: max(1rem, env(safe-area-inset-left));
-  width: min(30rem, calc(100% - 2rem));
-  margin: 0;
-  pointer-events: auto;
+  top: calc(max(0.6rem, env(safe-area-inset-top)) + 3.5rem);
+  bottom: auto;
+  width: min(36em, 100% - 1.5rem);
 }
 
-/* ---------- phones: a sheet, not a page, so the diorama can show above it ---------- */
-@media (max-width: 39.99rem) {
-  .wu-plate {
-    max-height: min(100%, 76vh);
-    max-height: min(100%, 76dvh);
-  }
-}
-/* ---------- tablets: a wide two-column sheet along the bottom ---------- */
-@media (min-width: 40rem) and (max-width: 62.49rem), (min-width: 40rem) and (max-aspect-ratio: 1249 / 1000) {
-  .wu-plate {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 2.25rem;
-    align-content: start;
-    width: min(100%, 46rem);
-  }
-  .wu-scale {
-    grid-column: 1 / -1;
-  }
-  .wu-b {
-    padding-top: 0.2rem;
-  }
-  .wu-b > .wu-acts {
-    margin-top: 0;
-  }
-}
-/* ---------- stage-left layout: wide, landscape screens, one column on the left.
-   Anchored from the top (centred for a plate this tall) so it never re-centres when a problem slip appears. ---------- */
-@media (min-width: 62.5rem) and (min-aspect-ratio: 5 / 4) {
+/* ---------- windows that run out of room ---------- */
+/* portrait: the title is limited by width, the three beats stack */
+@media (max-aspect-ratio: 1 / 1) {
   .wu {
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding: max(2rem, calc((100vh - 49rem) / 2)) clamp(1.5rem, 4.4vw, 5rem) 2rem;
-    padding-top: max(2rem, calc((100dvh - 49rem) / 2));
-  }
-  .wu-plate {
-    width: clamp(21rem, 31vw, 28rem);
-  }
-}
-@media (max-height: 50rem) {
-  .wu-scale {
-    margin-bottom: 1rem;
-  }
-  .wu-lede {
-    margin-top: 0.6rem;
-  }
-  .wu-status,
-  .wu-acts {
-    margin-top: 0.9rem;
-  }
-  .wu-need {
-    margin-top: 1rem;
-  }
-  .wu-need dl > div {
-    padding: 0.5rem 0;
-  }
-}
-/* laptop screens under 800px tall: keep the premise, drop the fine print, run the tagline inline (beats stay whole) */
-@media (max-height: 50rem) and (min-width: 62.5rem) and (min-aspect-ratio: 5 / 4) {
-  .wu-fine {
-    display: none;
+    --title: min(15dvh, 16.6vw);
+    font-size: clamp(0.9375rem, 0.62rem + 1.1vw, 1.5rem);
   }
   .wu-tag {
-    text-wrap: balance; /* with whole beats this breaks after the first, never orphaning the last */
+    font-size: calc(var(--title) * 0.33);
   }
   .wu-tag span {
-    display: inline;
-    white-space: nowrap;
+    display: block;
+  }
+  .wu-acts {
+    width: min(100%, 22em);
   }
 }
-@media (max-height: 44rem) and (min-width: 62.5rem) and (min-aspect-ratio: 5 / 4) {
-  .wu-lede {
-    font-size: 0.98rem;
-    line-height: 1.45;
+/* laptops and landscape phones: the two actions share a row */
+@media (max-height: 44rem) and (min-aspect-ratio: 1 / 1) {
+  .wu-acts {
+    grid-template-columns: 1fr 1fr;
+    width: min(100%, 37em);
   }
-  .wu-need dd {
-    font-size: 0.9rem;
-    line-height: 1.4;
+  .wu-acts .wu-btn {
+    min-height: max(2.75rem, 3em);
+    font-size: 1.05em;
+  }
+}
+/* the spare lines go only when the window truly has no room for them. Window sizes in px, not rem, so a reader who
+   enlarges the default text keeps them (the page scrolls for them instead) */
+@media (max-height: 336px), (max-height: 512px) and (max-aspect-ratio: 1 / 1) {
+  .wu-lede,
+  .wu-imprint {
+    display: none;
+  }
+}
+/* no room at the foot: the slip tips in at the head instead, over the title and never over an action */
+@media (max-height: 30rem), (max-width: 30rem) {
+  .wu-slip {
+    top: 0;
+    bottom: auto;
+  }
+}
+/* last resort for windows nobody plays in: everything still fits, just smaller. In px, so it follows the window and
+   never shrinks text a reader has enlarged in an ordinary window */
+@media (max-height: 280px), (max-width: 256px) {
+  .wu-device {
+    display: none;
+  }
+  .wu-body {
+    zoom: 0.78;
   }
 }
 
-/* ---------- the one authored moment: the plate is laid on the bench, the cogs tick forward ---------- */
-.wu[data-ready="1"] .wu-plate {
-  animation: wu-in 1000ms var(--ease) backwards;
-}
-.wu[data-ready="1"] :is(.wu-a, .wu-b) > * {
-  animation: wu-in-child 900ms var(--ease) backwards;
-  animation-delay: calc(var(--i, 0) * 70ms + 150ms);
-}
+/* ---------- once, on reveal: the device ticks forward one tooth ---------- */
 .wu[data-ready="1"] .wu-g1 {
-  animation: wu-tick-a 1200ms var(--ease) 700ms backwards;
+  animation: wu-tick-a 1100ms var(--ease) 350ms backwards;
 }
 .wu[data-ready="1"] .wu-g2 {
-  animation: wu-tick-b 1200ms var(--ease) 700ms backwards;
-}
-@keyframes wu-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 18px, 0) rotate(-0.5deg);
-  }
-}
-@keyframes wu-in-child {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 10px, 0);
-  }
+  animation: wu-tick-b 1100ms var(--ease) 350ms backwards;
 }
 /* one tooth each way: 30 deg on the 12-tooth gear, 45 deg back on the 8-tooth one, so they stay meshed */
 @keyframes wu-tick-a {
@@ -689,18 +620,22 @@ body {
   }
 }
 
-/* Elsie's decorative st ligature makes "Quest" hard to read at label size. Last on purpose: every font shorthand above resets this. */
+/* Elsie's standard ligatures are decorative (its st is a swash), so the title and tagline set as plain letters.
+   Last on purpose: every font shorthand above resets this. */
 .wu,
 .wu * {
   font-variant-ligatures: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html[data-wu-moved] #scene-container,
+  .wu::before,
   .wu *,
   .wu *::before,
   .wu *::after {
     animation: none !important;
-    transition-duration: 0.01ms !important;
+    /* 0s, not 0.01ms: a zero-length transition is no transition, so visibility flips at once and focus() can land */
+    transition-duration: 0s !important;
     transition-delay: 0s !important;
   }
   .wu[data-load="wait"] .wu-scale {
@@ -710,7 +645,8 @@ body {
 @media (forced-colors: active) {
   .wu-btn,
   .wu-slip,
-  .wu-plate {
+  .wu-hint {
     border: 2px solid CanvasText;
+    border-image: none;
   }
 }
