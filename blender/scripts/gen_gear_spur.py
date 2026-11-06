@@ -179,6 +179,7 @@ class Plan:
     flank_chains: list = field(default_factory=list)
     circles: dict = field(default_factory=dict)
     circle_angles: dict = field(default_factory=dict)
+    rim_check: dict = field(default_factory=dict)
 
     def add(self, x, y):
         self.V.append((float(x), float(y)))
@@ -249,8 +250,23 @@ def build_plan(p: GearParams) -> Plan:
     ao = list(o_a) + [o_a[0] + two_pi]
     ai = list(i_a) + [i_a[0] + two_pi]
     i = j = 0
+
+    def tri_area(a_, b_, c_):
+        return 0.5 * ((b_[0] - a_[0]) * (c_[1] - a_[1]) - (b_[1] - a_[1]) * (c_[0] - a_[0]))
+
+    n_override = 0
     while i < no or j < ni:
+        # angle-matched zipper, but never accept a folded (non-positive area) triangle: slanted flanks seen from an
+        # inner-circle vertex at a very different angle would otherwise flip and render as holes
         adv_o = j >= ni or (i < no and ao[i + 1] <= ai[j + 1])
+        if i < no and j < ni:
+            a_out = tri_area(pl.V[o_ids[i % no]], pl.V[o_ids[(i + 1) % no]], pl.V[i_ids[j % ni]])
+            a_inn = tri_area(pl.V[i_ids[j % ni]], pl.V[o_ids[i % no]], pl.V[i_ids[(j + 1) % ni]])
+            ok_o, ok_i = a_out > 1e-12, a_inn > 1e-12
+            if adv_o and not ok_o and ok_i:
+                adv_o, n_override = False, n_override + 1
+            elif (not adv_o) and not ok_i and ok_o:
+                adv_o, n_override = True, n_override + 1
         if adv_o:
             pl.faces.append([o_ids[i % no], o_ids[(i + 1) % no], i_ids[j % ni]])
             i += 1
@@ -259,6 +275,13 @@ def build_plan(p: GearParams) -> Plan:
             j += 1
         pl.heights.append(p.h_rim)
         pl.kinds.append("rim")
+    rim_tris = [f for f, k_ in zip(pl.faces, pl.kinds) if k_ == "rim"]
+    areas = np.array([tri_area(pl.V[f[0]], pl.V[f[1]], pl.V[f[2]]) for f in rim_tris])
+    poly_area = lambda ids: 0.5 * sum(pl.V[ids[k]][0] * pl.V[ids[(k + 1) % len(ids)]][1] - pl.V[ids[(k + 1) % len(ids)]][0] * pl.V[ids[k]][1] for k in range(len(ids)))
+    expect = poly_area(o_ids) - poly_area(i_ids)
+    pl.rim_check = dict(tris=len(rim_tris), folded=int((areas <= 1e-12).sum()), overridden=n_override,
+                        area_error=float(areas.sum() - expect))
+    assert pl.rim_check["folded"] == 0 and abs(pl.rim_check["area_error"]) < 1e-9, f"rim triangulation invalid: {pl.rim_check}"
     # ---- flange ring + boss ring (quads, radial)
     nf = len(CF)
     for i in range(nf):
@@ -627,7 +650,7 @@ class GearUV:
                 continue
             nz = f.normal.z
             if abs(nz) > 0.45:
-                front = nz > 0
+                front = cm[2] > 0          # side by position: sliver n-gons can have an unreliable Newell normal sign
                 cu, cv = self.front_c if front else self.back_c
                 for l in f.loops:
                     x, y = l.vert.co.x / S, l.vert.co.y / S
@@ -679,9 +702,17 @@ def build_gear_mesh(p: GearParams, name: str):
     n_bore = bevel_convex(bm, p.bore_chamfer * S, only=lambda e: all(abs(math.hypot(v.co.x, v.co.y) - r_bore_cm) < 1e-4 for v in e.verts))
     n_edge = bevel_convex(bm, p.bevel * S)
     bm = union_rivets(bm, p)
+    # the exact boolean merges coplanar fans into thin concave n-gons whose Newell normal is unreliable and whose
+    # triangulation can emit zero-area triangles: triangulate them ourselves and drop the degenerate leftovers
+    ng = [f for f in bm.faces if len(f.verts) > 4]
+    bmesh.ops.triangulate(bm, faces=ng, quad_method="BEAUTY", ngon_method="BEAUTY")
+    bmesh.ops.dissolve_degenerate(bm, dist=1e-4, edges=bm.edges)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     n_sharp = mark_shading(bm)
     uv = GearUV(p, pl)
     ustats = uv.assign(bm)
+    wu.log(f"rim triangulation check: {pl.rim_check}")
     wu.log(f"plan verts={len(pl.V)} faces={len(pl.faces)}; bevelled bore={n_bore} edges={n_edge}; sharp edges={n_sharp}; UV faces={ustats}; "
            f"atlas k={uv.k:.2f} UV/m (= {uv.k * 1024 / 1000:.2f} px/mm @1024)")
     M = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1))) @ Matrix.Scale(1.0 / S, 4)
@@ -774,10 +805,11 @@ def run(argv):
         wu.log("texel density px/m:", wu.texel_density(obj, a.res))
 
     # ---- save .blend + export GLB
-    blend.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.outliner.orphans_purge(do_recursive=True)
-    bpy.ops.wm.save_as_mainfile(filepath=str(blend), compress=True)
-    wu.log("saved", blend, f"{blend.stat().st_size / 1024:.0f} KB")
+    if deliverable and not a.clay:                       # helper sizes (12T / 24T) only ship a GLB for the composition
+        blend.parent.mkdir(parents=True, exist_ok=True)
+        bpy.ops.wm.save_as_mainfile(filepath=str(blend), compress=True)
+        wu.log("saved", blend, f"{blend.stat().st_size / 1024:.0f} KB")
     wu.export_glb([obj], glb)
     rep = wu.inspect_glb(glb)
 

@@ -88,15 +88,15 @@ def hex_to_linear(h: str) -> np.ndarray:
 
 # Look parameters shared by every asset so brass / walnut / velvet match across files.
 BRASS = dict(
-    base="#A98230",       # aged brass: palette #C9A227 pushed warmer/darker (reads as metal, not plastic)
+    base="#AE8233",       # aged brass: palette #C9A227 pushed warmer/darker (reads as metal, not plastic)
     worn="#DFC368",       # polished-by-handling edges
-    patina="#33250F",     # dark olive-brown tarnish in crevices (not green)
+    patina="#3A2610",     # dark olive-brown tarnish in crevices (not green)
     copper="#8A5A2E",     # slightly redder alloy patches
     metallic=0.90, metallic_patina=0.58, metallic_edge=0.95,
     rough=0.40, rough_edge=0.27, rough_patina=0.62,
 )
 WALNUT = dict(light="#5E3F28", base="#4B2F1D", dark="#2D1A0F", line="#1F1108", rough=0.58)
-VELVET = dict(base="#1D5858", dark="#133F40", light="#266968", sheen_tint=(0.022, 0.060, 0.060), rough=0.94)
+VELVET = dict(base="#194E4E", dark="#103536", light="#215E5D", sheen_tint=(0.022, 0.060, 0.060), rough=0.94)
 
 
 # --------------------------------------------------------------------------------------
@@ -471,6 +471,7 @@ def build_pbr_material(name: str, base_img, orm_img, normal_img, *, extension="E
        tangent-space normal map. Optional Principled Sheen (exports as KHR_materials_sheen)."""
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
+    mat.use_backface_culling = True          # closed solids: export doubleSided = false (halves back-face fill on Quest)
     nt = mat.node_tree
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
