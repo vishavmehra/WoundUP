@@ -1,13 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { STAND_AHEAD_M, STAND_BELOW_EYE_M, standPose } from '../src/placement';
+import { STAND_AHEAD_M, standPose } from '../src/placement';
 
 describe('standPose (PRODUCT_SPEC §3.2 fallback stand)', () => {
-  it('sits 55 cm ahead and 45 cm below the eyes when looking down -Z', () => {
+  it('sits 55 cm ahead and 38 cm below the eyes when looking down -Z', () => {
     const p = standPose({ x: 0, y: 1.2, z: 0 }, { x: 0, y: 0, z: -1 });
     expect(p.x).toBeCloseTo(0);
-    expect(p.y).toBeCloseTo(1.2 - STAND_BELOW_EYE_M);
-    expect(p.z).toBeCloseTo(-STAND_AHEAD_M);
+    expect(p.y).toBeCloseTo(1.2 - 0.38);
+    expect(p.z).toBeCloseTo(-0.55);
     expect(Math.cos(p.yaw)).toBeCloseTo(1); // front (+Z) already faces the player
+  });
+
+  it('stays inside the 35° comfort cone of INTERACTION_SPEC §3', () => {
+    const p = standPose({ x: 0, y: 1.2, z: 0 }, { x: 0, y: 0, z: -1 });
+    const degreesBelowForward = (Math.atan2(1.2 - p.y, -p.z) * 180) / Math.PI;
+    expect(degreesBelowForward).toBeLessThanOrEqual(35);
+  });
+
+  it('is measured from the eyes, so every eye height gets the same view', () => {
+    for (const eyeY of [0.9, 1.05, 1.2, 1.45, 1.8]) {
+      const p = standPose({ x: 0, y: eyeY, z: 0 }, { x: 0, y: 0, z: -1 });
+      expect(eyeY - p.y).toBeCloseTo(0.38);
+      expect(p.z).toBeCloseTo(-0.55);
+    }
+  });
+
+  it('works when the reference space has no floor and the eyes sit at the origin', () => {
+    const p = standPose({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -1 });
+    expect(p.y).toBeCloseTo(-0.38);
   });
 
   it('follows the head position and yaw, ignoring pitch', () => {

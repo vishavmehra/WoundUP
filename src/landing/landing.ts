@@ -4,14 +4,6 @@ import './landing.css';
 export type XrSupport = 'checking' | 'ar' | 'vr' | 'none';
 export type LandingMode = 'landing' | 'preview' | 'xr';
 
-/** A rectangle in CSS pixels of the viewport. */
-export interface StageRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 export interface LandingOptions {
   /** Called synchronously inside the click handler (WebXR needs the user gesture). A throw or rejection becomes a dismissible message. */
   onEnterXR: (mode: 'immersive-ar' | 'immersive-vr') => Promise<void> | void;
@@ -21,12 +13,6 @@ export interface LandingOptions {
   onBack?: () => void;
   /** Optional replacement for the default controls hint shown in preview mode. */
   previewHint?: string;
-  /**
-   * Optional. Reports the part of the viewport the landing plate does not cover, so the 3D view can centre the
-   * diorama there (for example with camera.setViewOffset). Fires on mount, on resize and on every mode change;
-   * in preview and XR it is the whole viewport.
-   */
-  onStage?: (free: StageRect) => void;
 }
 
 export interface Landing {
@@ -48,7 +34,7 @@ const COPY: Record<XrSupport, { msg: string; go: string }> = {
     go: 'Enter in VR (no passthrough)',
   },
   none: {
-    msg: 'Wound Up is played on a Meta Quest 3 or 3S, in Meta Quest Browser. Open this page there to enter.',
+    msg: 'This browser cannot enter mixed reality. Open this page on your headset to play.', // the imprint names the device
     go: 'Preview in this browser',
   },
 };
@@ -57,11 +43,9 @@ const PREVIEW = 'Preview in this browser';
 const COPY_LINK = 'Copy link to open on Quest';
 const HINT_POINTER = 'Click and drag the brass gear to pick it up. The mouse stands in for your hand.';
 const HINT_TOUCH = 'Touch and drag the brass gear to pick it up. Your finger stands in for your hand.';
-/** Faces the first paint needs; the plate is revealed once they are in (or after a short grace). */
+/** Faces the first paint needs; the page is revealed once they are in (or after a short grace). */
 const FACES = ['900 1em "Elsie Swash Caps"', '400 1em "Elsie"', '400 1em "Cabin"', '700 1em "Cabin"'];
 const FONT_GRACE_MS = 1400;
-/** Same query as the stage-left layout in landing.css. */
-const STAGE_LEFT = '(min-width: 62.5rem) and (min-aspect-ratio: 5 / 4)';
 
 /** Toothed outline. `wobble` nudges each point so the line looks inked rather than plotted; `phase` turns the gear. */
 function gearPath(teeth: number, rOut: number, rRoot: number, wobble = 0, phase = 0): string {
@@ -77,59 +61,36 @@ function gearPath(teeth: number, rOut: number, rRoot: number, wobble = 0, phase 
   return `${d}Z`;
 }
 
-/** Seven graduation marks around the support dial (centre 38,42). */
-const gaugeTicks = Array.from({ length: 7 }, (_, i) => {
-  const a = (Math.PI * i) / 6;
-  const at = (r: number) => `${(38 - Math.cos(a) * r).toFixed(1)} ${(42 - Math.sin(a) * r).toFixed(1)}`;
-  return `M${at(33)}L${at(37)}`;
-}).join('');
-
 /**
- * Full stop of the wordmark: a 12-tooth gear driving an 8-tooth one (same tooth size, so the pitch radii are 39.5 and 26.3).
+ * The printer's device of the title page: a 12-tooth gear driving an 8-tooth one (same tooth size, so the pitch radii are 39.5 and 26.3).
  * The big gear has a tooth on the line of centres (-30 deg), the small one a gap, hence its -7.5 deg phase.
  */
 const SMALL = { x: 57, y: -32.9 };
 const COG = `<svg class="wu-cog" viewBox="-48 -68 140 116" aria-hidden="true" focusable="false"><g class="wu-g1"><path d="${gearPath(12, 44, 35, 1.1)}"/><circle r="23"/><circle r="7"/><path d="M0 -23V-7M0 7V23M-23 0H-7M7 0H23"/></g><g transform="translate(${SMALL.x} ${SMALL.y})"><g class="wu-g2"><path d="${gearPath(8, 30.8, 21.8, 0.9, (-7.5 * Math.PI) / 180)}"/><circle r="6"/></g></g></svg>`;
 const ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 12H5M11 5.5 4.5 12l6.5 6.5"/></svg>';
 const CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
-const GAUGE = `<svg class="wu-gauge" viewBox="0 0 76 48" aria-hidden="true" focusable="false"><path d="M8 42A30 30 0 0 1 68 42"/><path class="wu-zone" d="M53 16A30 30 0 0 1 68 42"/><path d="${gaugeTicks}"/><g class="wu-needle"><path d="M38 42V15"/></g><circle class="wu-hub" cx="38" cy="42" r="3.4"/></svg>`;
 
-// Every message lives in the same grid cell and only one shows, so the status window is always as tall as the
+// Every message lives in the same grid cell and only one shows, so the status line is always as tall as the
 // longest message at the current width: switching support state can never move anything below it.
 const MESSAGES = (['checking', 'ar', 'vr', 'none'] as const).map((k) => `<span data-k="${k}">${COPY[k].msg}</span>`).join('') + `<span data-k="load">${LOADING} <b class="wu-pct"></b></span>`;
 
-const TEMPLATE = `<!--
-THESIS: the landing is one paper object on a clockmaker's bench, a catalogue plate laid on a frozen teal night whose own instruments (ruler loader, support dial, meshing-gear full stop) do the talking. It refuses the dark hero with floating glass cards.
-OWN-WORLD: deep-teal ground; cream paper plate with printed double rule, aged edges and grain; Elsie Swash Caps Black wordmark, Elsie headings, Cabin text; brass key-plate action and brass-on-ink measuring scale; lamp glow only for problem slips.
-STORY: a visitor sees a clockwork town waiting to be wound, learns plainly that it needs a Quest, and takes one honest action: enter, preview, or copy the link.
-FIRST VIEWPORT: stage-left plate (28rem at most) over the live diorama: wordmark with gear pair, three-beat tagline, premise, support dial, brass action; a bottom sheet on narrow screens.
-FORM: dial bezel (index 5 of 7, seed bbdae49d) realised at plate scale: measuring scale, subsidiary support dial, gear train.
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
--->
-<main class="wu-plate">
-  <div class="wu-scale" aria-hidden="true"><i></i></div>
-  <div class="wu-a">
-    <h1 class="wu-title" style="--i:0">Wound Up${COG}</h1>
-    <p class="wu-tag" style="--i:1"><span>Build the machines.</span> <span>Wake the town.</span> <span>Raise the curtain.</span></p>
-    <p class="wu-lede" style="--i:2">Tockton, a tiny clockwork town, sits frozen on your table. Build its machines with your hands, wind them up, and bring it to life.</p>
-    <div class="wu-status" style="--i:3">${GAUGE}<p class="wu-msg" aria-hidden="true">${MESSAGES}</p><p class="wu-sr" role="status" aria-live="polite"></p></div>
-  </div>
-  <div class="wu-b">
-    <div class="wu-slip" role="alert" hidden><p></p><button class="wu-x" type="button" aria-label="Dismiss this message">${CROSS}</button></div>
-    <div class="wu-acts" style="--i:4">
+// The title page of a horology catalogue (DESIGN.md): frame, title, device, tagline, premise, status, actions, imprint.
+const TEMPLATE = `<div class="wu-frame" aria-hidden="true"></div>
+<div class="wu-scale" aria-hidden="true"><i></i></div>
+<main class="wu-page">
+  <div class="wu-body">
+    <h1 class="wu-title">Wound Up</h1>
+    <div class="wu-device" aria-hidden="true"><i></i>${COG}<i></i></div>
+    <p class="wu-tag"><span>Build the machines.</span> <span>Wake the town.</span> <span>Raise the curtain.</span></p>
+    <p class="wu-lede">Tockton, a tiny clockwork town, sits frozen on your table until you build its machines by hand and wind them up.</p>
+    <div class="wu-status"><p class="wu-msg" aria-hidden="true">${MESSAGES}</p><p class="wu-sr" role="status" aria-live="polite"></p></div>
+    <div class="wu-acts">
       <button class="wu-btn wu-go" type="button"><span></span></button>
       <button class="wu-btn wu-alt" type="button"></button>
     </div>
-    <section class="wu-need" style="--i:5" aria-labelledby="wu-need-h">
-      <h2 id="wu-need-h">What you will need</h2>
-      <dl>
-        <div><dt>Headset</dt><dd>Meta Quest 3 or 3S, in Meta Quest Browser.</dd></div>
-        <div><dt>Hands</dt><dd>Hand tracking on in Quest settings. No controllers needed.</dd></div>
-        <div><dt>Seat</dt><dd>A chair and a table, within arm's reach.</dd></div>
-      </dl>
-    </section>
-    <p class="wu-fine" style="--i:6">No account or sign-up. Progress stays in this browser.</p>
   </div>
+  <p class="wu-imprint"><span>Meta Quest 3 or 3S in Meta Quest Browser.</span> <span>Hands only. Seated at a table.</span></p>
+  <div class="wu-slip" role="alert" hidden><p></p><button class="wu-x" type="button" aria-label="Dismiss this message">${CROSS}</button></div>
 </main>
 <div class="wu-pv" role="region" aria-label="Preview controls" inert>
   <button class="wu-btn wu-back" type="button" aria-describedby="wu-hint">${ARROW}<span>Back to start</span></button>
@@ -150,6 +111,9 @@ function explain(err: unknown, mode: EnterMode): string {
 }
 
 export function mountLanding(root: HTMLElement, options: LandingOptions): Landing {
+  const html = document.documentElement;
+  html.dataset.wuMode = 'landing'; // landing.css blurs and dims #scene-container from this
+
   const el = document.createElement('div');
   el.className = 'wu';
   el.dataset.mode = 'landing';
@@ -164,7 +128,7 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
     if (!node) throw new Error(`landing: missing ${sel}`);
     return node;
   };
-  const plate = q('.wu-plate');
+  const page = q('.wu-page');
   const pv = q('.wu-pv');
   const go = q<HTMLButtonElement>('.wu-go');
   const goText = q('.wu-go span');
@@ -173,7 +137,6 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
   const hint = q('.wu-hint');
   const pct = q('.wu-pct');
   const sr = q('.wu-sr');
-  const acts = q('.wu-acts');
   const slip = q('.wu-slip');
   const slipText = q('.wu-slip p');
   const dismiss = q('.wu-x');
@@ -206,11 +169,11 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
     el.dataset.load = p === null ? 'done' : p > 0 ? 'run' : 'wait';
     el.style.setProperty('--p', String(p ?? 1));
 
-    const label = busy ? (support === 'vr' ? 'Opening VR…' : 'Opening mixed reality…') : p !== null ? LOADING : copy.go;
+    const label = busy ? (support === 'vr' ? 'Opening VR…' : 'Opening mixed reality…') : copy.go; // progress is the status line's job
     put(goText, label);
     go.setAttribute('aria-disabled', String(busy || p !== null || support === 'checking'));
     go.setAttribute('aria-busy', String(busy));
-    alt.setAttribute('aria-disabled', String(busy || p !== null));
+    alt.setAttribute('aria-disabled', String(busy || p !== null || support === 'checking'));
     put(alt, copied ? 'Link copied' : support === 'none' ? COPY_LINK : PREVIEW);
 
     const shown = p !== null ? 'load' : support;
@@ -230,29 +193,10 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
   }
 
   function placeSlip(): void {
-    // Below the actions, so the button that was just pressed never moves when a problem appears.
-    if (mode === 'preview') pv.append(slip);
-    else acts.after(slip);
+    // The slip floats over the foot of the page, so the button that was just pressed never moves when a problem appears.
+    (mode === 'preview' ? pv : page).append(slip);
   }
 
-  let stageFrame = 0;
-  function reportStage(): void {
-    if (!options.onStage) return;
-    cancelAnimationFrame(stageFrame);
-    stageFrame = requestAnimationFrame(() => {
-      if (!alive) return;
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      let free: StageRect = { x: 0, y: 0, width: w, height: h };
-      if (mode === 'landing') {
-        const right = plate.offsetLeft + plate.offsetWidth;
-        free = matchMedia(STAGE_LEFT).matches
-          ? { x: right, y: 0, width: Math.max(0, w - right), height: h }
-          : { x: 0, y: 0, width: w, height: Math.max(0, plate.offsetTop) };
-      }
-      options.onStage?.(free);
-    });
-  }
   function clearError(): void {
     slip.hidden = true;
     slipText.textContent = '';
@@ -260,9 +204,9 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
   function showError(message: string): void {
     slipText.textContent = message;
     slip.hidden = false;
-    placeSlip();
-    // On a phone the slip can land below the sheet's fold: bring it into view (scrolls only the sheet, only as far as needed).
-    slip.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    // The layer is hidden in 'xr', so a problem reported there brings the landing back to show it.
+    if (mode === 'xr') setMode('landing');
+    else placeSlip();
   }
 
   function setMode(next: LandingMode): void {
@@ -270,15 +214,19 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
     const prev = mode;
     mode = next;
     el.dataset.mode = next;
-    plate.toggleAttribute('inert', next !== 'landing');
+    html.dataset.wuMoved = ''; // arms the focus pull only now, so a page load never shows a sharp world going soft
+    html.dataset.wuMode = next;
+    page.toggleAttribute('inert', next !== 'landing');
     pv.toggleAttribute('inert', next !== 'preview');
     placeSlip();
-    reportStage();
     if (next === 'preview') {
       // the hint belongs to the mode, so it is set here whoever asked for the preview
       put(hint, options.previewHint ?? (matchMedia('(pointer: coarse)').matches ? HINT_TOUCH : HINT_POINTER));
       back.focus({ preventScroll: true });
-    } else if (next === 'landing' && prev === 'preview') (returnFocus ?? go).focus({ preventScroll: true });
+    } else if (next === 'landing') {
+      // Back from the preview: the action that opened it. Back from a session (or an error during one): the action that entered it.
+      (prev === 'preview' ? (returnFocus ?? go) : go).focus({ preventScroll: true });
+    }
   }
 
   function startPreview(from: HTMLElement): void {
@@ -301,7 +249,11 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
       clearTimeout(copiedTimer);
       copiedTimer = window.setTimeout(() => {
         copied = false;
-        if (alive) render();
+        if (!alive) return;
+        // The revert is not news: empty the live region silently instead of reading the status out again unprompted.
+        put(sr, '');
+        spoken = COPY[support].msg; // so render() below treats the status as already said
+        render();
       }, 2600);
       render();
     } catch {
@@ -342,7 +294,7 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
     (mode === 'preview' ? back : go).focus({ preventScroll: true });
   });
 
-  // Hold the reveal until the three faces are in, so the first visible frame is already final (no swap, no shift).
+  // Hold the reveal until the faces are in, so the first visible frame is already final (no swap, no shift).
   const reveal = () => {
     if (alive) requestAnimationFrame(() => alive && (el.dataset.ready = '1'));
   };
@@ -352,16 +304,6 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
   } else {
     reveal();
   }
-
-  // When the sheet scrolls, a fade at its foot says there is more below (the .more class draws it).
-  const updateMore = () => plate.classList.toggle('more', plate.scrollHeight - plate.scrollTop - plate.clientHeight > 6);
-  plate.addEventListener('scroll', updateMore, { passive: true, signal: ac.signal });
-  const ro = new ResizeObserver(() => {
-    updateMore();
-    reportStage();
-  });
-  [el, plate, q('.wu-a'), q('.wu-b')].forEach((n) => ro.observe(n)); // content growth does not resize a max-height plate, its groups do
-  ac.signal.addEventListener('abort', () => ro.disconnect());
 
   render();
 
@@ -380,7 +322,8 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
       alive = false;
       ac.abort();
       clearTimeout(copiedTimer);
-      cancelAnimationFrame(stageFrame);
+      delete html.dataset.wuMode;
+      delete html.dataset.wuMoved;
       el.remove();
     },
   };

@@ -48,7 +48,7 @@
       "id": "stage",
       "name": "Stage",
       "content": { "type": "group" },
-      "transform": { "position": [0, 0.75, -0.55] },
+      "transform": { "position": [0, 0.82, -0.55] },
       "children": [
         {
           "id": "stand",
@@ -76,7 +76,7 @@
           "name": "Brass gear 16T",
           "content": { "type": "asset", "asset": "gear-spur-16-brass" },
           "transform": {
-            "position": [0, 0.047, 0.02],
+            "position": [0, 0.0486, 0.02],
             "rotationDeg": [-90, 0, 0]
           },
           "components": {

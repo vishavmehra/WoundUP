@@ -4,18 +4,22 @@ import { standPose } from './placement.js';
 /** Scene node id of the stand root in public/scenes/main.iwsdk.scene.json. */
 export const STAGE_NODE_ID = 'stage';
 
-/** Before the first tracked pose the head sits at the origin; anything lower than this is not a real seated eye height. */
-const MIN_TRACKED_HEAD_Y = 0.3;
-
 /**
- * Puts the stand where PRODUCT_SPEC §3.2's fallback wants it each time an immersive session starts,
- * and restores the authored pose for the 2D preview afterwards.
- * ponytail: table-plane detection (best effort in the spec) will replace the floating fallback in the placement task.
+ * Puts the floating stand where PRODUCT_SPEC §3.2's fallback wants it, measured from the player's own eyes so it suits
+ * any height or seat. It is placed once per session and again when the player recentres their view, which is how they
+ * correct it after changing posture. Opening the system menu must not move it. The authored pose comes back for the
+ * 2D preview when the session ends.
+ * ponytail: always the fallback for now; the table placement task tries the detected table first and keeps this path.
  */
 export class StageSystem extends createSystem({}) {
   private readonly head = new Vector3();
   private readonly forward = new Vector3();
+  private immersive = false;
   private awaitingPose = false;
+  private watchedSpace: XRReferenceSpace | null = null;
+  private readonly placeAgain = (): void => {
+    this.awaitingPose = true;
+  };
   private authoredPosition = new Vector3();
   private authoredYaw = 0;
 
@@ -28,8 +32,10 @@ export class StageSystem extends createSystem({}) {
     this.cleanupFuncs.push(
       this.world.visibilityState.subscribe((state) => {
         const immersive = state !== VisibilityState.NonImmersive;
+        if (immersive === this.immersive) return; // visible <-> blurred is the system menu, not a new session
+        this.immersive = immersive;
         this.awaitingPose = immersive;
-        if (!immersive) this.restoreAuthoredPose();
+        if (!immersive) this.endSession();
       }),
     );
   }
@@ -39,10 +45,17 @@ export class StageSystem extends createSystem({}) {
     const stage = this.world.getSceneObject(STAGE_NODE_ID);
     if (!stage) return;
 
+    // xrFrame is typed non-null but is null outside an XR frame.
+    const frame = this.xrFrame as XRFrame | null;
+    const space = this.xrManager.getReferenceSpace();
+    if (!frame || !space || !frame.getViewerPose(space)) return; // no tracked pose yet; try again next frame
+    if (space !== this.watchedSpace) {
+      this.watchedSpace = space;
+      space.addEventListener('reset', this.placeAgain);
+    }
+
     this.player.head.updateWorldMatrix(true, false);
     this.head.setFromMatrixPosition(this.player.head.matrixWorld);
-    if (this.head.y < MIN_TRACKED_HEAD_Y) return; // no tracked pose yet; try again next frame
-
     this.forward.set(0, 0, -1).transformDirection(this.player.head.matrixWorld);
     const pose = standPose(this.head, this.forward);
     stage.position.set(pose.x, pose.y, pose.z);
@@ -50,7 +63,9 @@ export class StageSystem extends createSystem({}) {
     this.awaitingPose = false;
   }
 
-  private restoreAuthoredPose(): void {
+  private endSession(): void {
+    this.watchedSpace?.removeEventListener('reset', this.placeAgain);
+    this.watchedSpace = null;
     const stage = this.world.getSceneObject(STAGE_NODE_ID);
     if (!stage) return;
     stage.position.copy(this.authoredPosition);

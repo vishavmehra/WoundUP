@@ -51,12 +51,31 @@ test.describe('desktop browser without WebXR', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   });
 
+  test('reduced motion: keyboard focus follows the preview in and back out', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('./');
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none');
+    const preview = page.getByRole('button', { name: 'Preview in this browser' });
+    const back = page.getByRole('button', { name: 'Back to start' });
+
+    await preview.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.wu')).toHaveAttribute('data-mode', 'preview');
+    await expect(back).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.wu')).toHaveAttribute('data-mode', 'landing');
+    await expect(preview).toBeFocused();
+  });
+
   test('INT-11 (preview): the mouse picks the gear up and it settles back on release', async ({ page }) => {
     await page.goto('./?debug');
-    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none');
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none', { timeout: 30_000 });
     await page.getByRole('button', { name: 'Preview in this browser' }).click();
     await expect(page.locator('.wu')).toHaveAttribute('data-mode', 'preview');
     await page.waitForFunction(() => Boolean((window as unknown as { __world?: unknown }).__world));
+    // Entering the preview moves the world into place over 1.25 s; read the gear's screen position once it has landed.
+    await page.waitForFunction(() => document.getElementById('scene-container')?.getAnimations().length === 0);
 
     // Where is the gear on screen, and where does it rest?
     const probe = () =>
@@ -86,9 +105,11 @@ test.describe('desktop browser without WebXR', () => {
     expect(moved, 'gear should follow the dragged mouse').toBeGreaterThan(0.01);
 
     await page.mouse.up();
-    await page.waitForTimeout(900); // 0.35 s settle + margin
-    const back = await probe();
-    const drift = Math.hypot(...back.local.map((v, i) => v - rest.local[i]));
-    expect(drift, 'gear should settle back to its rest pose').toBeLessThan(0.002);
+    // The settle takes 0.35 s of frame time; software rendering under load can be a few frames per second, so poll.
+    const drift = async () => {
+      const back = await probe();
+      return Math.hypot(...back.local.map((v, i) => v - rest.local[i]));
+    };
+    await expect.poll(drift, { message: 'gear should settle back to its rest pose', timeout: 10_000 }).toBeLessThan(0.002);
   });
 });

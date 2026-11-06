@@ -36,6 +36,9 @@ playwright-report/
 .vscode/mcp.json
 .codex/config.toml
 
+# Impeccable design hook cache
+.impeccable/
+
 # Vercel CLI local project link
 .vercel/
 
