@@ -477,10 +477,11 @@ def run(argv):
     wu.log("MESH QA:", wu.mesh_qa(obj))
     if not a.clay:
         wu.log("UV QA:", wu.uv_qa(obj, 1024))
-    blend.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.outliner.orphans_purge(do_recursive=True)
-    bpy.ops.wm.save_as_mainfile(filepath=str(blend), compress=True)
-    wu.log("saved", blend, f"{blend.stat().st_size / 1024:.0f} KB")
+    if not a.clay:                                       # a --clay shape review must never overwrite the shipped source
+        blend.parent.mkdir(parents=True, exist_ok=True)
+        bpy.ops.wm.save_as_mainfile(filepath=str(blend), compress=True)
+        wu.log("saved", blend, f"{blend.stat().st_size / 1024:.0f} KB")
     wu.export_glb([obj], glb)
     rep = wu.inspect_glb(glb)
     if a.no_previews:
