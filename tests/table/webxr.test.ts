@@ -28,6 +28,30 @@ describe('forwardFromQuaternion', () => {
     expect(v.x).toBeCloseTo(-1, 9);
     expect(v.z).toBeCloseTo(0, 9);
   });
+  it('agrees with a plain rotation of -Z for combined yaw, pitch and roll', () => {
+    // Test-side reference: v' = v + 2w (u x v) + 2 u x (u x v) with u = (x, y, z), v = (0, 0, -1).
+    const rotateMinusZ = (u: { x: number; y: number; z: number; w: number }) => {
+      const cross = (a: number[], b: number[]) => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
+      const uv = [u.x, u.y, u.z];
+      const c1 = cross(uv, [0, 0, -1]);
+      const c2 = cross(uv, c1);
+      return [0 + 2 * u.w * c1[0]! + 2 * c2[0]!, 0 + 2 * u.w * c1[1]! + 2 * c2[1]!, -1 + 2 * u.w * c1[2]! + 2 * c2[2]!];
+    };
+    for (const [yaw, pitch, roll] of [[40, -25, 10], [-130, 35, -20], [170, -60, 45], [-20, 10, 0]] as const) {
+      const [a, b, c] = [q('y', yaw), q('x', pitch), q('z', roll)];
+      const mul = (p: typeof a, r: typeof a) => ({
+        w: p.w * r.w - p.x * r.x - p.y * r.y - p.z * r.z,
+        x: p.w * r.x + p.x * r.w + p.y * r.z - p.z * r.y,
+        y: p.w * r.y - p.x * r.z + p.y * r.w + p.z * r.x,
+        z: p.w * r.z + p.x * r.y - p.y * r.x + p.z * r.w,
+      });
+      const quat = mul(mul(a, b), c);
+      const v = f(quat);
+      const want = rotateMinusZ(quat);
+      expect([v.x, v.y, v.z].map((n) => +n.toFixed(9))).toEqual(want.map((n) => +n.toFixed(9)));
+    }
+  });
+
   it('looks down for a negative pitch about X', () => {
     const v = f(q('x', -30));
     expect(v.y).toBeCloseTo(-0.5, 9);

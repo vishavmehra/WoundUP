@@ -163,7 +163,7 @@ function reachCandidates(head: Vec3Like, facing: Point2): Candidate[] {
 /** The best town placement on one surface, or null when the surface is unsuitable. */
 function bestOnSurface(surface: SurfaceInfo, head: Vec3Like, candidates: ReadonlyArray<Candidate>, footprint: Footprint): Ranked | null {
   if (surface.orientation === 'vertical') return null;
-  if (surface.normal.y < Math.cos(LEVEL_TOLERANCE_RAD)) return null; // not level, or facing down
+  if (!(surface.normal.y >= Math.cos(LEVEL_TOLERANCE_RAD))) return null; // not level, facing down, or not a number
   const label = surface.label?.trim().toLowerCase();
   if (label === 'floor') return null; // PS §3.2 "not the floor"; the height band also rejects it
   if (surface.outline.length < 3) return null;
