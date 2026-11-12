@@ -16,9 +16,15 @@ export const BENCH = {
   tray: v(-0.155, 0.03, 0),
   build: v(0.0025, 0.03, 0),
   blueprint: v(0.1575, 0.03, 0),
-  /** The run sign: a post between the build and the blueprint zones, so the machine and the sheet stay clear. */
-  runSign: v(0.0975, 0.03, 0.03),
+  /** The run sign: a post in front of the gap between the build and blueprint zones (the furthest forward that keeps the plaque within 35 degrees, see tests/ui/layout.test.ts). */
+  runSign: v(0.0975, 0.03, 0.05),
 } as const;
+
+/**
+ * The flat paper of blueprint_sheet.glb (0.12 x 0.16 m, 0.5 mm thick, with a rolled end at each short side up to 12 mm tall): the
+ * painted plan covers the paper with a margin and floats 1.5 mm above it so it never fights the sheet's own surface.
+ */
+export const SHEET_PAPER = { w: 0.112, h: 0.15, y: 0.002 } as const;
 
 export const LETTER_SPOT: V3 = v(0, 0.002, 0.275);
 /** Centre of the reading card and of the pause and gift panels: close, a little above the surface, facing the player. */
@@ -33,6 +39,8 @@ export const benchPoint = (s: number, local: V3): V3 => v(local.x, local.y, benc
 
 /** Height of the run sign's plaque above the bench top. */
 export const RUN_SIGN_HEIGHT = 0.085;
+/** The counter and result label sits on the sign, above the plaques (centre height above the bench top). */
+export const RUN_SIGN_SLIP_HEIGHT = RUN_SIGN_HEIGHT + 0.05;
 
 /** The targets INTERACTION_SPEC §3 calls essential, at town scale `s`. */
 export function essentialAnchors(s: number): Record<string, V3> {
@@ -44,5 +52,6 @@ export function essentialAnchors(s: number): Record<string, V3> {
     build: benchPoint(s, BENCH.build),
     blueprint: benchPoint(s, BENCH.blueprint),
     runSign: benchPoint(s, v(BENCH.runSign.x, BENCH.top + RUN_SIGN_HEIGHT, BENCH.runSign.z)),
+    runLabel: benchPoint(s, v(BENCH.runSign.x, BENCH.top + RUN_SIGN_SLIP_HEIGHT, BENCH.runSign.z)),
   };
 }

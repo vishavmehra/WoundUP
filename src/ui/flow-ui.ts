@@ -12,7 +12,7 @@ import { applyLibraryMaterials, type MaterialRegistry } from '../materials/index
 import type { SolveResult } from '../sim/index.js';
 import { findHinge, applyHinge, Progress } from './anim.js';
 import { MACHINE_NAMES, SETTING_ROWS, HINTS, describeResult, giftErrorText, windLabel, type ResultHints } from './copy.js';
-import { BENCH, GIFT_SPOT, LETTER_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, benchPoint, benchZ, latchSpot } from './layout.js';
+import { BENCH, GIFT_SPOT, LETTER_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
 import { createGiftLink, shortLink, showLinkInPage, type GiftHost, type ShareEnv } from './gift-flow.js';
 import { paintBlueprint, paintClosing, paintLetter, paintMedallion, paintPanel, paintSlip, resultSlip, type BlueprintSlot } from './paint.js';
 import { PALETTE, ensureFonts } from './palette.js';
@@ -80,7 +80,6 @@ class Hot {
   ) {}
 }
 
-const dim = (m: number): number => m;
 const PANEL_SMALL = { w: 0.26, h: 0.2 } as const;
 const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
 
@@ -149,6 +148,13 @@ export class FlowUi {
   private chips!: Plaque[];
   private btnL!: Plaque;
   private btnR!: Plaque;
+  private acceptHot!: Hot;
+  private pauseHot!: Hot;
+  private giftHot!: Hot;
+  private runHot!: Hot;
+  private adjustHot!: Hot;
+  /** The panel's buttons: live only while the panel shows them. */
+  private readonly panelHots: Hot[] = [];
   private panelKind: 'none' | 'pause' | 'restart' | 'gift' = 'none';
   private readonly glbs: GlbInteraction[] = [];
 
@@ -357,9 +363,9 @@ export class FlowUi {
     this.tray = { root: trayRoot, entity: trayEntity };
     const sheetEntity = this.mount(sheetRoot, bench);
     sheetRoot.position.set(BENCH.blueprint.x, BENCH.blueprint.y, BENCH.blueprint.z);
-    const overlay = new Surface(this.factory, 0.108, 0.188);
+    const overlay = new Surface(this.factory, SHEET_PAPER.w, SHEET_PAPER.h);
     overlay.mesh.rotation.x = -Math.PI / 2;
-    overlay.mesh.position.y = surfaceHeight(sheetRoot) + 0.0004;
+    overlay.mesh.position.y = SHEET_PAPER.y;
     sheetRoot.add(overlay.mesh);
     this.sheet = { root: sheetRoot, entity: sheetEntity, overlay };
     const parcelEntity = this.mount(parcelRoot, bench);
@@ -373,12 +379,10 @@ export class FlowUi {
   private buildSurfaces(): void {
     const f = this.factory;
     const stage = this.stage;
-    const place = (s: Surface, p: { x: number; y: number; z: number }, parent: Object3D | Entity = stage): void => {
+    const place = (s: Surface, p: { x: number; y: number; z: number }): void => {
       s.mesh.position.set(p.x, p.y, p.z);
       s.mesh.visible = false;
-      if ('object3D' in parent) {
-        this.mount(s.mesh, parent);
-      } else parent.add(s.mesh);
+      this.mount(s.mesh, stage);
     };
 
     // The reading card and its Accept plaque share a group so they rise and face the player together.
@@ -388,17 +392,20 @@ export class FlowUi {
     this.cardPaper = new Surface(f, 0.22, 0.15);
     this.cardGroup.add(this.cardPaper.mesh);
     this.accept = new Plaque(f, 0.09, 0.034);
+    this.accept.mesh.name = 'UI_Accept';
     this.accept.mesh.position.set(0, -0.108, 0.003);
-    const acceptHot = this.button(this.accept, cardEntity, () => this.acceptLetter(), (on) => this.accept.set('Accept', on ? 'hover' : 'idle'));
+    this.acceptHot = this.button(this.accept, cardEntity, () => this.acceptLetter(), (on) => this.accept.set('Accept', on ? 'hover' : 'idle'));
     this.accept.set('Accept');
     this.closingCard = new Surface(f, 0.22, 0.12);
     place(this.closingCard, READING_SPOT);
-    this.hint = new Surface(f, 0.13, 0.036);
+    this.hint = new Surface(f, 0.15, 0.04);
     place(this.hint, { x: 0, y: 0.2, z: 0.1 });
 
     // Pause and gift medallions.
     this.pauseMed = new Surface(f, 0.05, 0.05);
     this.giftMed = new Surface(f, 0.05, 0.05);
+    this.pauseMed.mesh.name = 'UI_Pause';
+    this.giftMed.mesh.name = 'UI_Gift';
     place(this.pauseMed, PAUSE_SPOT);
     place(this.giftMed, GIFT_SPOT);
     const medHover = (s: Surface, glyph: 'pause' | 'gift', label: string) => (on: boolean) => s.paint(`${glyph}|${on}`, (c, w) => paintMedallion(c, w, glyph, label, on));
@@ -406,25 +413,27 @@ export class FlowUi {
     const giftHover = medHover(this.giftMed, 'gift', 'Gift');
     pauseHover(false);
     giftHover(false);
-    const pauseHot = this.hot(this.mount(this.pauseMed.mesh), () => this.pauseGame(), pauseHover);
-    const giftHot = this.hot(this.mount(this.giftMed.mesh), () => void this.session.openGift() && this.sync(), giftHover);
+    this.pauseHot = this.hot(this.mount(this.pauseMed.mesh), () => this.pauseGame(), pauseHover);
+    this.giftHot = this.hot(this.mount(this.giftMed.mesh), () => this.openGift(), giftHover);
 
     // The run sign: a post, the Run plaque, an Adjust plaque after a failed run, and one slip for the counter or the result.
     this.signGroup = new Group();
     this.signGroup.visible = false;
     const signEntity = this.mount(this.signGroup, this.bench.entity);
     const post = new Mesh(new CylinderGeometry(0.0025, 0.0025, RUN_SIGN_HEIGHT - 0.012, 8), new MeshBasicMaterial({ color: PALETTE.brass }));
-    post.position.y = (RUN_SIGN_HEIGHT - 0.012) / 2;
+    post.position.set(0, (RUN_SIGN_HEIGHT - 0.012) / 2, -0.004); // behind the plaques, so it never pokes through them
     this.signGroup.add(post);
     this.runPlaque = new Plaque(f, 0.075, 0.032);
     this.runPlaque.mesh.position.set(0, RUN_SIGN_HEIGHT, 0);
+    this.runPlaque.mesh.name = 'UI_Run';
     this.adjustPlaque = new Plaque(f, 0.075, 0.032);
-    this.adjustPlaque.mesh.position.set(0.088, RUN_SIGN_HEIGHT, 0);
-    this.signSlip = new Surface(f, 0.12, 0.04);
-    this.signSlip.mesh.position.set(0, RUN_SIGN_HEIGHT + 0.04, 0);
+    this.adjustPlaque.mesh.name = 'UI_Adjust';
+    this.adjustPlaque.mesh.position.set(0, RUN_SIGN_HEIGHT - 0.04, 0); // under Run, so no plaque hangs over the blueprint
+    this.signSlip = new Surface(f, 0.15, 0.056);
+    this.signSlip.mesh.position.set(0, RUN_SIGN_SLIP_HEIGHT, 0);
     this.signGroup.add(this.signSlip.mesh);
-    const runHot = this.button(this.runPlaque, signEntity, () => this.opt.onEvent?.({ type: 'run' }), (on) => this.paintRun(on));
-    const adjustHot = this.button(this.adjustPlaque, signEntity, () => this.adjust(), (on) => this.adjustPlaque.set('Adjust', on ? 'hover' : 'idle'));
+    this.runHot = this.button(this.runPlaque, signEntity, () => this.opt.onEvent?.({ type: 'run' }), (on) => this.paintRun(on));
+    this.adjustHot = this.button(this.adjustPlaque, signEntity, () => this.adjust(), (on) => this.adjustPlaque.set('Adjust', on ? 'hover' : 'idle'));
     this.adjustPlaque.set('Adjust');
     this.signGroup.position.set(BENCH.runSign.x, BENCH.runSign.y, BENCH.runSign.z);
     this.bench.root.add(this.signGroup);
@@ -438,6 +447,7 @@ export class FlowUi {
     this.panelGroup.add(this.panelBase.mesh, this.panelGiftBase.mesh);
     this.toggles = SETTING_ROWS.map((row, i) => {
       const p = new Plaque(f, 0.21, 0.032);
+      p.mesh.name = `UI_Toggle_${row.key}`;
       p.mesh.position.z = 0.003;
       this.panelGroup.add(p.mesh);
       this.hotButton(p, panelEntity, () => this.toggle(i));
@@ -446,6 +456,9 @@ export class FlowUi {
     this.btnL = new Plaque(f, 0.115, 0.034);
     this.btnR = new Plaque(f, 0.115, 0.034);
     this.machineBtn = new Plaque(f, 0.21, 0.032);
+    this.btnL.mesh.name = 'UI_PanelLeft';
+    this.btnR.mesh.name = 'UI_PanelRight';
+    this.machineBtn.mesh.name = 'UI_Machine';
     for (const p of [this.btnL, this.btnR, this.machineBtn]) {
       p.mesh.position.z = 0.003;
       this.panelGroup.add(p.mesh);
@@ -455,19 +468,18 @@ export class FlowUi {
     this.hotButton(this.machineBtn, panelEntity, () => this.cycleMachine());
     this.chips = ENGRAVINGS.map((e, i) => {
       const p = new Plaque(f, 0.122, 0.03);
+      p.mesh.name = `UI_Engraving_${e.id}`;
       p.mesh.position.set(i % 2 === 0 ? -0.067 : 0.067, 0.028 - Math.floor(i / 2) * 0.036, 0.003);
       this.panelGroup.add(p.mesh);
       this.hotButton(p, panelEntity, () => this.pickEngraving(e.id));
       return p;
     });
-    void [acceptHot, pauseHot, giftHot, runHot, adjustHot];
-    this.hots.splice(0, 0); // (handles are registered in `hots` by `hot`; nothing else to keep)
   }
 
-  /** A plaque child of the panel group: it is already in the group's tree, so only its entity is created here. */
-  private hotButton(plaque: Plaque, parent: Entity, press: () => void): Hot {
+  /** A plaque that is a child of the panel group: it is already in the group's tree, so only its entity is created here. */
+  private hotButton(plaque: Plaque, parent: Entity, press: () => void): void {
     const entity = this.world.createTransformEntity(plaque.mesh, { parent });
-    return this.hot(entity, () => press());
+    this.panelHots.push(this.hot(entity, () => press()));
   }
 
   // ---- Sync: the mode state decides what exists (view.ts) ---------------------------------------------------------------
@@ -492,16 +504,20 @@ export class FlowUi {
     if (view.bench && !before?.bench) this.resetBench();
     if (!view.bench && before?.bench) this.local.result = null;
 
+    // While a panel is up, nothing under it answers (a paused game stays as it was, and untouched).
+    const free = view.panel === 'none';
+
     // Trunk
     this.trunk.root.visible = view.trunk;
-    this.setHot(this.trunk.hot, view.trunk && this.local.trunk === 'closed');
+    this.setHot(this.trunk.hot, free && view.trunk && this.local.trunk === 'closed');
     this.poseTrunk();
 
     // Letter
     const showEnvelope = view.envelope !== 'hidden';
     this.envelope.root.visible = showEnvelope && this.appear.value > 0;
-    this.setHot(this.envelope.hot, view.envelope === 'sealed' && this.appear.value >= 1);
+    this.setHot(this.envelope.hot, free && view.envelope === 'sealed' && this.appear.value >= 1);
     this.poseLetter();
+    this.setHot(this.acceptHot, free && view.envelope === 'open' && this.card.value >= 1);
     if (letter) this.paintLetter(letter);
     const closing = this.session.closing;
     this.closingCard.mesh.visible = view.closingCard;
@@ -511,16 +527,13 @@ export class FlowUi {
     // Bench
     for (const o of [this.bench.root]) o.visible = view.bench;
     this.parcel.root.visible = view.parcel !== 'hidden' && this.parcelAway.value < 1;
-    this.setHot(this.parcel.hot, view.parcel === 'closed');
+    this.setHot(this.parcel.hot, free && view.parcel === 'closed');
     this.tray.root.visible = view.tray;
     this.sheet.root.visible = view.blueprint;
     this.poseBench();
     this.signGroup.visible = view.runSign;
-    if (view.runSign) {
-      this.faceIfShown(this.signGroup, true);
-      this.paintSign();
-    }
-    this.setHot(this.runPlaqueHot(), view.runSign && this.wind.units > 0);
+    if (view.runSign) this.faceHead(this.signGroup, true);
+    this.paintSign();
     if (view.blueprint) this.paintBlueprint();
 
     // Medallions and the hint slip
@@ -528,30 +541,12 @@ export class FlowUi {
     this.giftMed.mesh.visible = view.giftButton;
     this.faceIfShown(this.pauseMed.mesh, view.pauseButton);
     this.faceIfShown(this.giftMed.mesh, view.giftButton);
-    this.setHotFor(this.pauseMed.mesh, view.pauseButton);
-    this.setHotFor(this.giftMed.mesh, view.giftButton);
+    this.setHot(this.pauseHot, free && view.pauseButton);
+    this.setHot(this.giftHot, free && view.giftButton);
     this.showHint(view);
 
     // Panels
     this.showPanel(view.panel);
-  }
-
-  private hotsByObject = new Map<Object3D, Hot>();
-  private setHotFor(object: Object3D, active: boolean): void {
-    let hot = this.hotsByObject.get(object);
-    if (!hot) hot = this.hots.find((h) => h.entity.object3D === object);
-    if (hot) {
-      this.hotsByObject.set(object, hot);
-      this.setHot(hot, active);
-    }
-  }
-  private runPlaqueHot(): Hot {
-    return this.hotsByObject.get(this.runPlaque.mesh) ?? this.cache(this.runPlaque.mesh);
-  }
-  private cache(object: Object3D): Hot {
-    const hot = this.hots.find((h) => h.entity.object3D === object) as Hot;
-    this.hotsByObject.set(object, hot);
-    return hot;
   }
 
   // ---- Actions (a pinch or a poke) ---------------------------------------------------------------------------------------
@@ -598,16 +593,15 @@ export class FlowUi {
   }
 
   private stepLetter(dt: number): void {
-    const wasHidden = this.appear.value === 0;
+    const appeared = this.appear.value;
+    const carded = this.card.value;
     this.appear.step(dt);
     this.flap.step(dt);
     this.card.step(dt);
-    if (wasHidden && this.appear.value > 0) this.sync();
     this.poseLetter();
-    if (this.local.envelope === 'open' && this.card.value >= 1 && !this.accept.mesh.userData.armed) {
-      this.accept.mesh.userData.armed = true;
-      this.setHotFor(this.accept.mesh, true);
-    }
+    // What can be pressed depends on how far the animations have got (the envelope once it has settled, Accept once the card is up).
+    const crossed = (before: number, after: number): boolean => (before === 0) !== (after === 0) || (before < 1) !== (after < 1);
+    if (crossed(appeared, this.appear.value) || crossed(carded, this.card.value)) this.sync();
   }
 
   private poseLetter(): void {
@@ -617,18 +611,14 @@ export class FlowUi {
     env.root.scale.setScalar(0.4 + 0.6 * a);
     if (env.hinge) applyHinge(env.hinge.node, env.hinge.pivot, this.flap.eased);
     const c = this.card.eased;
-    this.cardGroup.visible = this.card.value > 0 && this.view?.envelope === 'open';
+    this.cardGroup.visible = this.card.value > 0 && this.view?.envelope === 'open' && this.view.panel === 'none';
     this.cardGroup.position.set(READING_SPOT.x, LETTER_SPOT.y + 0.02 + (READING_SPOT.y - LETTER_SPOT.y - 0.02) * c, LETTER_SPOT.z + (READING_SPOT.z - LETTER_SPOT.z) * c);
     this.cardGroup.scale.setScalar(0.25 + 0.75 * c);
     if (this.cardGroup.visible && !this.cardGroup.userData.faced) {
       this.cardGroup.userData.faced = true;
       this.faceHead(this.cardGroup);
     }
-    if (!this.cardGroup.visible) {
-      this.cardGroup.userData.faced = false;
-      this.accept.mesh.userData.armed = false;
-      this.setHotFor(this.accept.mesh, false);
-    }
+    if (!this.cardGroup.visible) this.cardGroup.userData.faced = false;
   }
 
   private acceptLetter(): void {
@@ -706,6 +696,17 @@ export class FlowUi {
     if (this.session.pause()) this.sync();
   }
 
+  private openGift(): void {
+    if (this.session.openGift()) this.sync();
+  }
+
+  private resetTrunk(): void {
+    this.local.trunk = 'closed';
+    this.lid.jump(0);
+    this.withdraw.jump(0);
+    this.poseTrunk();
+  }
+
   // ---- Panels: pause, restart, gift -------------------------------------------------------------------------------------
 
   private showPanel(kind: View['panel']): void {
@@ -713,7 +714,7 @@ export class FlowUi {
     this.panelKind = kind;
     this.panelGroup.visible = kind !== 'none';
     if (kind === 'none') {
-      for (const hot of this.hots) if (this.isPanelHot(hot)) this.setHot(hot, false);
+      for (const hot of this.panelHots) this.setHot(hot, false);
       return;
     }
     this.panelGroup.position.set(READING_SPOT.x, READING_SPOT.y, READING_SPOT.z);
@@ -744,15 +745,7 @@ export class FlowUi {
     const row = kind === 'pause' ? -0.075 : kind === 'restart' ? -0.05 : -0.122;
     this.btnL.mesh.position.set(-0.067, row, 0.003);
     this.btnR.mesh.position.set(0.067, row, 0.003);
-    for (const hot of this.hots) {
-      if (!this.isPanelHot(hot)) continue;
-      const mesh = hot.entity.object3D as Object3D;
-      this.setHot(hot, mesh.visible && this.panelGroup.visible);
-    }
-  }
-
-  private isPanelHot(hot: Hot): boolean {
-    return (hot.entity.object3D as Object3D).parent === this.panelGroup && hot.entity.object3D !== this.panelBase.mesh;
+    for (const hot of this.panelHots) this.setHot(hot, (hot.entity.object3D as Object3D).visible);
   }
 
   private panelLeft(): void {
@@ -860,9 +853,11 @@ export class FlowUi {
     if (r) this.signSlip.paint(`r|${r.status}|${r.title}|${r.hint}`, (c, w, h) => resultSlip(c, w, h, r));
     else this.signSlip.paint(`w|${units}|${max}`, (c, w, h) => paintSlip(c, w, h, windLabel(units, max), units > 0 ? 'Press Run' : HINTS.wind, units > 0 ? 'good' : 'warn'));
     this.paintRun(false);
-    this.adjustPlaque.mesh.visible = r !== null && !r.canContinue;
-    this.setHotFor(this.adjustPlaque.mesh, this.view?.runSign === true && this.adjustPlaque.mesh.visible);
-    this.setHot(this.runPlaqueHot(), this.view?.runSign === true && units > 0);
+    const controls = this.view?.runControls === true && this.view.panel === 'none';
+    this.runPlaque.mesh.visible = controls;
+    this.adjustPlaque.mesh.visible = controls && r !== null && !r.canContinue;
+    this.setHot(this.runHot, controls && units > 0);
+    this.setHot(this.adjustHot, this.adjustPlaque.mesh.visible);
   }
 
   private paintRun(hover: boolean): void {
@@ -898,6 +893,7 @@ export class FlowUi {
       const p = benchPoint(s, BENCH.build);
       at = { x: p.x, y: p.y + 0.17, z: p.z };
     }
+    if (view.panel !== 'none') text = '';
     this.hint.mesh.visible = text !== '';
     if (!text) return;
     this.hint.paint(text, (c, w, h) => paintSlip(c, w, h, text, '', 'good'));
@@ -909,11 +905,18 @@ export class FlowUi {
     if (shown) this.faceHead(object);
   }
 
-  private faceHead(object: Object3D): void {
+  /** Turns `object`'s +Z towards the player's head. `upright` turns it about the vertical axis only (the run sign's post must not lean). */
+  private faceHead(object: Object3D, upright = false): void {
     const head = this.opt.head ? this.opt.head(this.head) : defaultHead(this.world, this.head);
     object.parent?.updateWorldMatrix(true, false);
     object.updateWorldMatrix(true, false);
+    if (upright) head.y = object.getWorldPosition(_here).y;
     object.lookAt(head);
+  }
+
+  /** Every pointer target the UI owns, by its object's name, and whether it answers to rays and pokes right now. For tests and QA. */
+  pressables(): Array<{ name: string; active: boolean; object: Object3D; entity: Entity }> {
+    return this.hots.map((h) => ({ name: (h.entity.object3D as Object3D).name, active: h.active, object: h.entity.object3D as Object3D, entity: h.entity }));
   }
 
   /** Last-resort access for tests and QA. */
@@ -925,28 +928,12 @@ export class FlowUi {
   }
 }
 
+const _here = new Vector3();
+
 const defaultLoad = async (path: string): Promise<Object3D> => {
   const gltf = await AssetManager.loadGLTF(`${import.meta.env.BASE_URL}assets/models/${path}`);
   return gltf.scene.clone(true);
 };
 
-function defaultHead(world: World, out: Vector3): Vector3 {
-  const head = (world as { player?: { head?: Object3D } }).player?.head ?? world.camera;
-  return head.getWorldPosition(out);
-}
+const defaultHead = (world: World, out: Vector3): Vector3 => world.player.head.getWorldPosition(out);
 
-/** Height of the sheet's top surface at its centre (it has a rolled edge, so its bounding box is not the paper). */
-function surfaceHeight(root: Object3D): number {
-  let top = 0;
-  root.updateWorldMatrix(true, true);
-  root.traverse((n) => {
-    const mesh = n as Mesh;
-    if (!mesh.isMesh || !mesh.geometry) return;
-    mesh.geometry.computeBoundingBox();
-    const box = mesh.geometry.boundingBox;
-    if (box) top = Math.max(top, Math.min(box.max.y, 0.004));
-  });
-  return top;
-}
-
-void dim;
