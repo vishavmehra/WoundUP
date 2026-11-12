@@ -62,7 +62,10 @@ test.describe('emulated Quest 3 (emulator evidence, not hardware evidence)', () 
       return { features: [...(s.enabledFeatures ?? [])] as string[] };
     });
     expect(session.features).toContain('hand-tracking');
-    expect(session.features).not.toContain('plane-detection'); // ADR-019: only documented needs are requested
+    // ADR-026: table placement asks for planes and anchors, as optional features, and for nothing else of the kind.
+    expect(session.features).toEqual(expect.arrayContaining(['plane-detection', 'anchors']));
+    expect(session.features).not.toContain('mesh-detection');
+    expect(session.features).not.toContain('hit-test');
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await page.evaluate(() => (window as any).__world.exitXR());
@@ -70,22 +73,34 @@ test.describe('emulated Quest 3 (emulator evidence, not hardware evidence)', () 
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   });
 
-  test('fallback stand: measured from the eyes at about 35° down, kept through the system menu, re-placed on recentre', async ({ page }) => {
-    test.setTimeout(180_000); // software rendering runs the emulated Quest at about one frame per second
+  test('placement: the town on the table of the room, or the stand; held through the system menu, head moves and recentring', async ({ page }) => {
+    test.setTimeout(240_000); // software rendering runs the emulated Quest at about one frame per second
     await page.setViewportSize({ width: 640, height: 360 });
     await page.goto(DEV_URL);
     await expect(page.locator('.wu')).toHaveAttribute('data-support', 'ar');
     await page.getByRole('button', { name: 'Enter mixed reality' }).click();
     await expect(page.locator('.wu')).toHaveAttribute('data-mode', 'xr', { timeout: 60_000 });
+
+    // The stage stays hidden until the choice is made: about 2 seconds of waiting for surfaces, then the anchor.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const stageVisible = () => page.evaluate(() => (window as any).__world.getSceneObject('stage').visible as boolean);
+    await expect.poll(stageVisible, { timeout: 120_000, intervals: [500] }).toBe(true);
     await xrFrames(page, 3);
 
-    let view = await standFromEyes(page);
-    expect(view.below).toBeCloseTo(0.38, 2);
-    expect(view.ahead).toBeCloseTo(0.55, 2);
-    expect(view.degreesDown).toBeLessThanOrEqual(35);
-    const placedAt = view.stage;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const standShown = await page.evaluate(() => (window as any).__world.getSceneObject('stand').visible as boolean);
+    // TBL-05: the outcome is recorded per room. The emulator room is the one in iwsdk.config.json.
+    test.info().annotations.push({ type: 'placement', description: standShown ? 'stand' : 'table' });
 
-    // Opening the system menu blurs the session. Coming back must not move the stand, even if the head moved meanwhile.
+    let view = await standFromEyes(page);
+    const placedAt = view.stage;
+    if (standShown) {
+      expect(view.below).toBeCloseTo(0.38, 2);
+      expect(view.ahead).toBeCloseTo(0.55, 2);
+      expect(view.degreesDown).toBeLessThanOrEqual(35);
+    }
+
+    // Opening the system menu blurs the session. Coming back must not move the town or the stand, even if the head moved.
     await setVisibility(page, 'visible-blurred');
     await xrFrames(page, 2);
     await moveHead(page, { x: 0.2, y: 1.3, z: 0.1 });
@@ -95,14 +110,19 @@ test.describe('emulated Quest 3 (emulator evidence, not hardware evidence)', () 
     view = await standFromEyes(page);
     expect(view.stage).toEqual(placedAt);
 
-    // Recentring is how the player corrects the stand after changing posture or seat: same view from the new eye position.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await page.evaluate(() => (window as any).IWER_DEVICE.recenter());
     await xrFrames(page, 3);
     view = await standFromEyes(page);
-    expect(view.eyeHeight).toBeCloseTo(1.3, 2);
-    expect(view.below).toBeCloseTo(0.38, 2);
-    expect(view.ahead).toBeCloseTo(0.55, 2);
+    if (standShown) {
+      // Recentring is how the player corrects the stand after changing posture or seat: same view from the new eye position.
+      expect(view.eyeHeight).toBeCloseTo(1.3, 2);
+      expect(view.below).toBeCloseTo(0.38, 2);
+      expect(view.ahead).toBeCloseTo(0.55, 2);
+    }
+    // Either way no second choice was made: what showed after the choice still shows.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(await page.evaluate(() => (window as any).__world.getSceneObject('stand').visible as boolean)).toBe(standShown);
   });
 
   test('ADR-025: hand models are served from our own origin, never the public CDN', async ({ page }) => {
