@@ -11,6 +11,7 @@ import {
   isOneOf,
   LETTER_IDS,
   LETTER_STATUSES,
+  LETTERS,
   MACHINE_IDS,
   MACHINE_PLOT,
   PLOT_IDS,
@@ -96,9 +97,10 @@ export function validateSave(data: unknown): ValidateResult {
     if (!isOneOf(LETTER_STATUSES, status)) return bad('letters has an invalid status');
     letters[key] = status;
   }
-  // Letters unlock one after another, so a letter past `locked` needs the one before it completed.
-  for (let i = 1; i < LETTER_IDS.length; i++) {
-    if (letters[LETTER_IDS[i]] !== 'locked' && letters[LETTER_IDS[i - 1]] !== 'completed') return bad('letters out of order');
+  // A letter past `locked` needs the letter its unlock rule names to be completed.
+  for (const id of LETTER_IDS) {
+    const rule = LETTERS[id].unlock;
+    if (rule.type === 'letter_completed' && letters[id] !== 'locked' && letters[rule.letterId] !== 'completed') return bad('letters out of order');
   }
 
   // Machines: known blueprints, no duplicates, placed means built and on its own plot.

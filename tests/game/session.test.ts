@@ -85,6 +85,22 @@ describe('GameSession: the core loop', () => {
     expect(storage.writes).toBe(3); // trunk, accept, built. The refusals wrote nothing.
   });
 
+  it('does not leave Wind for a machine that cannot count as built, so Place is never a dead end', () => {
+    const storage = new FakeStorage();
+    const game = new GameSession({ storage });
+    ok(game.openTrunk(), 'trunk');
+    ok(game.acceptLetter('letter_1'), 'accept');
+    ok(game.assemblyComplete(), 'assembled');
+    const writes = storage.writes;
+    expect(game.machineRanCorrectly('carousel')).toBe(false); // its letter is still locked
+    expect(game.machineRanCorrectly('clock_tower')).toBe(false); // not in this build
+    expect(game.mode).toBe('wind');
+    expect(game.save.machines).toEqual([]);
+    expect(storage.writes).toBe(writes);
+    ok(game.machineRanCorrectly('music_box'), 'the machine of the accepted letter');
+    expect(game.mode).toBe('place');
+  });
+
   it('sends a wrong or jammed machine back to Build and lets the player try again', () => {
     const game = new GameSession({ storage: null });
     ok(game.openTrunk(), 'trunk');

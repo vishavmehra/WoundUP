@@ -121,6 +121,7 @@ describe('rejecting corrupt or foreign data (SAVE §9)', () => {
     ['invalid letter status', withField('letters', { ...(valid().letters as object), letter_1: 'done' })],
     ['letter status as number', withField('letters', { ...(valid().letters as object), letter_1: 3 })],
     ['letters out of order', withField('letters', { letter_1: 'locked', letter_2: 'accepted' })],
+    ['a later letter ahead of an unfinished one', withField('letters', { letter_1: 'completed', letter_2: 'available', letter_3: 'available' })],
     ['machines as object', withField('machines', {})],
     ['too many machines', withField('machines', Array.from({ length: 5 }, () => ({ blueprintId: 'music_box', built: true, placed: false })))],
     ['machine as string', withField('machines', ['music_box'])],

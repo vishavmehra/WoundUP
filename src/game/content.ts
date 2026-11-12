@@ -89,12 +89,21 @@ export type LetterObjective =
   | { readonly type: 'build_and_run'; readonly blueprintId: MachineId }
   | { readonly type: 'repair_fault'; readonly repairId: RepairId };
 
+/**
+ * What makes a locked letter available (DATA_AND_BLUEPRINT_SPEC §11, §12). A closed list: a new kind needs a spec change
+ * and a validator update, never a string in content. Completion is the objective's own rule (see progression.ts).
+ */
+export type LetterUnlock =
+  | { readonly type: 'trunk_opened' }
+  | { readonly type: 'letter_completed'; readonly letterId: LetterId };
+
 export interface LetterDef {
   readonly id: LetterId;
   /** As written in the specification. The schoolteacher and the theatre keeper are roles with no figure (ADR-039). */
   readonly sender: string;
   /** The message without the typographic quotation marks the specification wraps around it. */
   readonly message: string;
+  readonly unlock: LetterUnlock;
   readonly objective: LetterObjective;
 }
 
@@ -103,36 +112,42 @@ export const LETTERS: Readonly<Record<LetterId, LetterDef>> = {
     id: 'letter_1',
     sender: 'Mira',
     message: "My grandmother's music box went quiet the night the clock stopped. Could you make it sing again?",
+    unlock: { type: 'trunk_opened' },
     objective: { type: 'build_and_run', blueprintId: 'music_box' },
   },
   letter_2: {
     id: 'letter_2',
     sender: 'Mira',
     message: 'It plays! But only for a moment, then it sighs and stops. Is it tired?',
+    unlock: { type: 'letter_completed', letterId: 'letter_1' },
     objective: { type: 'repair_fault', repairId: 'worn_spring' },
   },
   letter_3: {
     id: 'letter_3',
     sender: 'Schoolteacher',
     message: 'The children press their noses to the carousel every morning. Could you make it turn again?',
+    unlock: { type: 'letter_completed', letterId: 'letter_2' },
     objective: { type: 'build_and_run', blueprintId: 'carousel' },
   },
   letter_4: {
     id: 'letter_4',
     sender: 'Otto',
     message: 'No wind, no windmill. No windmill, no flour. No flour, no bread. Please help.',
+    unlock: { type: 'letter_completed', letterId: 'letter_3' },
     objective: { type: 'build_and_run', blueprintId: 'windmill' },
   },
   letter_5: {
     id: 'letter_5',
     sender: 'Otto',
     message: "The windmill spins like it's late for something! Flour everywhere. Something's not right inside.",
+    unlock: { type: 'letter_completed', letterId: 'letter_4' },
     objective: { type: 'repair_fault', repairId: 'wrong_gear' },
   },
   letter_6: {
     id: 'letter_6',
     sender: 'Theatre keeper',
     message: "The theatre doors only open when the clock tower rings. Tockton hasn't heard it in years.",
+    unlock: { type: 'letter_completed', letterId: 'letter_5' },
     objective: { type: 'build_and_run', blueprintId: 'clock_tower' },
   },
 };
