@@ -92,6 +92,15 @@ describe('minimum run time target (SIMULATION_SPEC §7)', () => {
     expect(run(input(needsFiveSeconds, withSpring(REFERENCE_ENERGY_PER_UNIT), 8)).status).toBe('runs');
   });
 
+  it('judges the spring at full wind, not by how far the player wound it', () => {
+    // A good spring wound 1 unit runs 1.25 s, under the target, but the spring is not what is wrong.
+    const goodButBarelyWound = run(input(needsFiveSeconds, withSpring(REFERENCE_ENERGY_PER_UNIT), 1));
+    expect(goodButBarelyWound.runSeconds).toBeCloseTo(1.25, 12);
+    expect(goodButBarelyWound.status).toBe('runs');
+    expect(run(input(needsFiveSeconds, withSpring(REFERENCE_ENERGY_PER_UNIT), 0)).status).toBe('runs');
+    expect(run(input(needsFiveSeconds, withSpring(WORN_ENERGY_PER_UNIT), 2)).status).toBe('runs_wrong');
+  });
+
   it('is not applied when the blueprint sets no run-time target: a worn spring still runs', () => {
     expect(run(input(bp, withSpring(WORN_ENERGY_PER_UNIT), 8)).status).toBe('runs');
   });

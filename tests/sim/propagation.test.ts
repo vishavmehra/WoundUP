@@ -129,6 +129,11 @@ describe('belt (SOLVER §8.3)', () => {
     expect(errors).toContainEqual(expect.objectContaining({ code: 'missing_parameter', path: 'connections[1].parameters.direction' }));
   });
 
+  it('gives the same speed whichever way round the belt is written (the reverse ratio is rb / ra)', () => {
+    const flipped = blueprint(sockets('spring', 'p1', 'p2'), [shaft('s', 'spring', 'p1'), belt('b', 'p2', 'p1', { direction: -1 })]);
+    expect(run(input(flipped, [spring('spring', 1), pulley('p1', 1), pulley('p2', 2)])).angularVelocity.p2).toBe(-0.5);
+  });
+
   it('takes radii from the connection when the parts have none', () => {
     const withRadii = blueprint(sockets('spring', 'p1', 'p2'), [
       shaft('s', 'spring', 'p1'),

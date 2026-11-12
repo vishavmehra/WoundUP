@@ -20,7 +20,10 @@ export const WIND_ANGLE_EPSILON = 1e-9;
 
 /** Two paths to one node may differ by at most this fraction before the mechanism jams (SOLVER §10). */
 export const LOOP_TOLERANCE = 0.01;
-/** Speeds below this (rad/s, about one turn per 72 days) are treated as zero in the loop test and in trigger activation. */
+/**
+ * rad/s, about one turn per 72 days. The floor of the loop test's denominator, so two near-zero speeds are not
+ * compared relative to each other (SOLVER §10), and the speed a trigger source must exceed to count as moving.
+ */
 export const OMEGA_EPSILON = 1e-6;
 /** Relative slack on the inclusive target band, so a speed exactly on the edge is not failed by float noise. */
 export const TARGET_EPSILON = 1e-9;

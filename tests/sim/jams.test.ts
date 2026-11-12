@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { solve } from '../../src/sim';
 import { belt, blueprint, gear, input, mesh, plain, pulley, run, shaft, socket, sockets, spring } from './helpers';
 
 describe('inconsistent loop detection (SOLVER §10)', () => {
@@ -144,6 +145,18 @@ describe('priority of outcomes (SOLVER §14)', () => {
     const r = run(input(bp, [spring(), gear('a', 10, 1), gear('b', 20, 2)]));
     expect(r.status).toBe('incomplete');
     expect(r.jamAt).toBeUndefined();
+  });
+
+  it('reports invalid part data ahead of an incomplete machine', () => {
+    const bp = blueprint([socket('spring'), socket('a'), socket('b'), socket('missing')], [shaft('s', 'spring', 'a'), mesh('m', 'a', 'b')]);
+    const out = solve(input(bp, [spring(), plain('a'), gear('b', 20)])); // a mesh gear with no tooth count anywhere
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.errors).toContainEqual(expect.objectContaining({ code: 'missing_parameter', path: 'connections[1].parameters.fromTeeth' }));
+  });
+
+  it('does not read an empty power socket: it is incomplete, not invalid', () => {
+    const bp = blueprint(sockets('spring', 'a'), [shaft('s', 'spring', 'a')]);
+    expect(run(input(bp, [plain('a')])).missingSockets).toEqual(['spring']);
   });
 
   it('reports a missed target, not a jam, for a connected machine that runs wrong', () => {

@@ -131,8 +131,9 @@ export interface MachineTargets {
   readonly followerPose?: Readonly<Record<string, number>>;
   readonly tolerance?: Readonly<Record<string, number>>;
   /**
-   * The machine must run at least this long (SIMULATION_SPEC §7: "runs for an unexpectedly short duration" is
-   * `runs_wrong`). Absent means no run-time target, so a worn spring still `runs`.
+   * Fully wound (`MAX_WIND_UNITS`), the machine must run at least this long (SIMULATION_SPEC §7: "runs for an
+   * unexpectedly short duration" is `runs_wrong`). Checked against full-wind capacity, not the current wind, so a good
+   * spring wound a little is not reported wrong. Absent means no run-time target, so a worn spring still `runs`.
    */
   readonly minRunSeconds?: number;
 }

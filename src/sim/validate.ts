@@ -118,7 +118,8 @@ export function validateBlueprint(blueprint: SolverBlueprint): SolverValidationE
   for (const [group, map] of [['angularVelocity', angularVelocity], ['followerPose', followerPose]] as const) {
     for (const id of Object.keys(map ?? {})) {
       const path = `targets.${group}.${id}`;
-      if (!sockets.has(id)) errors.push({ code: 'unknown_target_node', path, id });
+      // A pose target on a node no pin drives could never be met: the machine would always run wrong.
+      if (!sockets.has(id) || (group === 'followerPose' && !pinFollowers.has(id))) errors.push({ code: 'unknown_target_node', path, id });
       if (!isNumber(map?.[id])) errors.push({ code: 'invalid_parameter', path, id });
       const tol = tolerance !== undefined && has(tolerance, id) ? tolerance[id] : undefined;
       if (tol === undefined) errors.push({ code: 'missing_target_tolerance', path: `targets.tolerance.${id}`, id });

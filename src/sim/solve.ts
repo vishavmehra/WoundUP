@@ -3,7 +3,7 @@
 // the wind units change, never per frame (SOLVER §18): `sampleFollowerProfile` is the per-frame part.
 //
 // Evaluation order (SOLVER §14):
-//   1. invalid input or blueprint -> `{ ok: false }`
+//   1. invalid input, blueprint or part data -> `{ ok: false }`
 //   2. a required socket (or the power socket) is empty -> `incomplete`
 //   3. a gear module mismatch or a contradictory loop -> `jams`
 //   4. a missed target -> `runs_wrong`
@@ -15,6 +15,7 @@
 import {
   CONTINUOUS_RUN_SECONDS,
   LOOP_TOLERANCE,
+  MAX_WIND_UNITS,
   MODULE_EPSILON,
   OMEGA_EPSILON,
   RUN_SECONDS_TARGET_ID,
@@ -90,12 +91,8 @@ export function solve(input: SolverInput): SolveOutcome {
   const installed = new Map<string, InstalledPart>(installedParts.map((p) => [p.socketId, p] as const));
   const powerSocket = blueprint.power.socketId;
 
-  // 2. Missing parts (SOLVER §11). An absent part is never a zero-speed component.
-  const missingSockets = blueprint.sockets
-    .filter((s) => (s.required || s.id === powerSocket) && !installed.has(s.id))
-    .map((s) => s.id)
-    .sort();
-  if (missingSockets.length > 0) return { ok: true, result: { ...idle('incomplete'), missingSockets } };
+  // Part values are resolved before the missing-socket check, so invalid part data is a validation failure even on a
+  // half-built machine (SOLVER §14: invalid input before `incomplete`).
 
   // Mechanical value of an installed socket: its own parameters, then the catalogue, then the blueprint's authored fallback.
   const lookup = (socketId: string, name: PartParameterName, fallback: number | undefined, path: string): number | undefined => {
@@ -111,18 +108,22 @@ export function solve(input: SolverInput): SolveOutcome {
   const pw = blueprint.power;
   let omega0 = 0;
   let runSeconds = 0;
+  /** Run time at full wind: what `minRunSeconds` checks, so the status never depends on how far the player wound. */
+  let capacitySeconds = 0;
   let continuous = false;
   if (pw.source === 'ambient_wind') {
     omega0 = pw.angularVelocity;
     runSeconds = CONTINUOUS_RUN_SECONDS;
+    capacitySeconds = CONTINUOUS_RUN_SECONDS;
     continuous = true;
-  } else {
+  } else if (installed.has(powerSocket)) { // an empty power socket is reported as `incomplete` below
     const w = lookup(powerSocket, 'angularVelocity', pw.angularVelocity, 'power.angularVelocity');
     const energyPerUnit = lookup(powerSocket, 'energyPerUnit', undefined, 'power.energyPerUnit');
     const drainRate = lookup(powerSocket, 'drainRate', pw.drainRate, 'power.drainRate');
     if (w !== undefined && energyPerUnit !== undefined && drainRate !== undefined) {
       omega0 = w;
       runSeconds = springRunSeconds(power.windUnits ?? 0, energyPerUnit, drainRate);
+      capacitySeconds = springRunSeconds(MAX_WIND_UNITS, energyPerUnit, drainRate);
     }
   }
 
@@ -173,6 +174,13 @@ export function solve(input: SolverInput): SolveOutcome {
   }
   if (errors.length > 0) return { ok: false, errors };
 
+  // 2. Missing parts (SOLVER §11). An absent part is never a zero-speed component.
+  const missingSockets = blueprint.sockets
+    .filter((s) => (s.required || s.id === powerSocket) && !installed.has(s.id))
+    .map((s) => s.id)
+    .sort();
+  if (missingSockets.length > 0) return { ok: true, result: { ...idle('incomplete'), missingSockets } };
+
   // 3b. A mesh of unequal modules cannot turn. Checked for every installed mesh, driven or not.
   const mismatch = edges.find((e) => e.moduleMismatch);
   if (mismatch !== undefined) return jammed(mismatch.id, 'module_mismatch');
@@ -215,10 +223,10 @@ export function solve(input: SolverInput): SolveOutcome {
   const angularVelocity: Record<string, number> = {};
   for (const id of nodeIds) angularVelocity[id] = (omega.get(id) ?? 0) + 0;
 
-  // Followers: profile at the cam's current angle (SOLVER §8.4).
+  // Followers: profile at the cam's current angle (SOLVER §8.4). Keys sorted by follower id (one driver per follower).
   const followerPose: Record<string, number> = {};
-  for (const e of edges) {
-    if (e.type === 'pin' && e.profile !== undefined) followerPose[e.to] = sampleFollowerProfile(e.profile, nodeAngles?.[e.from] ?? 0);
+  for (const e of edges.filter((x) => x.type === 'pin').sort((a, b) => compare(a.to, b.to))) {
+    if (e.profile !== undefined) followerPose[e.to] = sampleFollowerProfile(e.profile, nodeAngles?.[e.from] ?? 0);
   }
 
   // Triggers: a node is activated by a trigger from a moving or already activated node (SOLVER §8.5). Fixed point over a
@@ -249,7 +257,7 @@ export function solve(input: SolverInput): SolveOutcome {
     const actual = followerPose[id];
     if (actual === undefined || !withinTolerance(actual, expected, tolerance[id])) wrongTargets.push(id);
   }
-  if (targets.minRunSeconds !== undefined && runSeconds < targets.minRunSeconds) wrongTargets.push(RUN_SECONDS_TARGET_ID);
+  if (targets.minRunSeconds !== undefined && capacitySeconds < targets.minRunSeconds) wrongTargets.push(RUN_SECONDS_TARGET_ID);
   wrongTargets.sort();
 
   const result: SolveResult = {
