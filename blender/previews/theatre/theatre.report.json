@@ -1,0 +1,251 @@
+{
+  "schema": 1,
+  "family": "theatre",
+  "generator": "blender/scripts/gen_theatre.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T13:50:57+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\town\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "theatre_facade",
+      "exported": true,
+      "ao": {
+        "TheatreFacade_Shell": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.2911,
+          "max": 1.0
+        },
+        "TheatreFacade_Marquee": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.0968,
+          "max": 0.9805
+        },
+        "TheatreFacade_Pediment": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.5798,
+          "max": 1.0
+        },
+        "TheatreFacade_Door_L": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.1767,
+          "max": 0.9414
+        },
+        "TheatreFacade_Door_R": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.1663,
+          "max": 0.9414
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 8658,
+          "vertsInBlender": 4577,
+          "sizeMm": [
+            200.0,
+            180.0,
+            55.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            90.0,
+            0.0
+          ],
+          "primitives": 15,
+          "materials": [
+            "Mat_PaintedWood",
+            "Mat_PolishedBrass",
+            "Mat_Stone",
+            "Mat_TealPaint",
+            "Mat_Walnut",
+            "Mat_WarmEmissive"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.1663,
+            "max": 0.9414
+          },
+          "meshQa": {
+            "TheatreFacade_Shell": {
+              "verts": 2511,
+              "faces": 2950,
+              "tris": 4742,
+              "quads": 1792,
+              "ngons": 0,
+              "signed_volume": 0.0012588339095027585
+            },
+            "TheatreFacade_Marquee": {
+              "verts": 648,
+              "faces": 732,
+              "tris": 1228,
+              "quads": 496,
+              "ngons": 0,
+              "signed_volume": 5.405454375366028e-06
+            },
+            "TheatreFacade_Pediment": {
+              "verts": 834,
+              "faces": 962,
+              "tris": 1600,
+              "quads": 638,
+              "ngons": 0,
+              "signed_volume": 5.85269005025084e-05
+            },
+            "TheatreFacade_Door_L": {
+              "verts": 292,
+              "faces": 326,
+              "tris": 544,
+              "quads": 218,
+              "ngons": 0,
+              "signed_volume": 4.006154828741903e-06
+            },
+            "TheatreFacade_Door_R": {
+              "verts": 292,
+              "faces": 326,
+              "tris": 544,
+              "quads": 218,
+              "ngons": 0,
+              "signed_volume": 4.006155034451331e-06
+            }
+          }
+        }
+      },
+      "buildSeconds": 6.9,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 672716,
+          "tris": 8658,
+          "primitives": 15,
+          "vertices": 15158,
+          "materialConstants": {
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            },
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_WarmEmissive": {
+              "baseColorFactor": [
+                0.8879231214523315,
+                0.7912979125976562,
+                0.6239603757858276,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5
+            },
+            "Mat_PaintedWood": {
+              "baseColorFactor": [
+                0.6583748459815979,
+                0.5394794940948486,
+                0.31398871541023254,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5189999938011169
+            },
+            "Mat_Stone": {
+              "baseColorFactor": [
+                0.42869049310684204,
+                0.366252601146698,
+                0.2622506618499756,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8600000143051147
+            }
+          },
+          "sizeMm": [
+            200.0,
+            180.0,
+            55.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/theatre/theatre_facade.glb",
+      "bytes": 672716,
+      "sha256": "72c6b9ba4bb8f3cb4f0fbcb0cac04769a1243e63458f0e0c1a8de8e2bb4dae74",
+      "profile": "L",
+      "seconds": 8.3
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\theatre\\theatre_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1104,
+        1104
+      ],
+      "samples": 16,
+      "seconds": 25.0,
+      "cells": 2,
+      "layoutMm": [
+        230.2,
+        579.9
+      ],
+      "ids": [
+        "theatre_facade"
+      ]
+    }
+  },
+  "seconds": 33.3
+}

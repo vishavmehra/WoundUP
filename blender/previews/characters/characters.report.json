@@ -1,0 +1,339 @@
+{
+  "schema": 1,
+  "family": "characters",
+  "generator": "blender/scripts/gen_characters.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T13:24:04+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\characters\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "figure_mira",
+      "exported": true,
+      "ao": {
+        "Mira_Body": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.4879,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [
+          "Q04 dimensionsBasis is 'unspecified': size [0.011606385931372643, 0.03500000014901161, 0.007536710239946842] reported, not enforced until the lead approves it"
+        ],
+        "info": {
+          "tris": 1462,
+          "vertsInBlender": 789,
+          "sizeMm": [
+            11.606,
+            35.0,
+            7.537
+          ],
+          "originOffsetMm": [
+            -0.049,
+            17.5,
+            -0.426
+          ],
+          "primitives": 3,
+          "materials": [
+            "Mat_Ceramic",
+            "Mat_PolishedBrass",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.4879,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Mira_Body": {
+              "verts": 789,
+              "faces": 926,
+              "tris": 1462,
+              "quads": 536,
+              "ngons": 0,
+              "signed_volume": 9.71572046962623e-07
+            }
+          },
+          "heightMm": 35.0,
+          "soleCentreMm": [
+            0.049,
+            -0.0
+          ],
+          "soleMm": [
+            5.24,
+            3.8
+          ]
+        }
+      },
+      "buildSeconds": 1.6,
+      "blend": "blender\\source\\characters\\figure_mira.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 77348,
+          "tris": 1462,
+          "primitives": 3,
+          "vertices": 1622,
+          "materialConstants": {
+            "Mat_Ceramic": {
+              "baseColorFactor": [
+                0.8227857351303101,
+                0.7379103899002075,
+                0.577580451965332,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.3100000023841858
+            },
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            }
+          },
+          "sizeMm": [
+            11.606,
+            35.0,
+            7.537
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/characters/figure_mira.glb",
+      "bytes": 77348,
+      "sha256": "fa0cd86ca48e449cc676e138df2df984618eaa5cca96d645c9fe1192343e9d43",
+      "profile": "L",
+      "seconds": 2.7
+    },
+    {
+      "id": "figure_otto",
+      "exported": true,
+      "ao": {
+        "Otto_Body": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.5133,
+          "max": 1.0
+        },
+        "Otto_Forearms": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.5193,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [
+          "Q04 dimensionsBasis is 'unspecified': size [0.015471184626221657, 0.038502196315675974, 0.01144153205677867] reported, not enforced until the lead approves it"
+        ],
+        "info": {
+          "tris": 1472,
+          "vertsInBlender": 790,
+          "sizeMm": [
+            15.471,
+            38.502,
+            11.442
+          ],
+          "originOffsetMm": [
+            0.0,
+            16.749,
+            0.578
+          ],
+          "primitives": 4,
+          "materials": [
+            "Mat_Ceramic",
+            "Mat_Fabric",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.5193,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Otto_Body": {
+              "verts": 676,
+              "faces": 765,
+              "tris": 1268,
+              "quads": 503,
+              "ngons": 0,
+              "signed_volume": 1.6491888180549395e-06
+            },
+            "Otto_Forearms": {
+              "verts": 114,
+              "faces": 136,
+              "tris": 204,
+              "quads": 68,
+              "ngons": 0,
+              "signed_volume": 3.369484487233824e-08
+            }
+          },
+          "heightMm": 36.0,
+          "soleCentreMm": [
+            0.0,
+            -0.0
+          ],
+          "soleMm": [
+            8.0,
+            4.9
+          ],
+          "clip": {
+            "name": "Otto_Knead",
+            "frames": [
+              1,
+              31
+            ],
+            "fcurves": 3,
+            "loops": true
+          }
+        }
+      },
+      "buildSeconds": 1.8,
+      "blend": "blender\\source\\characters\\figure_otto.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 81860,
+          "tris": 1472,
+          "primitives": 4,
+          "vertices": 1662,
+          "materialConstants": {
+            "Mat_Ceramic": {
+              "baseColorFactor": [
+                0.8227857351303101,
+                0.7379103899002075,
+                0.577580451965332,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.3100000023841858
+            },
+            "Mat_Fabric": {
+              "baseColorFactor": [
+                0.6104955673217773,
+                0.5088813304901123,
+                0.31398871541023254,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8600000143051147
+            },
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            }
+          },
+          "sizeMm": [
+            15.471,
+            38.502,
+            11.442
+          ],
+          "animations": [
+            "Otto_Knead"
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/characters/figure_otto.glb",
+      "bytes": 81860,
+      "sha256": "a22226e45b14bc5a9a2c33eeff2b724b6587d8fbacfc0acaa08fdd46fc35810f",
+      "profile": "L",
+      "seconds": 2.0
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\characters\\characters_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1104,
+        1104
+      ],
+      "samples": 16,
+      "seconds": 19.3,
+      "cells": 4,
+      "layoutMm": [
+        57.4,
+        95.6
+      ],
+      "ids": [
+        "figure_mira",
+        "figure_otto"
+      ]
+    },
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\characters\\characters_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 69.8,
+      "cells": 4,
+      "layoutMm": [
+        57.4,
+        95.6
+      ],
+      "ids": [
+        "figure_mira",
+        "figure_otto"
+      ]
+    }
+  },
+  "seconds": 4.8,
+  "sheetsDate": "2026-11-12T13:25:50+05:30"
+}

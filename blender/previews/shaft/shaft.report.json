@@ -1,0 +1,230 @@
+{
+  "schema": 1,
+  "family": "shaft",
+  "generator": "blender/scripts/gen_shaft.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T13:07:01+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\mechanical\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "shaft_short",
+      "exported": true,
+      "ao": {
+        "Shaft_Short": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.6992,
+          "mean": 0.9332,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [
+          "Q04 dimensionsBasis is 'proposal': size [0.00800000037997961, 0.00800000037997961, 0.09000000357627869] reported, not enforced until the lead approves it"
+        ],
+        "info": {
+          "tris": 1232,
+          "vertsInBlender": 618,
+          "sizeMm": [
+            8.0,
+            8.0,
+            90.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_AgedBrass"
+          ],
+          "ao": {
+            "min": 0.6992,
+            "mean": 0.9332,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Shaft_Short": {
+              "verts": 618,
+              "faces": 644,
+              "tris": 1232,
+              "quads": 588,
+              "ngons": 0,
+              "signed_volume": 3.8576002824678765e-06
+            }
+          },
+          "maxRadiusMm": 4.0,
+          "lengthMm": 90.0
+        }
+      },
+      "buildSeconds": 1.6,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 60740,
+          "tris": 1232,
+          "primitives": 1,
+          "vertices": 1290,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            }
+          },
+          "sizeMm": [
+            8.0,
+            8.0,
+            90.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/shaft/shaft_short.glb",
+      "bytes": 60740,
+      "sha256": "149d37966bceeb0fff860affb1de7530355900c5115dcea8df0a206c0c77778e",
+      "profile": "L",
+      "seconds": 2.8
+    },
+    {
+      "id": "shaft_long",
+      "exported": true,
+      "ao": {
+        "Shaft_Long": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.6992,
+          "mean": 0.9326,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [
+          "Q04 dimensionsBasis is 'proposal': size [0.00800000037997961, 0.00800000037997961, 0.15000000596046448] reported, not enforced until the lead approves it"
+        ],
+        "info": {
+          "tris": 1232,
+          "vertsInBlender": 618,
+          "sizeMm": [
+            8.0,
+            8.0,
+            150.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_AgedBrass"
+          ],
+          "ao": {
+            "min": 0.6992,
+            "mean": 0.9326,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Shaft_Long": {
+              "verts": 618,
+              "faces": 644,
+              "tris": 1232,
+              "quads": 588,
+              "ngons": 0,
+              "signed_volume": 6.556690625991734e-06
+            }
+          },
+          "maxRadiusMm": 4.0,
+          "lengthMm": 150.0
+        }
+      },
+      "buildSeconds": 1.1,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 60740,
+          "tris": 1232,
+          "primitives": 1,
+          "vertices": 1290,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            }
+          },
+          "sizeMm": [
+            8.0,
+            8.0,
+            150.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/shaft/shaft_long.glb",
+      "bytes": 60740,
+      "sha256": "f1eb65858e3d9b0ff11284274b8e1b979ea5c88999be1da30e822b5927cbc907",
+      "profile": "L",
+      "seconds": 1.1
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\shaft\\shaft_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1200,
+        1024
+      ],
+      "samples": 16,
+      "seconds": 29.8,
+      "cells": 4,
+      "layoutMm": [
+        162.1,
+        138.7
+      ],
+      "ids": [
+        "shaft_short",
+        "shaft_long"
+      ]
+    }
+  },
+  "seconds": 33.8
+}

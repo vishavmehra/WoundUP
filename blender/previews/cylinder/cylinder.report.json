@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "family": "cylinder",
+  "generator": "blender/scripts/gen_cylinder.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T13:17:31+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\music-box\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "cylinder_music_box",
+      "exported": true,
+      "ao": {
+        "Cylinder_MusicBox": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.5926,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 1408,
+          "vertsInBlender": 832,
+          "sizeMm": [
+            32.0,
+            32.0,
+            65.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "primitives": 2,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_PolishedBrass"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.5926,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Cylinder_MusicBox": {
+              "verts": 832,
+              "faces": 832,
+              "tris": 1408,
+              "quads": 576,
+              "ngons": 0,
+              "signed_volume": 3.7392852322393555e-05
+            }
+          },
+          "maxRadiusMm": 16.0,
+          "pins": 64
+        }
+      },
+      "buildSeconds": 1.5,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 94204,
+          "tris": 1408,
+          "primitives": 2,
+          "vertices": 2072,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            },
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            }
+          },
+          "sizeMm": [
+            32.0,
+            32.0,
+            65.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/cylinder/cylinder_music_box.glb",
+      "bytes": 94204,
+      "sha256": "f0138efbe2dc3a5539674d4510ab917485eb8a5451157f1369243257f0372366",
+      "profile": "L",
+      "seconds": 2.7
+    }
+  ],
+  "sheets": {},
+  "seconds": 2.7
+}

@@ -1,0 +1,775 @@
+{
+  "schema": 1,
+  "family": "windmill",
+  "generator": "blender/scripts/gen_windmill.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T13:44:45+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\windmill\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "windmill_base",
+      "exported": true,
+      "ao": {
+        "WindmillBase_RingTop": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.7022,
+          "max": 1.0
+        },
+        "WindmillBase_RingBottom": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.5974,
+          "max": 1.0
+        },
+        "WindmillBase_Panel": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.291,
+          "max": 0.999
+        },
+        "WindmillBase_Foot": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.5139,
+          "max": 0.9551
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 8624,
+          "vertsInBlender": 4362,
+          "sizeMm": [
+            95.0,
+            35.0,
+            95.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            17.5,
+            0.0
+          ],
+          "primitives": 6,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_Stone",
+            "Mat_TealPaint",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.5139,
+            "max": 0.9551
+          },
+          "meshQa": {
+            "WindmillBase_RingTop": {
+              "verts": 384,
+              "faces": 384,
+              "tris": 768,
+              "quads": 384,
+              "ngons": 0,
+              "signed_volume": 1.2288505817063288e-05
+            },
+            "WindmillBase_RingBottom": {
+              "verts": 962,
+              "faces": 1008,
+              "tris": 1920,
+              "quads": 912,
+              "ngons": 0,
+              "signed_volume": 4.5960492934667755e-05
+            },
+            "WindmillBase_Panel": {
+              "verts": 2920,
+              "faces": 2968,
+              "tris": 5760,
+              "quads": 2760,
+              "ngons": 16,
+              "signed_volume": 2.3837530942745565e-05
+            },
+            "WindmillBase_Foot": {
+              "verts": 96,
+              "faces": 104,
+              "tris": 176,
+              "quads": 72,
+              "ngons": 0,
+              "signed_volume": 1.0445760130946744e-06
+            }
+          }
+        }
+      },
+      "buildSeconds": 8.1,
+      "blend": "blender\\source\\windmill\\windmill_base.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 425944,
+          "tris": 8624,
+          "primitives": 6,
+          "vertices": 9162,
+          "materialConstants": {
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            },
+            "Mat_Stone": {
+              "baseColorFactor": [
+                0.42869049310684204,
+                0.366252601146698,
+                0.2622506618499756,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8600000143051147
+            }
+          },
+          "sizeMm": [
+            95.0,
+            35.0,
+            95.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/windmill/windmill_base.glb",
+      "bytes": 425944,
+      "sha256": "c2840e0da0d7aae5d1eaeda8f80b6acf387ff6861c822a37fb4da6fc6e5148bd",
+      "profile": "L",
+      "seconds": 10.1
+    },
+    {
+      "id": "windmill_tower",
+      "exported": true,
+      "ao": {
+        "WindmillTower_Walls": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.3093,
+          "max": 0.9971
+        },
+        "WindmillTower_Slat": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.4786,
+          "max": 0.9824
+        },
+        "WindmillTower_Railing": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.3614,
+          "max": 0.9863
+        },
+        "WindmillTower_Platform": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.5088,
+          "max": 1.0
+        },
+        "WindmillTower_RoofCap": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.6798,
+          "max": 1.0
+        },
+        "WindmillTower_RoofFrame": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.1411,
+          "max": 0.9023
+        },
+        "WindmillTower_RoofTiles": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.5915,
+          "max": 1.0
+        },
+        "WindmillTower_WindowFrame": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.2949,
+          "max": 0.9844
+        },
+        "WindmillTower_Shutter": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.3233,
+          "max": 0.8887
+        },
+        "WindmillTower_Door": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.2843,
+          "max": 0.9756
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 16608,
+          "vertsInBlender": 8516,
+          "sizeMm": [
+            85.0,
+            195.0,
+            85.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            97.5,
+            0.0
+          ],
+          "primitives": 19,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_PaintedWood",
+            "Mat_PolishedBrass",
+            "Mat_Stone",
+            "Mat_TealPaint",
+            "Mat_Walnut",
+            "Mat_WarmEmissive"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.2843,
+            "max": 0.9756
+          },
+          "meshQa": {
+            "WindmillTower_Walls": {
+              "verts": 1476,
+              "faces": 1536,
+              "tris": 2944,
+              "quads": 1408,
+              "ngons": 0,
+              "signed_volume": 0.0003172198222078925
+            },
+            "WindmillTower_Slat": {
+              "verts": 576,
+              "faces": 584,
+              "tris": 1136,
+              "quads": 552,
+              "ngons": 0,
+              "signed_volume": 3.607781598210141e-06
+            },
+            "WindmillTower_Railing": {
+              "verts": 1792,
+              "faces": 1864,
+              "tris": 3408,
+              "quads": 1544,
+              "ngons": 0,
+              "signed_volume": 2.1857369060150657e-06
+            },
+            "WindmillTower_Platform": {
+              "verts": 770,
+              "faces": 816,
+              "tris": 1536,
+              "quads": 720,
+              "ngons": 0,
+              "signed_volume": 2.8222648803496e-05
+            },
+            "WindmillTower_RoofCap": {
+              "verts": 644,
+              "faces": 760,
+              "tris": 1264,
+              "quads": 504,
+              "ngons": 0,
+              "signed_volume": 4.496216766643658e-06
+            },
+            "WindmillTower_RoofFrame": {
+              "verts": 704,
+              "faces": 736,
+              "tris": 1344,
+              "quads": 608,
+              "ngons": 0,
+              "signed_volume": 5.7856760097697506e-06
+            },
+            "WindmillTower_RoofTiles": {
+              "verts": 1314,
+              "faces": 1344,
+              "tris": 2624,
+              "quads": 1280,
+              "ngons": 0,
+              "signed_volume": 5.127683388953871e-05
+            },
+            "WindmillTower_WindowFrame": {
+              "verts": 416,
+              "faces": 440,
+              "tris": 800,
+              "quads": 360,
+              "ngons": 0,
+              "signed_volume": 1.0222971882726623e-06
+            },
+            "WindmillTower_Shutter": {
+              "verts": 480,
+              "faces": 516,
+              "tris": 888,
+              "quads": 372,
+              "ngons": 0,
+              "signed_volume": 3.075625399264156e-07
+            },
+            "WindmillTower_Door": {
+              "verts": 344,
+              "faces": 368,
+              "tris": 664,
+              "quads": 296,
+              "ngons": 0,
+              "signed_volume": 1.908783157070851e-06
+            }
+          }
+        }
+      },
+      "buildSeconds": 12.3,
+      "blend": "blender\\source\\windmill\\windmill_tower.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 890248,
+          "tris": 16608,
+          "primitives": 19,
+          "vertices": 19252,
+          "materialConstants": {
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            },
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            },
+            "Mat_WarmEmissive": {
+              "baseColorFactor": [
+                0.8879231214523315,
+                0.7912979125976562,
+                0.6239603757858276,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5
+            },
+            "Mat_PaintedWood": {
+              "baseColorFactor": [
+                0.6583748459815979,
+                0.5394794940948486,
+                0.31398871541023254,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5189999938011169
+            },
+            "Mat_Stone": {
+              "baseColorFactor": [
+                0.42869049310684204,
+                0.366252601146698,
+                0.2622506618499756,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8600000143051147
+            }
+          },
+          "sizeMm": [
+            85.0,
+            195.0,
+            85.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/windmill/windmill_tower.glb",
+      "bytes": 890248,
+      "sha256": "549a844aa4d8bf63f62b10f0e8ada5c15ddab5081f985c21eb448350097dba05",
+      "profile": "L",
+      "seconds": 12.8
+    },
+    {
+      "id": "windmill_sails",
+      "exported": true,
+      "ao": {
+        "WindmillSails_Blade": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.4934,
+          "max": 1.0
+        },
+        "WindmillSails_Hub": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.4741,
+          "max": 1.0
+        },
+        "WindmillSails_Cap": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.6655,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 6128,
+          "vertsInBlender": 3200,
+          "sizeMm": [
+            160.0,
+            160.0,
+            15.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            0.0,
+            -1.5
+          ],
+          "primitives": 6,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_Fabric",
+            "Mat_PolishedBrass",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.6655,
+            "max": 1.0
+          },
+          "meshQa": {
+            "WindmillSails_Blade": {
+              "verts": 2392,
+              "faces": 2392,
+              "tris": 4528,
+              "quads": 2136,
+              "ngons": 0,
+              "signed_volume": 9.35126670482076e-06
+            },
+            "WindmillSails_Hub": {
+              "verts": 582,
+              "faces": 672,
+              "tris": 1152,
+              "quads": 480,
+              "ngons": 0,
+              "signed_volume": 6.073196391220382e-06
+            },
+            "WindmillSails_Cap": {
+              "verts": 226,
+              "faces": 256,
+              "tris": 448,
+              "quads": 192,
+              "ngons": 0,
+              "signed_volume": 9.265246963078648e-07
+            }
+          }
+        }
+      },
+      "buildSeconds": 3.1,
+      "blend": "blender\\source\\windmill\\windmill_sails.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 363636,
+          "tris": 6128,
+          "primitives": 6,
+          "vertices": 7994,
+          "materialConstants": {
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            },
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            },
+            "Mat_Fabric": {
+              "baseColorFactor": [
+                0.6104955673217773,
+                0.5088813304901123,
+                0.31398871541023254,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8600000143051147
+            }
+          },
+          "sizeMm": [
+            160.0,
+            160.0,
+            15.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/windmill/windmill_sails.glb",
+      "bytes": 363636,
+      "sha256": "55575b4b82e64bf1aef079ceaa32db265981d137826a7a4b86f05f1074cae6fe",
+      "profile": "L",
+      "seconds": 3.3
+    },
+    {
+      "id": "windmill_millstone",
+      "exported": true,
+      "ao": {
+        "WindmillMillstone": {
+          "baked": true,
+          "samples": 256,
+          "min": 0.0,
+          "mean": 0.8008,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 3808,
+          "vertsInBlender": 1904,
+          "sizeMm": [
+            50.0,
+            50.0,
+            12.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "primitives": 2,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_Stone"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.8008,
+            "max": 1.0
+          },
+          "meshQa": {
+            "WindmillMillstone": {
+              "verts": 1904,
+              "faces": 1904,
+              "tris": 3808,
+              "quads": 1904,
+              "ngons": 0,
+              "signed_volume": 2.2921533492034938e-05
+            }
+          }
+        }
+      },
+      "buildSeconds": 1.1,
+      "blend": "blender\\source\\windmill\\windmill_millstone.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 146560,
+          "tris": 3808,
+          "primitives": 2,
+          "vertices": 3020,
+          "materialConstants": {
+            "Mat_Stone": {
+              "baseColorFactor": [
+                0.42869049310684204,
+                0.366252601146698,
+                0.2622506618499756,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8600000143051147
+            },
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            }
+          },
+          "sizeMm": [
+            50.0,
+            50.0,
+            12.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/windmill/windmill_millstone.glb",
+      "bytes": 146560,
+      "sha256": "ef51395d42af74715f9e544ccbf4cbca03ff8c3916a5d28f68477d0d06888be3",
+      "profile": "L",
+      "seconds": 1.2
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\windmill\\windmill_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1200,
+        1024
+      ],
+      "samples": 16,
+      "seconds": 23.6,
+      "cells": 8,
+      "layoutMm": [
+        624.6,
+        529.2
+      ],
+      "ids": [
+        "windmill_base",
+        "windmill_tower",
+        "windmill_sails",
+        "windmill_millstone"
+      ]
+    },
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\windmill\\windmill_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1568,
+        1328
+      ],
+      "samples": 64,
+      "seconds": 63.0,
+      "cells": 8,
+      "layoutMm": [
+        624.6,
+        529.2
+      ],
+      "ids": [
+        "windmill_base",
+        "windmill_tower",
+        "windmill_sails",
+        "windmill_millstone"
+      ]
+    }
+  },
+  "seconds": 51.2,
+  "sheetsDate": "2026-11-12T13:50:42+05:30"
+}

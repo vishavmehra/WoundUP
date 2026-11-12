@@ -1,0 +1,863 @@
+{
+  "schema": 1,
+  "family": "carousel",
+  "generator": "blender/scripts/gen_carousel.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T13:42:28+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\carousel\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "carousel_base",
+      "exported": true,
+      "ao": {
+        "CarouselBase_Ring": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.522,
+          "max": 1.0
+        },
+        "CarouselBase_Panel": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.3063,
+          "max": 1.0
+        },
+        "CarouselBase_Foot": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.4612,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 19856,
+          "vertsInBlender": 9986,
+          "sizeMm": [
+            130.0,
+            30.0,
+            130.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            15.0,
+            0.0
+          ],
+          "primitives": 5,
+          "materials": [
+            "Mat_PolishedBrass",
+            "Mat_TealPaint",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.4612,
+            "max": 1.0
+          },
+          "meshQa": {
+            "CarouselBase_Ring": {
+              "verts": 5954,
+              "faces": 6016,
+              "tris": 11904,
+              "quads": 5888,
+              "ngons": 0,
+              "signed_volume": 8.029593325853926e-05
+            },
+            "CarouselBase_Panel": {
+              "verts": 2824,
+              "faces": 3008,
+              "tris": 5552,
+              "quads": 2544,
+              "ngons": 0,
+              "signed_volume": 7.789308759678253e-06
+            },
+            "CarouselBase_Foot": {
+              "verts": 1208,
+              "faces": 1280,
+              "tris": 2400,
+              "quads": 1120,
+              "ngons": 0,
+              "signed_volume": 1.0838414958487996e-06
+            }
+          }
+        }
+      },
+      "buildSeconds": 9.7,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 678308,
+          "tris": 19856,
+          "primitives": 5,
+          "vertices": 13826,
+          "materialConstants": {
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            },
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            }
+          },
+          "sizeMm": [
+            130.0,
+            30.0,
+            130.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/carousel/carousel_base.glb",
+      "bytes": 678308,
+      "sha256": "73aa3c6ef1034d2957f2a4c02b541602aac87d0e84b0a97d9ad174e59dc9341e",
+      "profile": "L",
+      "seconds": 11.0
+    },
+    {
+      "id": "carousel_platform",
+      "exported": true,
+      "ao": {
+        "CarouselPlatform_Disc": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.3985,
+          "max": 1.0
+        },
+        "CarouselPlatform_Pole": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.756,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 16572,
+          "vertsInBlender": 8294,
+          "sizeMm": [
+            125.0,
+            91.0,
+            125.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            45.5,
+            0.0
+          ],
+          "primitives": 5,
+          "materials": [
+            "Mat_CreamEnamel",
+            "Mat_PolishedBrass",
+            "Mat_TealPaint",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.756,
+            "max": 1.0
+          },
+          "meshQa": {
+            "CarouselPlatform_Disc": {
+              "verts": 6128,
+              "faces": 6148,
+              "tris": 12252,
+              "quads": 6104,
+              "ngons": 0,
+              "signed_volume": 8.189412714500085e-05
+            },
+            "CarouselPlatform_Pole": {
+              "verts": 2166,
+              "faces": 2208,
+              "tris": 4320,
+              "quads": 2112,
+              "ngons": 0,
+              "signed_volume": 1.5032608391742571e-06
+            }
+          }
+        }
+      },
+      "buildSeconds": 16.9,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 553440,
+          "tris": 16572,
+          "primitives": 5,
+          "vertices": 11194,
+          "materialConstants": {
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            },
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_CreamEnamel": {
+              "baseColorFactor": [
+                0.8879231214523315,
+                0.7912979125976562,
+                0.6239603757858276,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.2160000056028366
+            }
+          },
+          "sizeMm": [
+            125.0,
+            91.0,
+            125.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/carousel/carousel_platform.glb",
+      "bytes": 553440,
+      "sha256": "0cf19f8c5f4e97852538a59e5c4b6f1696b91282dc729da19b1c202ba4c5677d",
+      "profile": "L",
+      "seconds": 17.6
+    },
+    {
+      "id": "carousel_column",
+      "exported": true,
+      "ao": {
+        "CarouselColumn_Column": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.4351,
+          "max": 1.0
+        },
+        "CarouselColumn_UpperRing": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.7665,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 13416,
+          "vertsInBlender": 6724,
+          "sizeMm": [
+            125.0,
+            90.0,
+            125.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            45.0,
+            0.0
+          ],
+          "primitives": 5,
+          "materials": [
+            "Mat_PolishedBrass",
+            "Mat_TealPaint",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.7665,
+            "max": 1.0
+          },
+          "meshQa": {
+            "CarouselColumn_Column": {
+              "verts": 4370,
+              "faces": 4416,
+              "tris": 8736,
+              "quads": 4320,
+              "ngons": 0,
+              "signed_volume": 2.478672969726664e-05
+            },
+            "CarouselColumn_UpperRing": {
+              "verts": 2354,
+              "faces": 2412,
+              "tris": 4680,
+              "quads": 2268,
+              "ngons": 0,
+              "signed_volume": 2.5365518818781406e-05
+            }
+          }
+        }
+      },
+      "buildSeconds": 16.3,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 469188,
+          "tris": 13416,
+          "primitives": 5,
+          "vertices": 9576,
+          "materialConstants": {
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            },
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            }
+          },
+          "sizeMm": [
+            125.0,
+            90.0,
+            125.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/carousel/carousel_column.glb",
+      "bytes": 469188,
+      "sha256": "3d3633fdfbbfd97a2abba3d74bd5d9c50816495a4d1838a13fd6c7947ec0829a",
+      "profile": "L",
+      "seconds": 16.6
+    },
+    {
+      "id": "carousel_canopy",
+      "exported": true,
+      "ao": {
+        "CarouselCanopy_Roof": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.5956,
+          "max": 1.0
+        },
+        "CarouselCanopy_Rib": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.3975,
+          "max": 1.0
+        },
+        "CarouselCanopy_Frieze": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.3416,
+          "max": 1.0
+        },
+        "CarouselCanopy_Finial": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.6927,
+          "max": 1.0
+        },
+        "CarouselCanopy_Flag": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.6536,
+          "max": 0.9141
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 16744,
+          "vertsInBlender": 8414,
+          "sizeMm": [
+            135.4,
+            60.0,
+            135.4
+          ],
+          "originOffsetMm": [
+            0.0,
+            30.0,
+            0.0
+          ],
+          "primitives": 8,
+          "materials": [
+            "Mat_CreamEnamel",
+            "Mat_PolishedBrass",
+            "Mat_TealPaint"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.6536,
+            "max": 0.9141
+          },
+          "meshQa": {
+            "CarouselCanopy_Roof": {
+              "verts": 1184,
+              "faces": 1260,
+              "tris": 2364,
+              "quads": 1104,
+              "ngons": 0,
+              "signed_volume": 1.5580219119286917e-05
+            },
+            "CarouselCanopy_Rib": {
+              "verts": 1416,
+              "faces": 1512,
+              "tris": 2784,
+              "quads": 1272,
+              "ngons": 0,
+              "signed_volume": 1.196177566405641e-06
+            },
+            "CarouselCanopy_Frieze": {
+              "verts": 5004,
+              "faces": 5088,
+              "tris": 9984,
+              "quads": 4896,
+              "ngons": 0,
+              "signed_volume": 3.640317977288584e-05
+            },
+            "CarouselCanopy_Finial": {
+              "verts": 770,
+              "faces": 792,
+              "tris": 1536,
+              "quads": 744,
+              "ngons": 0,
+              "signed_volume": 7.74967481747178e-07
+            },
+            "CarouselCanopy_Flag": {
+              "verts": 40,
+              "faces": 38,
+              "tris": 76,
+              "quads": 38,
+              "ngons": 0,
+              "signed_volume": 1.0583991814916434e-08
+            }
+          }
+        }
+      },
+      "buildSeconds": 32.4,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 612784,
+          "tris": 16744,
+          "primitives": 8,
+          "vertices": 12553,
+          "materialConstants": {
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            },
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_CreamEnamel": {
+              "baseColorFactor": [
+                0.8879231214523315,
+                0.7912979125976562,
+                0.6239603757858276,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.2160000056028366
+            }
+          },
+          "sizeMm": [
+            135.4,
+            60.0,
+            135.4
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/carousel/carousel_canopy.glb",
+      "bytes": 612784,
+      "sha256": "4b163bd0699b2f0afe84842855f8bb0db0d49c510684d9ee7e40f2e100409683",
+      "profile": "L",
+      "seconds": 32.7
+    },
+    {
+      "id": "carousel_horse",
+      "exported": true,
+      "ao": {
+        "CarouselHorse_Body": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.5867,
+          "max": 1.0
+        },
+        "CarouselHorse_Sleeve": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.6167,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 2956,
+          "vertsInBlender": 1498,
+          "sizeMm": [
+            8.0,
+            24.0,
+            30.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            39.0,
+            1.324
+          ],
+          "primitives": 3,
+          "materials": [
+            "Mat_PaintedWood",
+            "Mat_PolishedBrass"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.6167,
+            "max": 1.0
+          },
+          "meshQa": {
+            "CarouselHorse_Body": {
+              "verts": 1098,
+              "faces": 1146,
+              "tris": 2156,
+              "quads": 1010,
+              "ngons": 0,
+              "signed_volume": 9.996585345269372e-07
+            },
+            "CarouselHorse_Sleeve": {
+              "verts": 400,
+              "faces": 400,
+              "tris": 800,
+              "quads": 400,
+              "ngons": 0,
+              "signed_volume": 1.0547483630940485e-07
+            }
+          }
+        }
+      },
+      "buildSeconds": 2.7,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 129276,
+          "tris": 2956,
+          "primitives": 3,
+          "vertices": 2692,
+          "materialConstants": {
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            },
+            "Mat_PaintedWood": {
+              "baseColorFactor": [
+                0.6583748459815979,
+                0.5394794940948486,
+                0.31398871541023254,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5189999938011169
+            }
+          },
+          "sizeMm": [
+            8.0,
+            24.0,
+            30.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/carousel/carousel_horse.glb",
+      "bytes": 129276,
+      "sha256": "34a811863c7c2e75fb6fcae7522ea2523d0863a4b4ea2146c614205e8758e87a",
+      "profile": "L",
+      "seconds": 2.8
+    },
+    {
+      "id": "carousel_lamp",
+      "exported": true,
+      "ao": {
+        "CarouselLamp_Housing": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.7378,
+          "max": 1.0
+        },
+        "CarouselLamp_Bulb": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.6906,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 1392,
+          "vertsInBlender": 702,
+          "sizeMm": [
+            8.0,
+            10.0,
+            8.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            5.0,
+            0.0
+          ],
+          "primitives": 2,
+          "materials": [
+            "Mat_PolishedBrass",
+            "Mat_WarmEmissive"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.6906,
+            "max": 1.0
+          },
+          "meshQa": {
+            "CarouselLamp_Housing": {
+              "verts": 484,
+              "faces": 528,
+              "tris": 960,
+              "quads": 432,
+              "ngons": 0,
+              "signed_volume": 9.660451483322265e-08
+            },
+            "CarouselLamp_Bulb": {
+              "verts": 218,
+              "faces": 240,
+              "tris": 432,
+              "quads": 192,
+              "ngons": 0,
+              "signed_volume": 1.8847924848861922e-07
+            }
+          }
+        }
+      },
+      "buildSeconds": 3.4,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 51916,
+          "tris": 1392,
+          "primitives": 2,
+          "vertices": 1018,
+          "materialConstants": {
+            "Mat_WarmEmissive": {
+              "baseColorFactor": [
+                0.8879231214523315,
+                0.7912979125976562,
+                0.6239603757858276,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5
+            },
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            }
+          },
+          "sizeMm": [
+            8.0,
+            10.0,
+            8.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/carousel/carousel_lamp.glb",
+      "bytes": 51916,
+      "sha256": "ebad46f0fe81f8f4e8f4cc777a7e3d2b1e794cd7c5e8fe7bdc1356734d33cc03",
+      "profile": "L",
+      "seconds": 3.4
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\carousel\\carousel_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1472,
+        832
+      ],
+      "samples": 16,
+      "seconds": 61.3,
+      "cells": 12,
+      "layoutMm": [
+        901.4,
+        323.8
+      ],
+      "ids": [
+        "carousel_base",
+        "carousel_platform",
+        "carousel_column",
+        "carousel_canopy",
+        "carousel_horse",
+        "carousel_lamp"
+      ]
+    },
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\carousel\\carousel_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1920,
+        1088
+      ],
+      "samples": 64,
+      "seconds": 54.2,
+      "cells": 12,
+      "layoutMm": [
+        901.4,
+        323.8
+      ],
+      "ids": [
+        "carousel_base",
+        "carousel_platform",
+        "carousel_column",
+        "carousel_canopy",
+        "carousel_horse",
+        "carousel_lamp"
+      ]
+    }
+  },
+  "seconds": 145.5,
+  "sheetsDate": "2026-11-12T13:43:34+05:30"
+}

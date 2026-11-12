@@ -1,0 +1,296 @@
+{
+  "schema": 1,
+  "family": "environment",
+  "generator": "blender/scripts/gen_tockton_environment.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T13:22:34+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\town\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "town_ground",
+      "exported": true,
+      "ao": {
+        "TownGround_Slab": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.2625,
+          "mean": 0.8852,
+          "max": 1.0
+        },
+        "TownGround_Street": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.4356,
+          "max": 1.0
+        },
+        "TownGround_Plot": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.4936,
+          "max": 0.9635
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 14376,
+          "vertsInBlender": 8532,
+          "sizeMm": [
+            600.0,
+            6.0,
+            300.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            3.0,
+            0.0
+          ],
+          "primitives": 4,
+          "materials": [
+            "Mat_PaintedWood",
+            "Mat_Stone",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.4936,
+            "max": 0.9635
+          },
+          "meshQa": {
+            "TownGround_Slab": {
+              "verts": 112,
+              "faces": 136,
+              "tris": 220,
+              "quads": 84,
+              "ngons": 0,
+              "signed_volume": 0.000538613731978425
+            },
+            "TownGround_Street": {
+              "verts": 6368,
+              "faces": 5386,
+              "tris": 10660,
+              "quads": 5274,
+              "ngons": 0,
+              "signed_volume": 0.00016344862331318377
+            },
+            "TownGround_Plot": {
+              "verts": 2052,
+              "faces": 1900,
+              "tris": 3496,
+              "quads": 1596,
+              "ngons": 0,
+              "signed_volume": 0.0001809462057612476
+            }
+          }
+        }
+      },
+      "buildSeconds": 3.7,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 1207232,
+          "tris": 14376,
+          "primitives": 4,
+          "vertices": 27848,
+          "materialConstants": {
+            "Mat_Stone": {
+              "baseColorFactor": [
+                0.42869049310684204,
+                0.366252601146698,
+                0.2622506618499756,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8600000143051147
+            },
+            "Mat_PaintedWood": {
+              "baseColorFactor": [
+                0.6583748459815979,
+                0.5394794940948486,
+                0.31398871541023254,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5189999938011169
+            },
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            }
+          },
+          "sizeMm": [
+            600.0,
+            6.0,
+            300.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/environment/town_ground.glb",
+      "bytes": 1207232,
+      "sha256": "45eb6a5c26a75f0049e08d48ea0bfbd2d69cb8fbf00ac22a967ac60a105d7461",
+      "profile": "L",
+      "seconds": 4.7
+    },
+    {
+      "id": "tockton_base_round",
+      "exported": true,
+      "ao": {
+        "TocktonBaseRound": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.6326,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 5808,
+          "vertsInBlender": 2922,
+          "sizeMm": [
+            460.0,
+            45.0,
+            460.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            22.5,
+            0.0
+          ],
+          "primitives": 3,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_VelvetTeal",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.6326,
+            "max": 1.0
+          },
+          "meshQa": {
+            "TocktonBaseRound": {
+              "verts": 2922,
+              "faces": 3072,
+              "tris": 5808,
+              "quads": 2736,
+              "ngons": 0,
+              "signed_volume": 0.00639096765663773
+            }
+          }
+        }
+      },
+      "buildSeconds": 0.9,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 231992,
+          "tris": 5808,
+          "primitives": 3,
+          "vertices": 4830,
+          "materialConstants": {
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            },
+            "Mat_VelvetTeal": {
+              "baseColorFactor": [
+                0.009134058840572834,
+                0.07036009430885315,
+                0.07036009430885315,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.9419999718666077
+            }
+          },
+          "sizeMm": [
+            460.0,
+            45.0,
+            460.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/environment/tockton_base_round.glb",
+      "bytes": 231992,
+      "sha256": "4eaa7ca234aadd797cf3b571a508e58480161242310bbf6113998752eff52d0d",
+      "profile": "L",
+      "seconds": 1.1
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\environment\\environment_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1408,
+        880
+      ],
+      "samples": 16,
+      "seconds": 23.5,
+      "cells": 4,
+      "layoutMm": [
+        1364.2,
+        846.2
+      ],
+      "ids": [
+        "town_ground",
+        "tockton_base_round"
+      ]
+    }
+  },
+  "seconds": 29.4
+}

@@ -3,7 +3,7 @@
   "family": "spur_gear",
   "generator": "blender/scripts/gen_gear_spur.py",
   "blender": "5.2.1 LTS",
-  "date": "2026-11-06T20:42:26+05:30",
+  "date": "2026-11-12T12:56:16+05:30",
   "outRoot": "D:\\Development\\AI ML\\WoundUp",
   "manifest": "D:\\Development\\AI ML\\WoundUp\\assets\\manifest\\glb-manifest.json",
   "rework": false,
@@ -299,6 +299,159 @@
       "sha256": "8d225d958842692e14c10e01f88370f2e98aad7e94d7c1ddc16de8d66b075bf0",
       "profile": "L",
       "seconds": 1.3
+    },
+    {
+      "id": "gear_spur_10_m1",
+      "exported": false,
+      "ao": {
+        "GearSpur10_M1": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.1484,
+          "mean": 0.7012,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": false,
+        "fails": [
+          "Q04 mesh size y = 41.180 mm, manifest says 42.300 mm (1 % tolerance)"
+        ],
+        "warns": [],
+        "info": {
+          "tris": 2768,
+          "vertsInBlender": 1376,
+          "sizeMm": [
+            42.305,
+            41.18,
+            15.2
+          ],
+          "originOffsetMm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_AgedBrass"
+          ],
+          "ao": {
+            "min": 0.1484,
+            "mean": 0.7012,
+            "max": 1.0
+          },
+          "meshQa": {
+            "GearSpur10_M1": {
+              "verts": 1376,
+              "faces": 2104,
+              "tris": 2768,
+              "quads": 664,
+              "ngons": 0,
+              "signed_volume": 1.0518189256847097e-05
+            }
+          },
+          "teethFound": 10,
+          "tooth0OffsetDeg": 0.0234,
+          "boreRadiusMm": 4.0,
+          "boreCentreMm": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "buildSeconds": 6.4
+    },
+    {
+      "id": "gear_spur_20_m1",
+      "exported": true,
+      "ao": {
+        "GearSpur20_M1": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.4492,
+          "mean": 0.8068,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 3488,
+          "vertsInBlender": 1736,
+          "sizeMm": [
+            78.463,
+            78.463,
+            15.2
+          ],
+          "originOffsetMm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_AgedBrass"
+          ],
+          "ao": {
+            "min": 0.4492,
+            "mean": 0.8068,
+            "max": 1.0
+          },
+          "meshQa": {
+            "GearSpur20_M1": {
+              "verts": 1736,
+              "faces": 2404,
+              "tris": 3488,
+              "quads": 1084,
+              "ngons": 0,
+              "signed_volume": 2.923788463325109e-05
+            }
+          },
+          "teethFound": 20,
+          "tooth0OffsetDeg": 0.0406,
+          "boreRadiusMm": 4.0,
+          "boreCentreMm": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "buildSeconds": 2.2,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 193652,
+          "tris": 3488,
+          "primitives": 1,
+          "vertices": 4274,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            }
+          },
+          "sizeMm": [
+            78.463,
+            78.463,
+            15.2
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/spur_gear/gear_spur_20_m1.glb",
+      "bytes": 193652,
+      "sha256": "7be9c9ab86576e88f85fefbb01b6acf2edcd199825cc88171ee5ea4bb634b3fa",
+      "profile": "L",
+      "seconds": 11.2
     }
   ],
   "sheets": {
@@ -330,23 +483,20 @@
       "engine": "BLENDER_EEVEE",
       "device": "EEVEE",
       "resolution": [
-        1152,
-        1072
+        1104,
+        1104
       ],
       "samples": 16,
-      "seconds": 17.1,
-      "cells": 6,
+      "seconds": 46.3,
+      "cells": 2,
       "layoutMm": [
-        281.8,
-        260.6
+        92.8,
+        243.0
       ],
       "ids": [
-        "gear_spur_12_m1",
-        "gear_spur_16_m1",
-        "gear_spur_24_m1"
+        "gear_spur_20_m1"
       ]
     }
   },
-  "seconds": 59.6,
-  "sheetsDate": "2026-11-06T20:42:49+05:30"
+  "seconds": 63.9
 }
