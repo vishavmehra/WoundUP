@@ -1,0 +1,293 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wound-up.invalid/schemas/glb-manifest.schema.json",
+  "title": "Wound Up GLB asset manifest",
+  "description": "Contract for assets/manifest/glb-manifest.json. One entry in assets[] is one distinct GLB deliverable (DECISIONS.md ADR-030). Fields follow docs/directives/2026-11-05_PRODUCTION_DIRECTIVE.md Part 5.1 and the multiple-worlds requirement section 7. See docs/GLB_ASSET_MANIFEST.md.",
+  "type": "object",
+  "required": ["schemaVersion", "meta", "thirdParty", "machineSlotPlans", "assets"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "meta": {
+      "type": "object",
+      "required": ["project", "reviewed", "classificationLabels", "countingRules", "materialLibrary"],
+      "additionalProperties": true,
+      "properties": {
+        "project": { "type": "string" },
+        "title": { "type": "string" },
+        "reviewed": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "authority": { "type": "string" },
+        "classificationLabels": { "type": "array", "items": { "$ref": "#/definitions/classification" }, "minItems": 8, "maxItems": 8 },
+        "countingRules": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "budgetBasis": { "type": "string" },
+        "globalReferences": { "type": "array", "items": { "type": "string" }, "description": "Boards that apply to every entry (appearance only), e.g. the Art Direction board." },
+        "dimensionsConvention": { "type": "string" },
+        "materialLibrary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "status", "basis"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "pattern": "^Mat_[A-Za-z0-9]+$" },
+              "status": { "enum": ["existing", "proposed"] },
+              "basis": { "type": "string" }
+            }
+          }
+        },
+        "futureWorlds": { "type": "object" },
+        "scopeClasses": {
+          "description": "The four asset classes of the directive's world-by-world strategy, one rule each. Every entry's scopeClass is one of these names.",
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "required": ["name", "rule"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "enum": ["shared", "world-specific", "reused", "future-planned"] },
+              "rule": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "removedByOwnerDecision": {
+          "description": "Entries the owner deleted from assets[], kept so the audited count stays traceable (ADR-039). Never counted. An id listed here must not be an entry of assets[].",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "displayName", "formerClassification", "formerStatus", "reason", "decision", "date"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/definitions/assetId" },
+              "displayName": { "type": "string", "minLength": 1 },
+              "formerClassification": { "$ref": "#/definitions/classification" },
+              "formerStatus": { "enum": ["NOT_STARTED", "BLOCKED", "IN_PROGRESS", "SOURCE_READY", "EXPORTED", "VALIDATING", "VALIDATED", "INTEGRATED", "REWORK_REQUIRED"] },
+              "reason": { "type": "string", "minLength": 1 },
+              "decision": { "type": "string", "pattern": "^ADR-\\d{3}$" },
+              "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+            }
+          }
+        },
+        "potentialAdditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["item", "count", "basis", "dependsOn", "label"],
+            "additionalProperties": false,
+            "properties": {
+              "item": { "type": "string" },
+              "count": { "type": "string" },
+              "basis": { "type": "string" },
+              "dependsOn": { "type": "string" },
+              "label": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "thirdParty": {
+      "description": "Third-party GLBs that ship but are not production deliverables. Never counted in assets[].",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "path", "licence", "licenceFile", "usedBy", "note"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/definitions/assetId" },
+          "path": { "type": "string" },
+          "licence": { "type": "string" },
+          "licenceFile": { "type": "string" },
+          "usedBy": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "machineSlotPlans": {
+      "description": "Maps each machine's spec-fixed slot count (PRODUCT_SPEC.md section 6) to the files that fill it. Records conflicts and unmapped slots instead of inventing parts.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["machine", "declaredSlots", "declaredBy", "namedInWriting", "boardsUsed", "rows", "housing", "notes"],
+        "additionalProperties": false,
+        "properties": {
+          "machine": { "enum": ["music_box", "carousel", "windmill", "clock_tower"] },
+          "declaredSlots": { "type": "integer", "minimum": 1 },
+          "declaredBy": { "type": "string" },
+          "namedInWriting": { "type": "integer", "minimum": 0 },
+          "boardsUsed": { "type": "array", "items": { "type": "string" } },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["slot", "quantity", "mapsTo", "kind", "basis"],
+              "additionalProperties": false,
+              "properties": {
+                "slot": { "type": "string" },
+                "quantity": { "type": "integer", "minimum": 1 },
+                "mapsTo": { "type": "array", "items": { "$ref": "#/definitions/assetId" } },
+                "kind": { "enum": ["own", "library", "housing", "pending", "blocked"] },
+                "basis": { "type": "string" }
+              }
+            }
+          },
+          "housing": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["asset", "boardRows"],
+              "additionalProperties": false,
+              "properties": { "asset": { "$ref": "#/definitions/assetId" }, "boardRows": { "type": "integer", "minimum": 1 } }
+            }
+          },
+          "extraSpecItems": { "type": "array", "items": { "$ref": "#/definitions/assetId" } },
+          "notes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "assets": { "type": "array", "items": { "$ref": "#/definitions/asset" }, "minItems": 1 }
+  },
+  "definitions": {
+    "assetId": { "type": "string", "pattern": "^[a-z0-9]+(_[a-z0-9]+)*$" },
+    "classification": {
+      "enum": ["G0-required", "G0-optional", "G1 Living Tockton", "G2 Advanced engineering", "G3 Creative sandbox", "G4 Community", "G5 Clockwork universe", "Research"]
+    },
+    "stringList": { "type": "array", "items": { "type": "string" } },
+    "asset": {
+      "type": "object",
+      "required": [
+        "id", "filename", "displayName", "category", "family", "productionClass", "production", "description", "gameplayPurpose", "contains", "distinctBecause",
+        "classification", "worldId", "sharedOrWorldSpecific", "reuseEligible", "scopeClass", "relatedMachineOrEnvironment", "specExists", "boardExists", "references", "specifications",
+        "blenderSource", "glbPath", "meshes", "materials", "animations", "runtimeMotion", "colliders", "originAndPivot", "approxDimensionsM", "dimensionsBasis",
+        "scaleConvention", "budgets", "dependencies", "usedBy", "owner", "priority", "status", "validationStatus", "integrationStatus", "licence", "notes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/assetId", "description": "Unique, stable, snake_case, no finish and no version word (ADR-033). Equals the GLB file name without .glb, the src/assets.ts key and PartDefinition.visual.assetId." },
+        "filename": { "type": "string", "pattern": "^[a-z0-9]+(_[a-z0-9]+)*\\.glb$", "description": "Always <id>.glb." },
+        "displayName": { "type": "string", "minLength": 1 },
+        "category": {
+          "enum": ["tiny_fastener", "gear", "mechanical_part", "machine_housing", "building", "hero_tower", "character", "prop", "environment_set"],
+          "description": "Budget key from ADR-034."
+        },
+        "family": { "enum": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"], "description": "Directive Part 5.2: A mechanical library, B trunk and workshop, C Music Box, D Carousel, E Windmill and Bakery, F Clock Tower and Theatre, G Tockton environment, H characters, I gift and presentation, J future-generation." },
+        "productionClass": { "enum": ["A1", "A2", "B", "C", "D", "E"], "description": "Effort class of audit E section 5.4: A1 new manifest line for an existing generator, A2 new parametric family member, B kit-built building or prop, C bespoke hero, D character, E small prop." },
+        "production": { "enum": ["parametric_family", "hand_modelled"] },
+        "description": { "type": "string", "minLength": 1 },
+        "gameplayPurpose": { "type": "string", "minLength": 1 },
+        "contains": { "type": "string", "minLength": 1, "description": "What the GLB actually contains (ADR-030 item 6)." },
+        "distinctBecause": { "type": "string", "minLength": 1, "description": "Why this is not a duplicate or finish variant of another entry." },
+        "classification": { "$ref": "#/definitions/classification" },
+        "worldId": { "type": "string", "pattern": "^(shared|tockton|[a-z0-9]+(-[a-z0-9]+)*)$" },
+        "sharedOrWorldSpecific": { "enum": ["shared", "world-specific"] },
+        "reuseEligible": { "type": "boolean", "description": "True if another world could use the file unchanged. Independent of the folder: a file with a Tockton identity can be reuseEligible." },
+        "scopeClass": { "enum": ["shared", "world-specific", "reused", "future-planned"], "description": "Which of the directive's four asset classes the entry is (world-by-world strategy, Production discipline). Derived: not G0 is future-planned; G0 with worldId shared is shared; G0 with a world's identity is reused when reuseEligible is true and world-specific when it is false. Defined in meta.scopeClasses." },
+        "worldVisualRequirements": { "type": "string", "description": "Optional. World-specific visual requirements (directive, multiple-worlds requirement section 7). Absent for shared and Tockton entries, whose look is the global Art Direction board in meta.globalReferences." },
+        "relatedMachineOrEnvironment": { "type": "string" },
+        "specExists": { "type": "boolean", "description": "A written specification names the item or fixes its function." },
+        "boardExists": { "type": "boolean", "description": "At least one reference board shows it. Must equal references.length > 0." },
+        "references": { "$ref": "#/definitions/stringList", "description": "Filenames in References/. Appearance guidance only; the written spec wins (ADR-029)." },
+        "specifications": { "$ref": "#/definitions/stringList", "description": "Governing documents and sections." },
+        "blenderSource": { "type": "string", "description": "Parametric family: the generator script. Hand-modelled: blender/source/<family>/<id>.blend (ADR-033)." },
+        "glbPath": { "type": "string", "pattern": "^(public/assets/models/(shared|tockton)|assets/future/[a-z0-9-]+)/[a-z0-9_]+/[a-z0-9_]+\\.glb$", "description": "Target path. G0 files live under public/assets/models, every other file under assets/future so it never ships (ADR-033)." },
+        "meshes": { "$ref": "#/definitions/stringList", "description": "Required named nodes, PascalCase_Underscore. Proposals until Stage 1 fixes them. Empty only while the entry is unresolved." },
+        "materials": { "$ref": "#/definitions/stringList", "description": "Names from meta.materialLibrary (Mat_...). At most budgets.materials." },
+        "animations": { "$ref": "#/definitions/stringList", "description": "One-shot glTF clip names. Continuous rotation is not a clip (ADR-030 item 4)." },
+        "runtimeMotion": { "type": ["string", "null"] },
+        "colliders": { "$ref": "#/definitions/stringList" },
+        "originAndPivot": { "type": "string" },
+        "approxDimensionsM": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": ["number", "null"], "exclusiveMinimum": 0 } }
+          ]
+        },
+        "dimensionsBasis": { "enum": ["spec", "measured", "derived", "board", "unspecified"] },
+        "scaleConvention": { "type": "string" },
+        "budgets": {
+          "type": "object",
+          "required": ["triangles", "primitives", "materials", "textureMiB", "glbKB", "basis"],
+          "additionalProperties": false,
+          "properties": {
+            "triangles": { "type": "integer", "minimum": 1 },
+            "primitives": { "type": "integer", "minimum": 1 },
+            "materials": { "type": "integer", "minimum": 1 },
+            "textureMiB": { "type": "number", "minimum": 0 },
+            "glbKB": { "type": "integer", "minimum": 1 },
+            "basis": { "type": "string" }
+          }
+        },
+        "dependencies": { "type": "array", "items": { "$ref": "#/definitions/assetId" }, "uniqueItems": true, "description": "Asset ids that must reach VALIDATED first or that this file is fitted to. No cycles." },
+        "usedBy": { "$ref": "#/definitions/stringList", "description": "Machine slots or scenes that consume the file." },
+        "owner": { "enum": ["Lead", "Asset framework", "Mechanical library", "Machines", "World", "Manifest checker"], "description": "Exactly one production owner (directive Part 7.4; PRODUCTION_AUDIT.md section 12)." },
+        "priority": { "type": "integer", "minimum": 1, "maximum": 11, "description": "ART_ASSET_PIPELINE.md section 18 rank: 1 trunk, 2 workbench, 3 Music Box, 4 essential mechanical parts, 5 town base and plots, 6 Bakery and Windmill, 7 Carousel, 8 Gift box, 9 supporting props, 10 Clock Tower and optional, 11 after the competition." },
+        "status": { "enum": ["NOT_STARTED", "BLOCKED", "IN_PROGRESS", "SOURCE_READY", "EXPORTED", "VALIDATING", "VALIDATED", "INTEGRATED", "REWORK_REQUIRED"] },
+        "validationStatus": { "enum": ["NOT_RUN", "FAIL", "WARN", "PASS"], "description": "Result of the official validator (ADR-037). PASS needs zero FAIL and WARN lines answered." },
+        "integrationStatus": { "enum": ["NOT_INTEGRATED", "INTEGRATED"] },
+        "placeholder": { "type": "boolean", "description": "True when the entry records a spec-fixed need whose identity is undecided. Counted in the total and in Blocked, never as an identified deliverable." },
+        "blockedBy": { "$ref": "#/definitions/stringList", "description": "Required when status is BLOCKED." },
+        "ownerDecisionPending": { "$ref": "#/definitions/stringList" },
+        "futureGroup": { "enum": ["free_build_components", "additional_machine_families", "additional_districts", "advanced_automata", "new_environmental_systems", "player_designed_inventions"], "description": "Directive Part 5.2 J group." },
+        "validationEvidence": { "type": "string" },
+        "verified": {
+          "type": "object",
+          "required": ["desktop", "iwer", "questBrowser", "quest3", "quest3s"],
+          "additionalProperties": false,
+          "properties": {
+            "desktop": { "type": "boolean" },
+            "iwer": { "type": "boolean" },
+            "questBrowser": { "type": "boolean" },
+            "quest3": { "type": "boolean" },
+            "quest3s": { "type": "boolean" }
+          }
+        },
+        "legacy": {
+          "description": "Files of the M0 version that exist today and are replaced by the regenerated file at glbPath.",
+          "type": "object",
+          "required": ["glb", "blend", "generator", "glbBytes", "glbSha256", "runtimeKey", "integratedIn"],
+          "additionalProperties": false,
+          "properties": {
+            "glb": { "type": "string" }, "blend": { "type": "string" }, "generator": { "type": "string" },
+            "glbBytes": { "type": "integer" }, "glbSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "runtimeKey": { "type": "string" }, "integratedIn": { "type": "string" }
+          }
+        },
+        "glbSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the GLB at glbPath. Required for VALIDATED and INTEGRATED: validation is bound to the file hash (ADR-037)." },
+        "licence": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "BLOCKED" } }, "required": ["status"] },
+          "then": { "required": ["blockedBy"], "properties": { "blockedBy": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "status": { "enum": ["VALIDATED", "INTEGRATED"] } }, "required": ["status"] },
+          "then": { "required": ["glbSha256"], "properties": { "validationStatus": { "const": "PASS" } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "INTEGRATED" } }, "required": ["status"] },
+          "then": { "properties": { "integrationStatus": { "const": "INTEGRATED" } } }
+        },
+        {
+          "if": { "properties": { "classification": { "enum": ["G0-required", "G0-optional"] } }, "required": ["classification"] },
+          "then": { "properties": { "glbPath": { "pattern": "^public/assets/models/(shared|tockton)/" }, "worldId": { "enum": ["shared", "tockton"] }, "scopeClass": { "enum": ["shared", "world-specific", "reused"] } } },
+          "else": { "properties": { "glbPath": { "pattern": "^assets/future/" }, "scopeClass": { "const": "future-planned" } } }
+        },
+        {
+          "if": { "properties": { "scopeClass": { "const": "shared" } }, "required": ["scopeClass"] },
+          "then": { "properties": { "worldId": { "const": "shared" }, "sharedOrWorldSpecific": { "const": "shared" }, "reuseEligible": { "const": true } } }
+        },
+        {
+          "if": { "properties": { "scopeClass": { "const": "world-specific" } }, "required": ["scopeClass"] },
+          "then": { "properties": { "worldId": { "not": { "const": "shared" } }, "sharedOrWorldSpecific": { "const": "world-specific" }, "reuseEligible": { "const": false } } }
+        },
+        {
+          "if": { "properties": { "scopeClass": { "const": "reused" } }, "required": ["scopeClass"] },
+          "then": { "properties": { "worldId": { "not": { "const": "shared" } }, "sharedOrWorldSpecific": { "const": "world-specific" }, "reuseEligible": { "const": true } } }
+        }
+      ]
+    }
+  }
+}

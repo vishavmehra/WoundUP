@@ -60,6 +60,12 @@ The player should be able to complete a meaningful machine-building experience w
 - No large physical movements.
 - Interactions within approximately 60 cm of the player's chest.
 
+## Real-world placement
+
+- Core feature: Tockton stands on the player's real table, detected and anchored when the session starts (§3.2).
+- The floating stand is the fallback when no table can be used.
+- The game uses only the surfaces the headset reports. It never reads camera images.
+
 ## Performance
 
 - Target 72 FPS.
@@ -90,6 +96,8 @@ When Enter is selected:
 2. Otherwise enter immersive-vr when supported.
 3. Otherwise show desktop 3D preview.
 
+Table placement (§3.2) runs in immersive-ar. Immersive-vr and the desktop preview always use the stand, because the real table is not visible there.
+
 Do not block the player with unnecessary setup screens.
 
 ## 3.2 Trunk introduction
@@ -102,16 +110,42 @@ Approximate trunk dimensions:
 - 25 cm depth.
 - 20 cm height.
 
-If no suitable plane is detected, display a floating velvet stand.
-
-Fallback placement:
-
-- Approximately 45 cm below eye level.
-- Approximately 55 cm ahead of the player.
-
 The player pinches the latch.
 
 The trunk opens.
+
+### Table placement
+
+When the session starts, the game detects real horizontal surfaces, chooses one suitable table and anchors Tockton to it.
+
+There is no setup screen: the trunk simply appears on the table. The game waits at most about 2 seconds for a surface before using the stand.
+
+A surface is suitable when all of these hold:
+
+- **Horizontal, at table height:** level, facing up, not the floor, and about 20 to 60 cm below the player's eyes. Measuring from the eyes adapts to the player's height and seat.
+- **Within seated reach:** the town's centre can sit about 40 to 60 cm horizontally from the eyes, within about 35° either side of the way the player is facing.
+- **Large enough:** the town's whole footprint fits on the surface at that position, at full size (60 x 40 cm) or scaled down evenly to no less than 75% (45 x 30 cm). The town never grows above full size.
+
+The aim point is about 55 cm straight ahead, the same distance as the stand. If several surfaces qualify, prefer one the platform labels as a table or desk, then the one closest to the aim point. The same surfaces always produce the same choice.
+
+These limits are starting values, to be tuned on a real Quest.
+
+The real table changes the experience:
+
+- It is the ground. The trunk and town stand directly on it, turned to face the player, and the velvet stand is not shown.
+- Contact shadows fall on it, under the trunk, the town and placed machines.
+- The town's size and position follow it, so a small table gets a smaller Tockton and every room sets it differently.
+
+The anchor holds for the whole session. The choice is made once. The town does not move when the player looks away, when the headset menu opens, when tracking briefly drops, when the player recentres the headset view, or when the headset updates or loses the surface.
+
+If plane detection or anchoring is unavailable or declined, or no surface is suitable, display a floating velvet stand. This is a normal path: no error message, no extra step, and a session never fails because of it.
+
+Fallback placement:
+
+- Approximately 38 cm below eye level.
+- Approximately 55 cm ahead of the player.
+
+That puts the stand about 35° below a level head-forward, inside the main interaction direction (`INTERACTION_SPEC.md` §3), at the same reach as a table. Both distances are measured from the player's eye position when the stand is placed (at the first tracked head pose, or after the surface wait in immersive-ar), never from the floor or a fixed world height, so the stand suits the player's height and seat. If the player changes posture or seat, recentring the headset view places the stand again from the new eye position; nothing else moves it. A town on a table stays on its table. These are starting values: check the angle and reach in the emulator, then comfort on a real Quest (`ACCEPTANCE_TESTS.md` §4.2).
 
 ## 3.3 Town discovery
 
@@ -211,7 +245,7 @@ The following feature identifiers must remain consistent throughout the project.
 
 | ID | Feature | Priority |
 |---|---|---|
-| F1 | Trunk introduction and town placement | Must |
+| F1 | Trunk introduction and table placement: detect the real table, anchor Tockton to it, floating stand as fallback | Must |
 | F2 | Frozen town, four machine plots, bakery and theatre facade | Must |
 | F3 | Letter system and parcel opening | Must |
 | F4 | Build mode with pinch-and-snap assembly | Must |
@@ -222,7 +256,7 @@ The following feature identifiers must remain consistent throughout the project.
 | F9 | Clock Tower opens theatre doors on the hour | Should |
 | F10 | Place finished machine and wake town plot | Must |
 | F11 | X-ray view | Must |
-| F12 | Story repair letters and daily repair | Story repairs Must; daily Should |
+| F12 | Story repair letters and daily repair | Must (daily repair lightweight; simplified rather than cut if time is critical, ADR-027) |
 | F13 | Gift one finished machine using a link | Must |
 | F14 | Save and load progress | Must |
 | F15 | Ghost-hand onboarding | Must |
@@ -315,7 +349,7 @@ The Carousel should feel playful but retain the project's elegant vintage aesthe
 When the Windmill operates:
 
 - Chimney smoke appears.
-- Baker kneads.
+- Baker kneads. The baker is Otto (owner decision of 2026-11-06, ADR-039; see [TOCKTON_CHARACTERS.md](TOCKTON_CHARACTERS.md)).
 - Oven glows.
 
 ### Target
@@ -350,6 +384,8 @@ This feature should only be developed after the core machines, town and gifting 
 Letters are the narrative mechanism.
 
 They should feel like physical correspondence from people who live in Tockton.
+
+Only Mira and Otto have figures in Tockton. The schoolteacher and the theatre keeper are roles with no separate figure (owner decision of 2026-11-06, ADR-039; see [TOCKTON_CHARACTERS.md](TOCKTON_CHARACTERS.md)).
 
 ## Letter 1 — Mira
 
@@ -442,15 +478,17 @@ Replace the incorrect gear with a 24-tooth gear.
 
 ## Daily repair
 
-A deterministic daily repair may be implemented.
+A lightweight, deterministic daily repair gives the player a reason to come back each day (ADR-027).
 
 Rules:
 
 - Available after Letter 5.
 - Deterministic based on local date.
 - Only one completion per date.
+- Never required to finish the story.
+- Reuses the machines, parts and repair faults the game already has; adds no new machine or system.
 
-This is lower priority.
+It is protected: it is built after the core loop, Carousel, Windmill, placement and gifting and must not delay them. If time is critical, simplify it rather than remove it.
 
 ---
 
@@ -634,7 +672,7 @@ Required fields:
 - Letter statuses.
 - Machine build state.
 - Machine placements.
-- Daily repair completion dates.
+- Date of the last daily repair completion.
 - Accessibility settings.
 - X-ray hint.
 - Night setting.
@@ -762,18 +800,21 @@ If development falls behind, cut in this order:
 
 1. Clock Tower and theatre hourly behaviour.
 2. Day/night toggle.
-3. Daily repair.
-4. Decoy parts.
+3. Decoy parts.
+
+If time is still critical, simplify the daily repair rather than remove it (ADR-027).
 
 Never cut:
 
 - Core Music Box gameplay.
 - Hands-first interactions.
 - Mechanical solver.
+- Table detection and anchoring, with the floating stand as fallback.
 - Town placement.
 - Town wake effect.
 - Gift link.
 - Onboarding.
+- The repeat-play daily repair, in simplified form if needed.
 
 Do not allow lower-priority features to delay the first complete gameplay loop.
 
@@ -784,7 +825,7 @@ Do not allow lower-priority features to delay the first complete gameplay loop.
 Wound Up is successful when:
 
 1. A player can enter the experience quickly.
-2. The trunk and town create an immediate sense of discovery.
+2. The trunk and town stand on the player's own table, or on the stand when no table can be used, and create an immediate sense of discovery.
 3. The player understands the first letter.
 4. The player can assemble the Music Box using hands.
 5. Mechanical assembly feels precise and satisfying.

@@ -80,9 +80,11 @@ Use the remaining time intelligently.
 
 Do not spend several days polishing a low-priority system while the core gameplay loop is incomplete.
 
-The Music Box gameplay loop, hand interaction, town awakening, onboarding and gifting are core priorities.
+The Music Box gameplay loop, hand interaction, table detection and anchoring, town awakening, onboarding and gifting are core priorities.
 
-Clock Tower, daily repair and day/night features are lower priority and may be cut according to the roadmap.
+The core priority remains a polished, fully playable hands-first experience. New features must not destabilise core gameplay or compromise the 60 FPS minimum on Quest hardware (owner direction, 2026-11-05).
+
+Clock Tower and day/night are lower priority and are the first features cut, according to the roadmap. The daily repair is protected repeat play: lightweight and deterministic, simplified rather than removed if time is critical, and never allowed to delay the core loop (ADR-027).
 
 ---
 
@@ -94,22 +96,23 @@ Before doing any work, read:
 2. `docs/PRODUCT_SPEC.md`
 3. `docs/COMPETITION_REQUIREMENTS.md`
 4. `docs/TECHNICAL_ARCHITECTURE.md`
-5. `docs/GAMEPLAY_AND_INTERACTION.md`
+5. `docs/GAMEPLAY_SYSTEMS.md` and `docs/INTERACTION_SPEC.md`
 6. `docs/SIMULATION_SPEC.md`
-7. `docs/CONTENT_AND_BLUEPRINTS.md`
+7. `docs/DATA_AND_BLUEPRINT_SPEC.md`
 8. `docs/ACCEPTANCE_TESTS.md`
 9. `docs/BUILD_ROADMAP.md`
 10. `docs/AGENT_WORKFLOW.md`
 11. `docs/DECISIONS.md`
-12. The original Technical Design Doc in `docs/reference/`
+12. `docs/APP_AND_WEBSITE_GUIDELINES.md` (how the app and website must be: competition tests and entry screen)
+13. `docs/REFERENCE_INDEX.md` (the reference boards guide appearance only; written specifications win, ADR-029)
 
-The original Wound Up Technical Design Doc is the authoritative product and technical specification.
+The original Wound Up Technical Design Doc is not in the repository (`docs/reference/` does not exist). The owner has been asked whether it exists: owner decision pending ([decision 1](docs/PRODUCTION_AUDIT.md#decisions-needed-from-the-owner)). Until it is supplied, the documents above, as amended by the accepted decisions in `docs/DECISIONS.md`, are the product and technical specification.
 
 The competition's official rules are authoritative for submission requirements.
 
 If a requirement is ambiguous:
 
-1. Search the original specification.
+1. Search the specification documents above.
 2. Inspect existing implementation and architecture.
 3. Research official documentation when necessary.
 4. Select the simplest implementation that satisfies acceptance criteria.
@@ -381,7 +384,7 @@ Use Blender to create or refine important 3D assets such as:
 
 Do not rely on crude collections of primitive boxes and cylinders for the final game.
 
-Procedural geometry is appropriate for repetitive mechanical parts such as gears, shafts, pins and springs. It is not automatically the best approach for every major visual object.
+Repetitive mechanical parts such as gears, shafts, pins and springs are built as parametric Blender GLB families (ADR-031), not as TypeScript geometry. A parametric family is not automatically the best approach for every major visual object.
 
 ### Blender asset workflow
 
@@ -414,7 +417,7 @@ Do not place enormous unoptimised Blender files or textures in the production do
 - No unnecessary high-poly objects that damage Quest performance.
 - No assets without suitable interaction colliders.
 
-Use custom procedural parts where they provide precision, consistency and good performance.
+Use parametric Blender part families where they provide precision, consistency and good performance (ADR-031).
 
 Use Blender for artistically important objects where manual modelling provides a better result.
 
@@ -660,20 +663,30 @@ Do not add expensive post-processing passes.
 
 Establish a documented asset pipeline before producing large amounts of 3D content.
 
-Create or maintain:
+Folders (ADR-033 in `docs/DECISIONS.md`):
 
-- `assets/blender/` for Blender source files.
-- `assets/models/` for exported GLB models.
-- `assets/materials/` for material definitions and textures.
-- `assets/references/` for approved references.
-- `docs/ASSET_PIPELINE.md` for modelling and export standards.
+- `blender/source/<family>/` for Blender source files.
+- `blender/scripts/` for the family generators and shared Blender code.
+- `public/assets/models/shared/<family>/` and `public/assets/models/tockton/<family>/` for competition (G0) GLB exports.
+- `public/assets/materials/` for the shared material library textures (ADR-032, accepted by the owner on 2026-11-06 and still reversible; [decision 4](docs/PRODUCTION_AUDIT.md#decisions-needed-from-the-owner)).
+- `assets/future/<world_id>/<family>/` for post-competition GLBs, kept outside `public/` so they never ship.
+- `assets/manifest/glb-manifest.json` for the machine-readable asset manifest.
+- `References/` for the reference boards (working folder, never shipped, ADR-017).
+
+Documents:
+
+- `docs/ART_ASSET_PIPELINE.md` for art direction, modelling and export standards.
+- The asset documents of the production directive (Part 4): `docs/MASTER_ASSET_INVENTORY.md`, `docs/GLB_ASSET_MANIFEST.md`, `docs/ASSET_NAMING_AND_FOLDER_STANDARDS.md`, `docs/BLENDER_PRODUCTION_GUIDELINES.md`, `docs/GLB_EXPORT_AND_VALIDATION.md`, `docs/ASSET_OPTIMISATION_BUDGET.md`, `docs/ASSET_REFERENCE_MAPPING.md`, `docs/ASSET_PRODUCTION_ROADMAP.md`, `docs/ASSET_AGENT_ASSIGNMENTS.md` and `docs/ASSET_QA_CHECKLIST.md`.
+- `blender/README.md` for running the generators.
 - `docs/CREDITS.md` for licenses and external sources.
 
 Use Blender for the major visual objects.
 
-Use custom TypeScript procedural generators for mechanical components when that is more appropriate.
+Build the mechanical parts in Blender too, as parametric GLB families driven by manifest entries and cached and instanced at runtime (ADR-031). The game does not generate part geometry in TypeScript.
 
-The final result must be visually consistent across Blender and procedural models.
+One GLB is a distinct mesh set with its own purpose; a finish is a runtime material and repeated pieces are instances (ADR-030). Budgets are in ADR-034 and the validation gate in ADR-037.
+
+The final result must be visually consistent across hand-modelled and parametric assets.
 
 Do not let separate agents create assets with incompatible scale, coordinate systems, material naming or pivot conventions.
 
@@ -698,6 +711,7 @@ Responsibilities:
 - Shared interfaces.
 - IWSDK setup.
 - Runtime integration.
+- Table detection, anchoring and the floating-stand fallback.
 - Dependency management.
 - Git branches and merges.
 - Quality assurance.
@@ -706,7 +720,10 @@ Responsibilities:
 Owns:
 
 - `CLAUDE.md`
-- `src/main.ts`
+- `src/index.ts` (the application entry point; ADR-017)
+- `src/placement.ts`
+- `src/stage.ts`
+- `iwsdk.config.json`
 - Shared application integration.
 - Shared configuration.
 - Architecture documentation.
@@ -732,22 +749,15 @@ Owns:
 
 Must never import Three.js, IWSDK or browser APIs.
 
-## Agent 2 — Procedural Mechanical Parts
+## Agent 2 — Part Catalogue and Runtime Parts
 
 Responsibilities:
 
-- Spur gears.
-- Bevel gears.
-- Shafts.
-- Springs.
-- Cranks.
-- Cams.
-- Escapements.
-- Pendulums.
-- Mechanical component variants.
-- Geometry caching.
-- Part catalogue.
+- Part catalogue (part definitions, finishes mapped to library materials).
 - Blueprint data.
+- Runtime loading, caching and instancing of the part GLBs.
+
+Agent 2 does not generate part geometry. The part GLBs are parametric Blender families built by the mechanical library asset agent (ADR-031).
 
 Owns:
 
@@ -755,7 +765,7 @@ Owns:
 - `src/content/parts/**`
 - `src/content/blueprints/**`
 
-Coordinates interfaces with Agent 1.
+Coordinates interfaces with Agent 1, and with the asset production agents on asset ids, sockets and colliders.
 
 ## Agent 3 — Hand Interaction
 
@@ -785,7 +795,7 @@ Must not independently change XR initialization or shared app entrypoints.
 Responsibilities:
 
 - Tockton diorama.
-- Major Blender models.
+- Integration of the town's GLBs (their sources belong to the asset production agents).
 - Town plots.
 - Bakery.
 - Theatre facade.
@@ -798,9 +808,32 @@ Owns:
 
 - `src/town/**`
 - `src/audio/**`
-- Assigned model and visual asset directories.
+- The scene and visual directories named in its task brief (no GLB sources or exports).
 
 Must consume solver output rather than implementing mechanical correctness.
+
+Must build under the stage root and read its scale rather than detecting surfaces.
+
+## Asset production agents
+
+Status: accepted (ADR-038, `docs/AGENT_OWNERSHIP_MATRIX.md`).
+
+Blender asset work follows `docs/PRODUCTION_AUDIT.md` §12; assignments per family are in `docs/ASSET_AGENT_ASSIGNMENTS.md`.
+
+| Agent | Builds | Owns |
+|---|---|---|
+| Asset framework | Shared Blender material library, family generator framework, GLB validator, manifest tooling | `tools/`, `blender/scripts/lib/` |
+| Mechanical library | Family A: gears, shafts, springs and the other mechanical parts | Its family folders |
+| Machines | Families C to F: Music Box, Carousel, Windmill and Bakery, Clock Tower and Theatre | Its family folders |
+| World | Families B, G, H and I: trunk and workshop, Tockton environment, residents, gift and presentation | Its family folders |
+| Manifest checker | Naming, manifest validation and cross-checks for each batch | Read-only |
+
+Rules (directive Part 7.4):
+
+- Each `.blend` and each GLB has exactly one owner at a time. Agents write only in their own family folders under `blender/source/` and `public/assets/models/`.
+- Agents do not edit `assets/manifest/glb-manifest.json` in parallel; they report entry changes and the lead merges them.
+- Production starts per family only after the pilot batch passes (directive Part 13, Phase 4).
+- An exported GLB is not VALIDATED until the validator passes (ADR-037).
 
 ## Additional agents when useful
 
@@ -813,6 +846,7 @@ A gameplay and progression agent may later own:
 - Gift viewer.
 - Pause menu.
 - Progression.
+- Daily repair (ADR-027 protects the feature).
 
 A separate QA agent may own:
 
@@ -821,6 +855,9 @@ A separate QA agent may own:
 - Build checks.
 - Performance profiling.
 - Regression testing.
+- The final quality checklist for the judging criteria (`docs/ACCEPTANCE_TESTS.md` §18), signed off by Agent 0.
+
+Until these agents exist, Agent 0 owns their work (ADR-038; `docs/AGENT_OWNERSHIP_MATRIX.md` section 3).
 
 Do not create agents merely to increase agent count.
 
@@ -926,10 +963,12 @@ Use the IWSDK desktop emulator with emulated hands.
 
 Verify all required interactions there.
 
+Verify table placement logic and the stand fallback in all of its built-in rooms. Emulated planes do not prove real-world plane detection.
+
 When possible, arrange a tester with Quest 3 or Quest 3S to verify:
 
 - MR session entry.
-- Table plane detection.
+- Real-world table detection and anchor stability.
 - Hand tracking.
 - Pinch and release.
 - Physical interaction comfort.
@@ -977,7 +1016,7 @@ Do not build:
 - Unreal.
 - Native APK.
 
-These features are excluded even if they appear attractive.
+These features are excluded from the competition build (G0) even if they appear attractive; later-generation documents may describe them only as labelled future design under the scope firewall (ADR-028 in `docs/DECISIONS.md`), which never adds competition scope.
 
 ---
 
@@ -1066,6 +1105,7 @@ No feature implementation until the documentation audit is complete.
 ## Phase 2 — Music Box vertical slice
 
 - Simulation solver.
+- Table detection and anchoring, with the floating-stand fallback.
 - Mechanical part generation.
 - Socket snapping.
 - Wind gesture.
@@ -1107,7 +1147,7 @@ This is the first major gameplay milestone.
 ## Phase 6 — Remaining features
 
 - Clock Tower if time permits.
-- Daily repair if time permits.
+- Daily repair (lightweight, deterministic; simplified rather than cut).
 - Day/night if time permits.
 - Accessibility.
 - Pause menu.
@@ -1116,6 +1156,7 @@ This is the first major gameplay milestone.
 
 - Quest performance.
 - XR interaction QA.
+- Real-world table and anchor validation.
 - Visual polish.
 - Audio mix.
 - Bug fixing.

@@ -6,7 +6,8 @@
 **Primary platform:** Meta Quest 3 / Quest 3S  
 **Framework:** IWSDK 1.x  
 **Language:** TypeScript  
-**Internal completion deadline:** November 18, 2026 (IST)
+**Internal completion deadline:** November 18, 2026 (IST)  
+**Later generations (proposals, labelled G1 to G5; this document stays authoritative for the competition build):** [MASTER_SYSTEM_ARCHITECTURE.md](MASTER_SYSTEM_ARCHITECTURE.md), [MECHANICAL_ENGINE_V2.md](MECHANICAL_ENGINE_V2.md), [SPATIAL_WORLD_SYSTEM.md](SPATIAL_WORLD_SYSTEM.md), [WORLD_SIMULATION_SPEC.md](WORLD_SIMULATION_SPEC.md), [WORLD_REGISTRY_AND_LOADING.md](WORLD_REGISTRY_AND_LOADING.md)
 
 ---
 
@@ -80,6 +81,7 @@ Use the framework's built-in capabilities where appropriate, especially for:
 - Ray interactions.
 - Gaze interactions.
 - Reference spaces.
+- Plane detection and anchors.
 - Scene lifecycle.
 
 Custom code should be limited to gameplay-specific behaviour that the framework does not already provide.
@@ -95,6 +97,7 @@ Responsibilities:
 - Application startup.
 - Device capability detection.
 - Immersive session entry.
+- Table detection and anchoring, with the floating stand as fallback.
 - Desktop fallback.
 - Application lifecycle.
 - Asset loading.
@@ -265,7 +268,7 @@ Conceptual sequence:
 6. Display the landing experience.
 7. Wait for the user's Enter action.
 8. Request the appropriate immersive session when supported.
-9. Initialise the world.
+9. Initialise the world and place it: on the chosen table, otherwise on the floating stand (section 6.4).
 10. Start the game state machine.
 11. Handle pause, resume, and session exit.
 12. Clean up resources when the application is disposed.
@@ -284,13 +287,13 @@ Preferred when supported and appropriate.
 
 Use the verified IWSDK/WebXR path for immersive AR.
 
-The physical table should act as the intended spatial reference when the necessary capabilities are available.
+The physical table is the spatial reference: the town is placed on it and anchored to it (section 6.4). When plane detection or anchoring is unavailable or declined, or no surface is suitable, the same session uses the floating velvet stand instead.
 
 ### 6.2 Immersive VR
 
 Use as a fallback immersive presentation mode.
 
-The game should present the miniature world on a floating velvet stand when physical table placement is unavailable.
+The real table is not visible in this mode, so the game always presents the miniature world on the floating velvet stand.
 
 The floating stand should preserve the same gameplay layout and interaction distances.
 
@@ -312,6 +315,18 @@ The desktop preview must allow meaningful verification of:
 Desktop input can use mouse and keyboard as a development fallback.
 
 Do not let desktop-specific input assumptions leak into the gameplay systems.
+
+### 6.4 Table placement
+
+Table placement is a core feature (ADR-026). `PRODUCT_SPEC.md` §3.2 defines its behaviour and what makes a surface suitable.
+
+- **Session features.** Request `planeDetection` and `anchors` in `iwsdk.config.json` as optional features, so a session never fails because of them. Request no other scene-understanding feature. The game uses only the surfaces the headset reports and never reads camera images.
+- **One decision per session.** From the first tracked head pose, collect reported surfaces for at most about 2 seconds, choose once, anchor, and place the stage root on the table or the stand. Later surface reports, visibility changes such as the headset menu, tracking loss and recentring the headset view do not repeat the choice, and a recentre leaves a table-anchored town on its table.
+- **Pure decision logic.** Suitability, ranking and town scale are pure functions of surface data and head pose, with named constants, in `src/placement.ts`, unit-tested without WebGL. `src/stage.ts` feeds them verified IWSDK data and applies the result.
+- **Stage root.** The trunk, town and workbench live under one stage root, with its origin on the surface (ADR-020). Town scale applies to town content only (`INTERACTION_SPEC.md` §3). Town and interaction code read the stage root; they never detect surfaces themselves.
+- **Fallback.** Unavailable, declined or failed features and an empty or unsuitable surface list all lead to the floating stand, with no error shown. The stand is placed from the eye position at the moment the choice falls back to it (`PRODUCT_SPEC.md` §3.2, ADR-019); recentring the headset view places only the stand again, without a new surface choice.
+- **Frame budget.** No surface work runs per frame after the choice, and detected surfaces are never drawn in the shipped game. Table placement must not threaten the 60 FPS floor; measure it on Quest hardware when available.
+- **Evidence.** Emulated planes in the emulator's built-in rooms prove logic and fallback only. Real-world detection needs a physical Quest (`ACCEPTANCE_TESTS.md` §4.1).
 
 ## 7. Game state architecture
 
@@ -749,7 +764,7 @@ Hero assets include:
 - Gift box.
 - Figures and major props.
 
-Mechanical components that repeat frequently may be generated procedurally in TypeScript where appropriate.
+Mechanical components that repeat frequently (gears, shafts, springs and so on) are built in Blender as parametric GLB families, loaded once, cached and placed as instances (ADR-031). The game does not generate part geometry in TypeScript.
 
 ### 19.1 Source and export conventions
 
@@ -767,12 +782,14 @@ Use descriptive asset names:
 
 ```text
 trunk_main.blend
-town_bakery.blend
-town_windmill.blend
-machine_music_box.blend
-machine_carousel.blend
-machine_clock_tower.blend
+bakery_building.blend
+windmill_tower.blend
+music_box_case.blend
+carousel_platform.blend
+clock_tower_shell.blend
 ```
+
+Names are asset ids (ADR-033): a hand-modelled source is `blender/source/<family>/<asset_id>.blend`. No file holds an assembled machine; a machine is its part files plus its housing files (ADR-030 item 5).
 
 Runtime exports should use GLB/glTF.
 
@@ -822,6 +839,7 @@ Rules:
 - Avoid per-frame allocations.
 - Avoid unnecessary scene graph traversal.
 - Keep solver execution outside per-frame rendering loops.
+- Keep table placement out of the frame loop: surface work happens once per session.
 - Use deterministic animation values.
 - Dispose of unused resources correctly.
 
@@ -851,6 +869,7 @@ Priorities:
 - Gift payload validation.
 - Save-data validation.
 - Progression transitions.
+- Table suitability and town scale.
 
 ### 21.2 Integration tests
 
@@ -892,8 +911,9 @@ Test:
 - Placement.
 - UI.
 - Error handling.
+- Table placement logic and the stand fallback, in all built-in rooms.
 
-The emulator is the development baseline because the developer does not have a Quest headset.
+The emulator is the development baseline because the developer does not have a Quest headset. Emulated planes are not evidence of real-world plane detection.
 
 ### 21.5 Hardware testing
 
@@ -902,6 +922,7 @@ Arrange a Quest 3 or Quest 3S tester for final validation.
 Hardware testing should cover:
 
 - WebXR session entry.
+- Real-world table detection and anchor stability.
 - Hand tracking.
 - Seated comfort.
 - Interaction reach.
@@ -953,6 +974,8 @@ Do not introduce these systems without an explicit change to the product scope.
 
 Parallel agents must have clear file ownership.
 
+The roster, owned paths and gates used in the production phase are in [AGENT_OWNERSHIP_MATRIX.md](AGENT_OWNERSHIP_MATRIX.md) (accepted as ADR-038). Where this list differs, the matrix wins. The list below is the original scheme.
+
 Suggested ownership:
 
 - Agent A: IWSDK bootstrap and platform lifecycle.
@@ -970,6 +993,7 @@ The lead agent owns:
 - Integration.
 - Conflict resolution.
 - Final quality gate.
+- XR features and table placement (`iwsdk.config.json`, `src/placement.ts`, `src/stage.ts`).
 
 Agents must not independently redefine shared types or change architecture contracts.
 

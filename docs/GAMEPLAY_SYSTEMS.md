@@ -61,7 +61,7 @@ The game has six primary modes.
 
 ### 3.1 Town
 
-The player explores the miniature town visually and interacts with available letters, plots, and completed machines.
+The player explores the miniature town visually and interacts with available letters, plots, and completed machines. The town stands on the player's real table, or on the floating stand when no table can be used (`PRODUCT_SPEC.md` §3.2).
 
 Responsibilities:
 
@@ -160,7 +160,7 @@ Completion should be based on the associated gameplay objective.
 - The Carousel becomes available through its letter.
 - The Windmill becomes available through its letter.
 - The Clock Tower is a lower-priority feature and may be cut.
-- Daily repair content is optional and must not block the main story.
+- The daily repair is protected repeat play (ADR-027) and must not block the main story.
 
 ## 5. Letter system
 
@@ -417,7 +417,7 @@ The game should show the machine's behaviour clearly enough for the player to un
 - Millstone operates.
 - Flour puffs appear.
 - Bakery chimney emits smoke.
-- Baker performs a kneading animation.
+- Baker performs a kneading animation. The baker is Otto (ADR-039; [TOCKTON_CHARACTERS.md](TOCKTON_CHARACTERS.md)).
 - Oven glows.
 - Target millstone speed: 0.6 rad/s, within ±15%.
 
@@ -475,7 +475,7 @@ Solution:
 
 ### 12.3 Daily repair
 
-Daily repair is optional.
+Daily repair is protected repeat play (ADR-027): lightweight and deterministic, reusing existing machines, parts and repair faults, and simplified rather than cut if time is critical.
 
 It should become available after Letter 5 and use the local date as its seed.
 
@@ -713,28 +713,30 @@ Priority order:
 1. Music Box assembly and operation.
 2. Hands-first interaction.
 3. Mechanical solver.
-4. Machine placement.
-5. Town restoration.
-6. Letters and progression.
-7. Save and load.
-8. Music Box repair.
-9. Carousel.
-10. Windmill and Bakery.
-11. Gifting.
-12. X-ray.
-13. Accessibility.
-14. Clock Tower.
+4. Table detection and anchoring, with the floating stand as fallback.
+5. Machine placement.
+6. Town restoration.
+7. Letters and progression.
+8. Save and load.
+9. Music Box repair.
+10. Carousel.
+11. Windmill and Bakery.
+12. Gifting.
+13. X-ray.
+14. Accessibility.
 15. Daily repair.
-16. Day/night toggle.
+16. Clock Tower.
+17. Day/night toggle.
 
 If the deadline becomes tight, cut in this order:
 
 1. Clock Tower.
 2. Day/night toggle.
-3. Daily repair.
-4. Decoy parts.
+3. Decoy parts.
 
-Never cut the complete Music Box loop, hands-first interaction, town placement and wake-up, or the core gift-sharing experience without an explicit product decision.
+If time is still critical, simplify the daily repair rather than remove it (ADR-027).
+
+Never cut the complete Music Box loop, hands-first interaction, table detection and anchoring with its stand fallback, town placement and wake-up, the core gift-sharing experience, or the daily repair (in simplified form if needed) without an explicit product decision.
 
 ## 23. Final gameplay principle
 

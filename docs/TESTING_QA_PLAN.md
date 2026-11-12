@@ -63,8 +63,9 @@ Purpose:
 - Test immersive session transitions.
 - Test interaction state changes.
 - Detect browser integration problems.
+- Test table placement logic and the stand fallback in every built-in room: `sunlit_living_room`, `home_office`, `conference_room`, `open_office`, `kitchen`, `bedroom`, `music_studio`, `open_studio`.
 
-Emulator success is not equivalent to physical Quest hardware verification.
+Emulator success is not equivalent to physical Quest hardware verification. Emulated planes are not evidence of real-world plane detection.
 
 ### 3.3 Quest 3 / Quest 3S
 
@@ -72,7 +73,7 @@ Purpose:
 
 - Real headset validation.
 - Hand tracking.
-- Spatial placement.
+- Real-world table detection, anchor stability and spatial placement.
 - Seated comfort.
 - Frame rate.
 - Visual quality.
@@ -81,7 +82,7 @@ Purpose:
 
 The project owner does not have a Quest headset.
 
-A real Quest 3 or Quest 3S tester must be arranged for final verification.
+A real Quest 3 or Quest 3S tester must be arranged for final verification. Until then, the real-world table tests (`ACCEPTANCE_TESTS.md` TBL-13 to TBL-18) and stand comfort (STAND-05) stay Blocked.
 
 Record the exact headset model and browser used.
 
@@ -117,6 +118,7 @@ Focus:
 - Gift payload validation.
 - Progression rules.
 - State transitions.
+- Table suitability and town scale.
 - Utility functions.
 
 Use Vitest.
@@ -170,6 +172,7 @@ Automated browser tests cannot replace this level.
 
 - Application does not load.
 - Immersive session cannot start where supported.
+- A session fails, or play is blocked, because plane detection or anchoring is unavailable.
 - Desktop fallback fails.
 - Core Music Box loop cannot be completed.
 - Solver gives incorrect results.
@@ -182,6 +185,8 @@ Automated browser tests cannot replace this level.
 ### P1 — High Priority
 
 - Snapping frequently fails.
+- The town drifts or jumps during a session.
+- Table placement chooses an unusable surface (the floor, out of reach or too small).
 - Save/load loses progress.
 - Audio loops do not stop.
 - Machine animation is incorrect.
@@ -215,6 +220,7 @@ After any change to a core system, rerun its related tests.
 | Persistence | Save, reload, migration, reset |
 | Gifting | Payload validation and viewer |
 | Town | Placement, wake effects, connected building behaviour |
+| Table placement | Surface choice, town scale, anchor stability, stand fallback, all emulator rooms |
 | UI | Main progression and desktop fallback |
 | Build configuration | Production build and deployed smoke test |
 
@@ -235,6 +241,7 @@ Measure:
 - Texture memory.
 - Geometry complexity.
 - Interaction responsiveness.
+- Frame-time cost of plane detection and anchors.
 
 Avoid relying on desktop frame rate as a Quest performance indicator.
 
@@ -280,7 +287,7 @@ Test:
 - Gaze-and-pinch fallback.
 - Easy Snap.
 
-Test with different hand positions and realistic seated reach.
+Test with different hand positions and realistic seated reach, on a table and on the stand.
 
 Do not assume that an interaction works because it works with a mouse.
 
@@ -358,6 +365,7 @@ Must pass:
 
 Must pass:
 
+- Town stands on an emulated table, and falls back to the stand when no surface can be used.
 - Town opens.
 - Letter progression works.
 - Music Box assembles.
@@ -395,6 +403,7 @@ Must pass:
 - [ ] Application loads from the deployed URL.
 - [ ] Desktop fallback works.
 - [ ] WebXR session flow works where supported.
+- [ ] Table placement and the stand fallback work.
 - [ ] Town introduction works.
 - [ ] Letters progress correctly.
 - [ ] Music Box can be assembled.
@@ -411,4 +420,5 @@ Must pass:
 - [ ] Performance has been reviewed.
 - [ ] Quest testing status is honestly documented.
 - [ ] Final demo recording has been reviewed.
+- [ ] The judging-criteria checklist (`ACCEPTANCE_TESTS.md` §18) is complete, with the evidence level of each item recorded.
 

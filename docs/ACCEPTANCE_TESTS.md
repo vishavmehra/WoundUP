@@ -14,6 +14,7 @@ A feature is not complete merely because it has been implemented. It is complete
 Acceptance testing must cover:
 
 - Core gameplay.
+- Table placement.
 - Interaction.
 - Mechanical correctness.
 - Progression.
@@ -69,6 +70,47 @@ Record the build or commit tested, test environment, date, and any relevant evid
 | APP-07 | Reload deployed page | Application loads from the public URL | Browser |
 | APP-08 | Open from a sub-path (not only the domain root) | All assets load correctly | Browser |
 
+### 4.1 Table placement and anchoring
+
+Behaviour and the meaning of "suitable" are in `PRODUCT_SPEC.md` §3.2.
+
+| ID | Test | Expected result | Type |
+|---|---|---|---|
+| TBL-01 | One level surface at table height, in reach and large enough | Surface is chosen; town is at full size | Unit |
+| TBL-02 | Each alone: a vertical surface, the floor, a surface above the eyes, one out of reach, one too small | Surface is rejected; result is the stand | Unit |
+| TBL-03 | Surface that fits the town only below full size | Town scales evenly to fit, never below 75% or above 100%, with its whole footprint on the surface | Unit |
+| TBL-04 | Several suitable surfaces, in any report order | The same surface is chosen every time; one labelled table or desk is preferred | Unit |
+| TBL-05 | Seated head pose, facing a table where the room has one, in each built-in room: `sunlit_living_room`, `home_office`, `conference_room`, `open_office`, `kitchen`, `bedroom`, `music_studio`, `open_studio` | Town stands on the table when a suitable surface is reported, otherwise on the stand. The session never fails. Outcome recorded per room | Emulator |
+| TBL-06 | Start a session with plane detection withheld, then with anchors withheld | Session starts; stand appears; no error or extra step | Emulator |
+| TBL-07 | No surfaces reported | Stand appears within about 2 seconds of the first tracked head pose; trunk opens normally | Emulator |
+| TBL-08 | During a session: move the head, change visibility as the headset menu does, recentre the headset view, change or remove the chosen surface | Town does not move and no second choice is made | Emulator |
+| TBL-09 | End the session and enter again without reloading | A new choice is made; progress is intact; `woundup.save` holds no coordinates or surface data | Emulator / Integration |
+| TBL-10 | Seated head pose with the town on a table: reach the latch, every plot and the workbench with emulated hands | All are within about 60 cm of the chest and about 35° of the line of sight to the town's centre; the angle of that line below level is recorded, and may exceed 35° on a table (`INTERACTION_SPEC.md` §3) | Emulator |
+| TBL-11 | Town on an emulated table | Stand is hidden; contact shadows lie on the table; town neither floats nor sinks | Visual / Emulator |
+| TBL-12 | Enter in immersive VR, and open the desktop preview | Stand is always used; no surface choice is attempted | Emulator / Browser |
+| TBL-13 | Real table in a room known to the headset (record device, browser, room) | Table is detected; trunk and town stand on it with no obvious gap or sinking | Hardware |
+| TBL-14 | Full Music Box loop on a real table, including the headset menu, a recentre and a brief tracking loss | Anchor holds; no visible drift or jump | Hardware |
+| TBL-15 | No table in reach; a room not set up on the headset; permission declined | Stand appears; session continues without errors | Hardware |
+| TBL-16 | Rooms and tables not used before: desk, dining table, low or small table | A reachable surface or the stand is chosen; town scale fits; play is not disrupted | Hardware |
+| TBL-17 | Seated reach and viewing comfort on a real table | Latch, plots and workbench are in comfortable reach; viewing angle is comfortable | Hardware |
+| TBL-18 | Frame rate with plane detection and anchors on | Target 72 FPS, never below 60; device and build recorded | Hardware |
+
+TBL-13 to TBL-18 are **Blocked**. Reason: there is no headset and no named Quest tester. Action: arrange a Quest 3 or Quest 3S tester (`BUILD_ROADMAP.md` TP-7). Emulated planes are not evidence of real-world plane detection, so passing TBL-05 to TBL-12 never unblocks them.
+
+### 4.2 Fallback stand
+
+Position: about 55 cm ahead and 38 cm below the eyes, measured from the eye position when the stand is placed (`PRODUCT_SPEC.md` §3.2). Angles are measured as defined in `INTERACTION_SPEC.md` §3.
+
+| ID | Test | Expected result | Type |
+|---|---|---|---|
+| STAND-01 | Stand pose for several eye heights and facing directions | About 55 cm ahead and 38 cm below the eyes at every height, facing the player | Unit |
+| STAND-02 | Seated head pose in the emulator with no surface: measure from the eyes to the stand | About 38 cm below and 55 cm ahead, no more than about 35° below a level head-forward; angle recorded | Emulator |
+| STAND-03 | Seated head pose with the town on the stand: reach the latch, every plot and the workbench with emulated hands | All are within about 60 cm of the chest and about 35° of the line of sight to the town's centre; the viewing angle is recorded | Emulator |
+| STAND-04 | During a session: open the headset menu and move the head; then change eye height and recentre | Menu and head movement leave the stand where it is; recentring places it again from the new eye position | Emulator |
+| STAND-05 | Seated comfort on the stand through the Music Box loop (record the player's height, seat, device and browser) | Viewing angle and reach are comfortable; any adjustment needed is recorded | Hardware |
+
+STAND-05 is **Blocked**, for the same reason and with the same action as TBL-13 to TBL-18. Passing STAND-02 to STAND-04 never unblocks it.
+
 ## 5. Introduction and progression
 
 | ID | Test | Expected result | Type |
@@ -81,6 +123,18 @@ Record the build or commit tested, test environment, date, and any relevant evid
 | PROG-06 | Complete first machine | Associated progression state updates | Integration |
 | PROG-07 | Unlock next letter | Only valid progression conditions unlock it | Unit / Integration |
 | PROG-08 | Reload after progression | Saved progression is restored | Integration |
+
+### 5.1 Daily repair
+
+Rules: `PRODUCT_SPEC.md` §8 and ADR-027. Unit tests pass the local date in rather than reading the clock.
+
+| ID | Test | Expected result | Type |
+|---|---|---|---|
+| DAILY-01 | Progress state before Letter 5, then after it | Not offered before Letter 5; offered after it | Unit |
+| DAILY-02 | Ask for the repair of the same local date twice | The same repair both times | Unit |
+| DAILY-03 | Complete the day's repair, then ask again on the same date and on the next date | Not offered again that date; offered again on the next date | Unit |
+| DAILY-04 | Complete the day's repair and reload | Completion survives the reload; `dailyDone` holds that local date | Integration |
+| DAILY-05 | Finish the story without touching the daily repair | No letter, machine or ending waits on it | Integration |
 
 ## 6. Assembly and interaction
 
@@ -204,6 +258,7 @@ Hardware-dependent gestures must be marked as unverified until tested on a Quest
 - [ ] Town placements persist.
 - [ ] Letter states persist.
 - [ ] Machine completion persists.
+- [ ] Daily completion persists.
 - [ ] Settings persist.
 - [ ] Malformed JSON does not crash the application.
 - [ ] Unsupported versions are handled safely.
@@ -260,6 +315,7 @@ Check:
 - Transparent surfaces.
 - Lighting cost.
 - Animation cost.
+- Plane detection and anchor cost.
 - Solver execution frequency.
 - Memory growth during repeated interactions.
 
@@ -278,10 +334,10 @@ A release candidate must satisfy:
 - Public Vercel URL works.
 - All assets load from the deployed path.
 - README is complete.
-- Repository is accessible.
+- Repository is presentable, if the owner shares it (ADR-022).
 - Demo video is under three minutes.
 - Submission information is complete.
-- Known limitations are documented.
+- Known limitations are documented, including real-world table placement and stand comfort if they have no Hardware evidence.
 
 ## 17. Release blockers
 
@@ -289,6 +345,8 @@ The following are release blockers:
 
 - Core Music Box loop cannot be completed.
 - Hands-first core interaction is unusable.
+- A session fails, or play is blocked, because plane detection or anchoring is unavailable.
+- The town jumps or drifts during a session in a way that interrupts play.
 - Machine placement or town restoration is broken.
 - Gift viewer crashes on malformed data.
 - Production deployment cannot load.
@@ -296,9 +354,63 @@ The following are release blockers:
 - Critical runtime errors prevent gameplay.
 - Save corruption causes unrecoverable application failure.
 
-Optional features such as Clock Tower, daily repair, and day/night must not become release blockers if they are cut according to the roadmap.
+Optional features such as Clock Tower and day/night must not become release blockers if they are cut according to the roadmap.
 
-## 18. Final acceptance rule
+## 18. Final quality checklist: judging criteria
+
+Judges first check that the entry fits the theme and uses the required tools, then score four criteria at 25% each (Official Rules §6, summarised in `APP_AND_WEBSITE_GUIDELINES.md` §5). Run this checklist before submission, after §16.
+
+Record a status for each item as in §3. "Evidence that counts" names the classification (§2) that can pass it. A desktop, Browser or Emulator result is never a Hardware pass: an item that needs Hardware stays Blocked until a Quest test is recorded, and is listed with the known limitations (§16).
+
+The QA agent keeps this checklist and its evidence current; the lead signs it off as part of the release decision. Without a QA agent, the lead does both.
+
+### Before scoring (pass or fail)
+
+| ID | Check | Proven by | Evidence that counts |
+|---|---|---|---|
+| JUD-01 | The entry fits the theme, the Gaming track and the New Experience division, and uses the required tools | `APP_AND_WEBSITE_GUIDELINES.md` §4, §7 | Manual |
+
+### Innovation & Creativity (25%)
+
+| ID | Check | Proven by | Evidence that counts |
+|---|---|---|---|
+| JUD-02 | An original idea that depends on presence and real-world scale: a clockwork town standing on the player's own table | `PROJECT_BIBLE.md`; `PRODUCT_SPEC.md` §3.2; TBL-11, TBL-13 | Visual / Emulator; Hardware for a real table |
+| JUD-03 | Machines work because their mechanisms work: the solver decides the result, not a canned animation | SOL-01 to SOL-12; §8 | Unit / Integration |
+| JUD-04 | Device capabilities drive play: hands-first assembly, scene understanding and anchors for the table, a gaze path | §4.1, §6, §11 | Emulator for the flow; Hardware for real hands and surfaces |
+
+### Experience Design (25%)
+
+| ID | Check | Proven by | Evidence that counts |
+|---|---|---|---|
+| JUD-05 | Seated, hands-first journey: the whole main loop is done sitting, with no controller, no standing and no locomotion | `APP_AND_WEBSITE_GUIDELINES.md` §1; INT-01 to INT-08, WIND-01 to WIND-05, TOWN-01 | Emulator for the flow; Hardware for real hands |
+| JUD-06 | Passthrough is purposeful and the real room changes the experience: the table is the town's ground, shadows fall on it, its size sets the town's scale; the stand is only the fallback | `PRODUCT_SPEC.md` §3.2; TBL-03, TBL-11, TBL-13 | Unit / Visual / Emulator for behaviour; Hardware for a real room |
+| JUD-07 | FoV-aware: essential UI and interactions stay within about 35° of the line of sight to the town's centre and about 60 cm of the chest, on a table and on the stand; the stand's centre sits no more than about 35° below a level head-forward (angles as defined in `INTERACTION_SPEC.md` §3) | `INTERACTION_SPEC.md` §3; `UI_UX_SPEC.md` §23; TBL-10, STAND-02, STAND-03, TBL-17, STAND-05 | Emulator for angle and reach; Hardware for comfort |
+| JUD-08 | Onboarding without a wall of text: ghost hands teach the steps in `COMPETITION_REQUIREMENTS.md` §5.1, and a first-time player finishes the Music Box loop within 5 minutes | `PRODUCT_SPEC.md` §15; `UI_UX_SPEC.md` §24; `COMPETITION_REQUIREMENTS.md` §5.2 | Manual with a first-time tester (record emulator or Quest) |
+| JUD-09 | Habit-forming reason to return: letters unlock across sessions, progress survives a reload, a daily repair each local day, a machine to gift | PROG-07, PROG-08, DAILY-01 to DAILY-05; §12, §13; `PRODUCT_SPEC.md` §8 | Unit / Integration / Browser |
+| JUD-10 | Easy in, easy out: menus work by hand, pause and resume are clean, exiting returns to a valid state | APP-06; `UI_UX_SPEC.md` §19 | Emulator; Hardware for APP-06 |
+
+### Technical Implementation (25%)
+
+| ID | Check | Proven by | Evidence that counts |
+|---|---|---|---|
+| JUD-11 | Minimum 60 fps on Quest hardware (target 72) through the main loop, with plane detection and anchors on | §15; TBL-18 | Hardware only |
+| JUD-12 | Hand tracking end to end: pinch, grab, snap, remove, wind, run and place with tracked hands | INT-01 to INT-08, WIND-01 to WIND-07, TOWN-01 to TOWN-03 | Emulator for the flow; Hardware for real tracking (WIND-02, WIND-03) |
+| JUD-13 | Gaze path: gaze-and-pinch selects, places, removes, winds and runs, and finishes the main loop | §11; WIND-06 | Emulator; Hardware for gaze on a Quest |
+| JUD-14 | Scene understanding and anchoring: a suitable table is chosen, anchored and holds for the whole session | TBL-01 to TBL-09, TBL-13, TBL-14 | Unit / Emulator for logic; Hardware for real detection and drift |
+| JUD-15 | Holds up in rooms the developer never tested: a table or the stand is chosen in every room and a session never fails | TBL-05, TBL-06, TBL-07, TBL-15, TBL-16 | Emulator for logic and fallback; Hardware for real rooms |
+| JUD-16 | Bug-free: no P0 or P1 bugs, no release blocker (§17), automated tests pass, no critical console errors, the public URL loads in a private window | `TESTING_QA_PLAN.md` §5; §16, §17; APP-07, APP-08 | Unit / Browser for build and URL; Hardware for a crash-free headset session |
+
+### Polish & Presentation (25%)
+
+| ID | Check | Proven by | Evidence that counts |
+|---|---|---|---|
+| JUD-17 | Sound design: audio reinforces assembly, winding, mechanical operation and the town waking; levels are balanced; nothing plays at startup | §14; TOWN-07; `UI_UX_SPEC.md` §22 | Manual in the browser or emulator; Hardware for headset audio |
+| JUD-18 | Cohesive art direction: hero assets meet the Blender standard, materials and palette match, frozen and awakened states are distinct, nothing looks like a placeholder | §14; `ART_ASSET_PIPELINE.md`; `UI_UX_SPEC.md` §3 | Visual at gameplay scale in the emulator; Hardware for the look in passthrough |
+| JUD-19 | UI and text: the entry screen meets `APP_AND_WEBSITE_GUIDELINES.md` §2 (never scrolls, AA contrast, one obvious action), letters are readable, the stand reads as deliberate | APP-01; `UI_UX_SPEC.md` §25 | Browser for the entry screen; Emulator for text in the headset, Hardware to confirm |
+| JUD-20 | Video: under 3 minutes, public on YouTube or Vimeo, shows real gameplay that honestly represents the experience, leads with the story and what makes it distinct, does not lean on AI-generated video; emulator footage is shown as what it is | `COMPETITION_REQUIREMENTS.md` §8; `APP_AND_WEBSITE_GUIDELINES.md` §4 | Manual review of the final cut (emulator footage is allowed but is not Hardware evidence) |
+| JUD-21 | Text and images: tagline, description and images match the build and claim nothing we cannot back up | `COMPETITION_REQUIREMENTS.md` §9; `APP_AND_WEBSITE_GUIDELINES.md` §2, §4 | Manual |
+
+## 19. Final acceptance rule
 
 A feature is accepted only when its expected behaviour is demonstrated and its relevant tests are recorded.
 

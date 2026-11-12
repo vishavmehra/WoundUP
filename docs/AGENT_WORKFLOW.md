@@ -75,6 +75,8 @@ Prefer existing tools and capabilities when they already solve the problem.
 
 These roles are logical responsibilities. Create only the agents that are useful for the current milestone.
 
+The roster, names and folders are resolved in [AGENT_OWNERSHIP_MATRIX.md](AGENT_OWNERSHIP_MATRIX.md). The letters A to G below are role descriptions only: they map onto the Agent 0 to 4 roster of CLAUDE.md §10 and the asset production agents, and the directive's audit agents are called "audit A to F".
+
 ### Lead Agent — Architecture and Integration
 
 Owns:
@@ -87,6 +89,7 @@ Owns:
 - Code review.
 - Release decisions.
 - Documentation consistency.
+- XR feature configuration and table placement (`iwsdk.config.json`, `src/placement.ts`, `src/stage.ts`).
 
 The lead agent is the only authority for changing shared contracts.
 
@@ -101,7 +104,7 @@ Owns:
 - Desktop fallback.
 - Minimal interaction proof.
 
-Must verify APIs against the installed IWSDK version.
+Must verify APIs against the installed IWSDK version. Table detection and anchoring stay with the Lead Agent.
 
 ### Agent B — Blender and Art Pipeline
 
@@ -153,7 +156,7 @@ Owns:
 - Machine presentation.
 - Wake effects.
 
-Must follow `PROJECT_BIBLE.md` and `UI_UX_SPEC.md`.
+Must follow `PROJECT_BIBLE.md` and `UI_UX_SPEC.md`. Must build under the stage root and read its scale, never detect surfaces.
 
 ### Agent F — Progression and Persistence
 
@@ -164,6 +167,7 @@ Owns:
 - Progression.
 - Save and load.
 - Repair progression.
+- Daily repair.
 - Gift data flow where agreed.
 
 Must follow the data contracts.
@@ -177,8 +181,9 @@ Owns:
 - Build checks.
 - Deployment validation.
 - Acceptance test tracking.
+- The final quality checklist for the judging criteria (`ACCEPTANCE_TESTS.md` §18); the Lead Agent signs it off.
 
-Must distinguish desktop tests from hardware tests.
+Must distinguish desktop tests from hardware tests. Until Agent F or Agent G exists, the Lead Agent does its work.
 
 ## 6. File ownership
 
@@ -189,6 +194,7 @@ Example:
 | Area | Owner |
 |---|---|
 | `src/app/` | Agent A |
+| `iwsdk.config.json`, `src/placement.ts`, `src/stage.ts` | Lead Agent |
 | `src/gameplay/solver/` | Agent C |
 | `src/interaction/` | Agent D |
 | `src/world/` | Agent E |
@@ -197,7 +203,7 @@ Example:
 | `blender/` | Agent B |
 | Shared contracts | Lead Agent |
 
-This is a starting allocation. Adjust it to the actual repository structure.
+This is a starting allocation. Adjust it to the actual repository structure. Where it differs from [AGENT_OWNERSHIP_MATRIX.md](AGENT_OWNERSHIP_MATRIX.md), the matrix wins.
 
 No agent may change shared interfaces without informing the lead agent.
 
@@ -298,6 +304,8 @@ When an agent completes a task:
 10. Update the project status.
 
 Never merge work solely because an agent reports completion.
+
+The checks that decide acceptance, for assets and for builds, are in [INTEGRATION_AND_RELEASE_GATES.md](INTEGRATION_AND_RELEASE_GATES.md).
 
 ## 11. Context and token efficiency
 

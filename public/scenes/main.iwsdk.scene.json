@@ -74,7 +74,7 @@
         {
           "id": "gear-16",
           "name": "Brass gear 16T",
-          "content": { "type": "asset", "asset": "gear-spur-16-brass" },
+          "content": { "type": "asset", "asset": "gear_spur_16_m1" },
           "transform": {
             "position": [0, 0.0486, 0.02],
             "rotationDeg": [-90, 0, 0]

@@ -12,7 +12,7 @@ This document defines how players interact with Wound Up.
 
 The interaction system must make miniature mechanical construction feel natural, precise, comfortable, and satisfying.
 
-The player should feel as if they are working with physical objects on a small tabletop.
+The player should feel as if they are working with physical objects on the real table in front of them.
 
 Hands are the primary input method.
 
@@ -42,11 +42,22 @@ Target dimensions:
 - Town footprint: approximately 60 × 40 cm.
 - Workbench: approximately 45 × 25 cm.
 - Primary interaction distance: within approximately 60 cm of the player's chest.
-- Main interaction direction: within approximately 35 degrees of head-forward.
+- Main interaction direction: within approximately 35 degrees of head-forward, measured as below.
 
 The player must not need to stand or move around the environment.
 
 No forced locomotion or camera movement is allowed.
+
+**How the 35 degrees is measured.** The limit is checked with two angles:
+
+- **Placement angle:** the line from the eyes to the town's centre, measured below a level head-forward (the way the player faces, head pitch ignored). The stand is placed with it.
+- **Target angle:** each essential target (the latch, letters, plots, workbench, parts tray and essential UI) measured from that line of sight, because the player tilts their head to look at the town. Each must be within about 35 degrees of it, and within about 60 cm of the chest, on a table and on the stand.
+
+**On a real table** (`PRODUCT_SPEC.md` §3.2) the height is not ours to choose, so the town is placed for reach first. Its placement angle can be more than 35 degrees; the natural downward head tilt of someone looking at a table covers that, and the target angle still applies. Check the actual angles and comfort in the emulator, then on hardware.
+
+**On the floating stand** the height is ours, so it sits about 55 cm ahead and 38 cm below the eyes, a placement angle of about 35 degrees, inside the main interaction direction (`PRODUCT_SPEC.md` §3.2).
+
+**Town scale.** Table placement may scale the town (trunk, buildings, plots and placed machines) down evenly to 75%. Hand targets do not shrink with it: colliders stay at or above the §7.2 minimum, and snap radii and plot distances stay in real centimetres. The workbench, its parts and the machine being built always stay full size. A machine takes on the town's scale as it settles on its plot.
 
 ## 4. Input abstraction
 
@@ -363,7 +374,7 @@ Avoid two systems responding to the same gesture simultaneously.
 - Avoid tiny interaction targets.
 - Avoid objects moving unexpectedly while held.
 - Avoid excessive hand-dependent UI motion.
-- Keep the main world stable relative to the player.
+- Keep the main world stable: once placed, the town stays anchored to its table or stand for the session and never moves on its own.
 
 ## 20. Testing requirements
 
@@ -385,7 +396,7 @@ Test:
 - Gaze targeting.
 - Desktop input mapping.
 - Interaction conflicts.
-- Seated reach.
+- Seated reach, on a real table and on the stand.
 
 Where desktop emulation cannot validate real hand tracking, explicitly mark the test as requiring Quest hardware.
 
@@ -404,7 +415,7 @@ Where desktop emulation cannot validate real hand tracking, explicitly mark the 
 - [ ] Machine placement works.
 - [ ] Gaze-and-pinch supports the core loop.
 - [ ] Desktop fallback supports gameplay verification.
-- [ ] Main interactions remain within comfortable reach.
+- [ ] Main interactions remain within comfortable reach, on a real table and on the stand.
 
 ## 22. Final principle
 

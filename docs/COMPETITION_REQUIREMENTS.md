@@ -34,7 +34,7 @@ The competition requirements do not override the product scope defined in `PRODU
 
 Wound Up is a hands-first spatial building game in which players restore a miniature clockwork town by assembling, repairing, winding, and placing mechanical creations.
 
-The experience turns a small physical or virtual surface into a handcrafted world. Players interact directly with miniature mechanisms using natural hand gestures, then watch their creations bring colour, movement, and life back to the town.
+The experience turns the player's real table into a handcrafted world, with a floating stand as the fallback when no table can be used. Players interact directly with miniature mechanisms using natural hand gestures, then watch their creations bring colour, movement, and life back to the town.
 
 ### 2.3 What makes the experience distinctive
 
@@ -45,6 +45,7 @@ The submission should communicate these differentiators clearly:
 3. **A visible world transformation:** Completing machines changes the state of Tockton.
 4. **A seated miniature-world format:** The entire experience is designed around a comfortable, reachable play area.
 5. **A personal creation loop:** Players can gift a completed machine through a shareable URL.
+6. **The player's own table:** Tockton stands on a detected real table and stays anchored there, so the real room changes the experience.
 
 Do not describe the game as a generic VR sandbox or a collection of mechanical minigames.
 
@@ -92,6 +93,19 @@ The landing page should:
 - Explain the immersive entry path when needed.
 
 The player should reach the experience without navigating through a complicated website.
+
+### 3.4 Table detection and anchoring
+
+The Official Rules score scene understanding and anchoring to detected surfaces directly, and ask that the real room changes the experience (`APP_AND_WEBSITE_GUIDELINES.md` §5). Table placement is therefore a core feature (`PRODUCT_SPEC.md` §3.2, ADR-026).
+
+Requirements:
+
+- Detect real horizontal surfaces and anchor Tockton to a suitable table.
+- Request plane detection and anchors as optional WebXR features, so a session never fails because of them.
+- Fall back gracefully to the floating stand when detection or anchoring is unavailable or no surface is suitable.
+- Hold up in rooms the developer never tested.
+
+Emulator results prove logic and fallback only. Real-world table detection needs testing on a physical Quest.
 
 ## 4. Interaction requirements
 
@@ -258,14 +272,14 @@ The experience must not look like an unconnected collection of sample assets.
 
 ### 8.1 Demo video
 
-Prepare a demonstration video under three minutes.
+Prepare a demonstration video under three minutes, publicly visible on YouTube or Vimeo. Footage may come from a Meta VR device, the XR Simulator or an equivalent emulator (see `APP_AND_WEBSITE_GUIDELINES.md` §4).
 
 The video should communicate the complete product experience rather than spending most of its time explaining the technology.
 
 Recommended sequence:
 
 1. **Opening:** Wound Up title and Tockton introduction.
-2. **The world:** Show the frozen miniature town.
+2. **The world:** Show the frozen miniature town standing on a table: a real one if a Quest is available, otherwise an emulator room shown as what it is.
 3. **The problem:** Introduce the letter requesting the Music Box repair.
 4. **Hands-first interaction:** Show picking up and snapping mechanical parts.
 5. **Mechanical result:** Wind the key and run the Music Box.
@@ -298,14 +312,15 @@ The Devpost submission must be prepared with the following information:
 - Project name.
 - Project description.
 - Public project URL.
-- Public source-code repository.
 - Demo video under three minutes.
 - Competition track and division.
 - Required technical and product explanations requested by the submission form.
 
 The public project URL must point to the deployed playable experience.
 
-The GitHub repository must be accessible to judges and contain sufficient information to understand and build the project.
+The Official Rules (§4) do not require a public source repository; making it public is the owner's choice. The project must stay reachable and free of charge until the winner announcement, around 11 December 2026. Judging criteria, eligibility and what they change for us are in `APP_AND_WEBSITE_GUIDELINES.md` §5-7.
+
+If the repository is shared, it should contain sufficient information to understand and build the project.
 
 The README should explain:
 
@@ -323,7 +338,7 @@ Do not invent submission-form questions or claim that a field has been completed
 
 ## 10. Testing and judging readiness
 
-Before submission, verify:
+Before submission, verify the lists below, then complete the final quality checklist for the four judging criteria (`ACCEPTANCE_TESTS.md` §18):
 
 ### Experience
 
@@ -331,6 +346,7 @@ Before submission, verify:
 - [ ] Enter action works.
 - [ ] Immersive entry is handled correctly.
 - [ ] Desktop fallback works.
+- [ ] Town stands on a detected table, and the floating stand works as the fallback.
 - [ ] Trunk introduction works.
 - [ ] Letter interaction works.
 - [ ] Music Box can be assembled.
@@ -354,10 +370,12 @@ Before submission, verify:
 - [ ] WebXR entry is tested in a supported environment.
 - [ ] Performance has been measured.
 - [ ] Quest hardware validation has been arranged.
+- [ ] Real-world table detection is verified on a Quest, or recorded as unverified.
 
 ### Submission
 
-- [ ] Public repository is accessible.
+- [ ] Owner has joined the contest and is a Meta VR Start Program member.
+- [ ] Deployment protection is off and the URL opens in a private window.
 - [ ] README is complete.
 - [ ] Demo video is under three minutes.
 - [ ] Video shows real gameplay.
@@ -391,7 +409,7 @@ Prioritise:
 
 1. A complete and satisfying Music Box gameplay loop.
 2. Reliable hands-first interaction.
-3. A polished miniature town.
+3. A polished miniature town standing on the player's real table.
 4. Visible machine placement and town restoration.
 5. A functional gift-sharing experience.
 6. A stable WebXR deployment.
@@ -408,12 +426,14 @@ Wound Up is ready for submission when:
 - The core gameplay loop is complete.
 - The experience is understandable without lengthy explanation.
 - The player can complete the main loop using hands.
+- The town stands on the player's real table, or on the floating stand when no table can be used.
 - The game is comfortable while seated.
 - The visual quality is coherent and polished.
 - The deployed application works through its public HTTPS URL.
 - The project repository is presentable.
 - The demo video communicates the experience clearly.
 - All required submission fields are complete.
+- Every item of the judging-criteria checklist (`ACCEPTANCE_TESTS.md` §18) passes with the evidence it names, or is recorded as Blocked with its reason.
 - No critical known issue prevents a judge from experiencing the game.
 
 The goal is a small, complete, memorable game—not a large unfinished prototype.

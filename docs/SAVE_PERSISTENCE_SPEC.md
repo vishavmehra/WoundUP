@@ -53,7 +53,7 @@ type SaveV1 = {
     plotId?: string;
   }[];
 
-  dailyDone: boolean;
+  dailyDone: string | null;
 
   settings: {
     easySnap: boolean;
@@ -74,7 +74,11 @@ The exact type names may be adjusted to match the codebase, but the persisted fi
 
 It must not store headset tracking coordinates as permanent world truth.
 
-On a fresh session, the application may need to place or reposition the town again.
+`woundup.save` holds no coordinates, surface data or anchor handles. Every new session chooses a surface and creates its anchor again (`PRODUCT_SPEC.md` §3.2), and saved progress is restored onto whichever table or stand that session finds.
+
+The anchor's required lifetime is the current session: within it, the town stays where it was placed. Keeping an anchor across sessions is not required and the game must not depend on it.
+
+Where the runtime supports it, IWSDK's anchor system keeps its own opaque anchor id in localStorage under its own key (`iwsdk_scene_anchor_uuid`). That id is not part of the save, holds no coordinates, and the game must not use it to decide where the town goes.
 
 ### 4.2 Letters
 
@@ -107,7 +111,7 @@ The save must not store Three.js objects, scene graphs, materials, geometries, o
 
 ### 4.4 Daily Repair
 
-`dailyDone` records whether the current daily repair has been completed.
+`dailyDone` holds the local date of the last completed daily repair (for example `"2026-11-14"`), or `null` if none has been completed. The day's repair is done when it equals today's local date, which enforces one completion per date (ADR-027).
 
 The daily repair seed must be derived using the local date as specified in the gameplay design.
 
@@ -131,6 +135,7 @@ Do not persist:
 - Hand-tracking joints.
 - Current controller poses.
 - Headset transforms.
+- Detected room surfaces, table dimensions or anchor poses.
 - Temporary animation state.
 - Active particle systems.
 - Audio playback position.

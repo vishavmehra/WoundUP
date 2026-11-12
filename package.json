@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "assets:check": "node tools/validate-glb.mjs"
   },
   "dependencies": {
     "@iwsdk/core": "1.1.0-rc.2",

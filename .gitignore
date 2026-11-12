@@ -44,6 +44,7 @@ playwright-report/
 
 # Claude Code local state
 .claude/settings.local.json
+.claude/worktrees/
 .remember/
 
 # Local working folder of AI-generated visual boards (67 MB), indexed in docs/REFERENCE_INDEX.md; never shipped

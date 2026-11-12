@@ -96,6 +96,10 @@ The trunk is the player's first physical object.
 
 It should feel like a handcrafted keepsake box.
 
+It appears standing on the player's real table, with its contact shadow on the table. Choosing the table needs no menu, scan prompt or confirmation.
+
+When no table can be used, the trunk appears on the floating velvet stand. The stand must read as a deliberate presentation, never as an error, and the game shows no "table not found" message.
+
 The player should understand that it can be opened through its latch.
 
 Use a restrained interaction hint.
@@ -406,6 +410,7 @@ Audio should support the interaction rather than compete with it.
 Test:
 
 - Whether the landing page explains the experience.
+- Whether the town reads as standing on the real table.
 - Whether the trunk is understandable.
 - Whether letters are readable.
 - Whether the parcel is discoverable.
@@ -427,6 +432,8 @@ Record where they hesitate or misunderstand.
 
 - [ ] Landing experience is clear.
 - [ ] Enter action is obvious.
+- [ ] Trunk and town read as standing on the real table.
+- [ ] The floating stand reads as deliberate, not as an error.
 - [ ] Trunk interaction is discoverable.
 - [ ] Letters are readable.
 - [ ] Parcel interaction is clear.

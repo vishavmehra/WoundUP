@@ -66,13 +66,12 @@ It should look like a miniature world that someone has carefully handcrafted.
 
 The town is not a large open environment.
 
-It is a compact diorama designed to sit on the player's real table or on a floating fallback stand.
+It is a compact diorama designed to stand on the player's real table, detected and anchored when they enter. The table is its ground. A floating stand is the fallback when no table can be used.
 
 ## World characteristics
 
 - Small streets.
 - Miniature buildings.
-- A flower shop.
 - A bakery.
 - A carousel square.
 - A windmill.
@@ -82,6 +81,8 @@ It is a compact diorama designed to sit on the player's real table or on a float
 - Warm windows.
 - Small figures and environmental details.
 
+There is no flower shop (owner decision of 2026-11-06, ADR-039). The small figures are Mira and Otto only ([TOCKTON_CHARACTERS.md](TOCKTON_CHARACTERS.md)).
+
 The town must be readable from a comfortable seated position.
 
 Its important locations should be immediately recognisable.
@@ -89,6 +90,7 @@ Its important locations should be immediately recognisable.
 ## Town dimensions
 
 - Maximum town footprint: approximately 60 x 40 cm.
+- On a smaller table the town scales down to as little as 75% (`PRODUCT_SPEC.md` §3.2), so its silhouettes must still read at that size.
 - Workbench: approximately 45 x 25 cm.
 - All important interactions within approximately 60 cm of the player's chest.
 
@@ -318,7 +320,7 @@ Use Blender for:
 - Major decorative objects.
 - Characters and figures.
 
-Use procedural TypeScript geometry for repetitive mechanical objects where it provides better consistency and efficiency.
+Build repetitive mechanical objects as parametric Blender GLB families, loaded once, cached and placed as instances, where that gives better consistency and efficiency (ADR-031). The game does not generate part geometry in TypeScript.
 
 Examples:
 

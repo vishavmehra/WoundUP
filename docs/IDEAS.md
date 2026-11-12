@@ -81,6 +81,8 @@ Possible future additions:
 
 The existing residents and letters should be polished before expanding the cast.
 
+**Design intent, not approved (G1):** [RESIDENT_BEHAVIOUR_SPEC.md](RESIDENT_BEHAVIOUR_SPEC.md) and [STORY_AND_QUEST_ENGINE.md](STORY_AND_QUEST_ENGINE.md).
+
 ### 4.2 More Machines
 
 **Status:** Deferred
@@ -98,6 +100,8 @@ New machines should reuse the existing blueprint, solver, assembly, simulation, 
 
 They should not require separate hard-coded gameplay architectures.
 
+**Design intent, not approved (G5):** several of these have a home in the future world concepts of [MULTI_WORLD_UNIVERSE_DESIGN.md](MULTI_WORLD_UNIVERSE_DESIGN.md): the lighthouse in Brasswater Harbour, the observatory in the Verdant Observatory, the mechanical orchestra and automaton theatre in the Grand Mechanical Theatre. The steam-powered tram is closest to the steam locomotives of Emberforge Mountains. The hot-air balloon has no concept. All stay excluded from the competition build.
+
 ### 4.3 More Mechanical Complexity
 
 **Status:** Deferred
@@ -112,6 +116,8 @@ Potential systems:
 - Additional mechanical failure types.
 
 Any extension must preserve deterministic solver behaviour and remain understandable to players.
+
+**Design intent, not approved (G5):** the mechanics each future world would ask of the engine are listed in [MULTI_WORLD_UNIVERSE_DESIGN.md](MULTI_WORLD_UNIVERSE_DESIGN.md) section 3.4 and the world tables.
 
 ### 4.4 Town Atmosphere
 
@@ -142,6 +148,8 @@ Possible future improvements:
 
 The competition version remains limited to one finished machine per gift link.
 
+**Design intent, not approved (G4):** sharing beyond one finished machine is in [BLUEPRINT_SHARING_SPEC.md](BLUEPRINT_SHARING_SPEC.md), with accounts and hosted services left as owner decisions.
+
 ### 4.6 Advanced Building Mode
 
 **Status:** Deferred
@@ -155,6 +163,8 @@ Potential improvements:
 - Sharing custom machine designs.
 
 This would require additional validation and could undermine the curated puzzle experience. It is not part of the current release.
+
+**Design intent, not approved (G3 and G4):** [CREATIVE_SANDBOX_SPEC.md](CREATIVE_SANDBOX_SPEC.md) for free-build, and [BLUEPRINT_SHARING_SPEC.md](BLUEPRINT_SHARING_SPEC.md) for sharing custom designs.
 
 ### 4.7 More Accessibility Options
 
@@ -170,6 +180,29 @@ Potential future improvements:
 - More detailed audio and visual feedback controls.
 
 The existing accessibility requirements must be completed first.
+
+### 4.8 Returning to the Same Table
+
+**Status:** Proposed
+
+Keep the town's anchor across sessions, so Tockton is waiting on the same table when the player comes back. The Official Rules name persistent anchors among the device capabilities they score.
+
+The approved requirement is persistence within the session (ADR-026). This idea needs real Quest testing first.
+
+**Related design intent (G5):** [WORLD_PROGRESSION_SYSTEM.md](WORLD_PROGRESSION_SYSTEM.md) keeps coordinates and anchor handles out of every save record. Storing an anchor reference would need its own decision.
+
+### 4.9 Future Worlds and the Clockwork Universe
+
+**Status:** Deferred (G5 Clockwork universe, concept only)
+
+The owner's directive proposes five worlds after Tockton, in this production order: 1 Tockton (the competition world), 2 Brasswater Harbour, 3 Emberforge Mountains, 4 Verdant Observatory, 5 Aetherian Skyworks and 6 Grand Mechanical Theatre. They are strategic concepts, not approved tasks. Tockton is the only world in the competition build, and no asset for another world is made before delivery unless the owner approves a reusable shared asset (ADR-028 rule 4).
+
+Design intent, not approved:
+
+- [MULTI_WORLD_UNIVERSE_DESIGN.md](MULTI_WORLD_UNIVERSE_DESIGN.md): the six world concepts, each with the sixteen elements the directive lists.
+- [WORLD_PROGRESSION_SYSTEM.md](WORLD_PROGRESSION_SYSTEM.md): the save structure per world and shared player progression.
+- [CROSS_WORLD_GAMEPLAY.md](CROSS_WORLD_GAMEPLAY.md): how progress in one world can matter in another.
+- [WORLD_ASSET_INVENTORY.md](WORLD_ASSET_INVENTORY.md): what is and is not itemised for them.
 
 ## 5. Explicitly Excluded Ideas
 
@@ -200,6 +233,8 @@ The following are not approved for the competition build:
 - Unity or Unreal migration.
 
 These exclusions protect the project's implementation time and technical reliability.
+
+Under the scope firewall ([DECISIONS.md](DECISIONS.md) ADR-028), a document labelled G1 to G5 may describe some of these items as design intent. That never makes one of them part of the competition build.
 
 ## 6. Idea Evaluation
 
