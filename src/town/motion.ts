@@ -94,6 +94,24 @@ export interface MachineRig {
   melodyAt: number;
 }
 
+/**
+ * A node easing to a uniform scale: a finished machine goes from 1 (the workbench) to the town scale on its plot and back
+ * (TOCKTON_DIMENSIONS §1). Its parent must carry no scale of its own.
+ */
+export interface Scaler {
+  readonly node: Object3D;
+  target: number;
+}
+
+/** Moves `scaler.node` towards its target. Returns true once it has arrived, so the caller can drop it. Allocation-free. */
+export function stepScaler(scaler: Scaler, dt: number): boolean {
+  const now = scaler.node.scale.x;
+  const next = approach(now, scaler.target, dt, SCALE_EASE_S);
+  const arrived = Math.abs(next - scaler.target) < 1e-4;
+  scaler.node.scale.setScalar(arrived ? scaler.target : next);
+  return arrived;
+}
+
 export function createRig(machineId: MachineId, root: Object3D): MachineRig {
   return { machineId, root, rotors: [], bobbers: [], pulsers: [], lid: null, result: null, running: true, speed: 0, melody: null, melodyAt: 0 };
 }
@@ -102,6 +120,8 @@ export function createRig(machineId: MachineId, root: Object3D): MachineRig {
 export const SPIN_EASE_S = 0.6;
 /** Time constant of the Music Box lid, in seconds. */
 export const LID_EASE_S = 0.35;
+/** Time constant of a machine taking the town's scale as it settles on its plot (or giving it up when lifted), in seconds. */
+export const SCALE_EASE_S = 0.12;
 
 /** Moves `value` towards `target` exponentially: about 63 % of the way in `tau` seconds, whatever the frame time. */
 export function approach(value: number, target: number, dt: number, tau: number): number {

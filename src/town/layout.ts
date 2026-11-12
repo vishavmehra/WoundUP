@@ -35,48 +35,69 @@ export const MIRA_AT = { x: 0.012, y: STREET_TOP_M, z: 0.11 } as const;
 export const BAKER_SOCKET = 'SOCKET_Baker';
 
 /**
- * A ripple source: the wake spreads from (x, z) up to `radius` when `plot` is woken. A plot may have several sources so that
- * what it wakes beyond its own pad is data, not shader code: the Windmill wakes the Bakery and Otto, the Clock Tower the
- * theatre, the Music Box Mira. Radii are chosen so the Carousel does not wake Otto and the Music Box does not wake the theatre
- * (tests/town/layout.test.ts holds those distances).
+ * What a ripple can wake. Every frozen volume of the town (SCENERY_BOXES) carries one group bit, every ripple source a mask of
+ * the groups it may wake (see WAKE_SOURCES), so what a plot wakes beyond its own pad is data, not shader code: a circle on the
+ * plan would otherwise wake half of the Bakery when the Clock Tower wakes.
+ */
+export const WAKE_GROUP = {
+  street: 1,
+  padMusicBox: 2,
+  padCarousel: 4,
+  padWindmill: 8,
+  padClockTower: 16,
+  bakery: 32,
+  theatre: 64,
+  mira: 128,
+} as const;
+
+/**
+ * A ripple source: the wake spreads from (x, z) up to `radius` when `plot` is woken, and only through the groups in `wakes`.
+ * The Windmill wakes the Bakery and Otto, the Clock Tower the theatre, the Music Box Mira (PRODUCT_SPEC §6, TOCKTON_DIMENSIONS
+ * §3.4). tests/town/layout.test.ts holds the distances: every plot's targets lie within its radius, and with all four plots
+ * awake nothing is left frozen.
  */
 export interface WakeSource {
   readonly plot: PlotId;
   readonly x: number;
   readonly z: number;
   readonly radius: number;
+  readonly wakes: number;
 }
 
 export const WAKE_SOURCES: readonly WakeSource[] = [
-  { plot: 'plot_music_box', x: -0.11, z: 0.08, radius: 0.115 },
-  { plot: 'plot_music_box', x: MIRA_AT.x, z: MIRA_AT.z, radius: 0.045 },
-  { plot: 'plot_carousel', x: 0.11, z: 0.065, radius: 0.14 },
-  { plot: 'plot_windmill', x: 0.2425, z: 0.0825, radius: 0.36 },
-  { plot: 'plot_clock_tower', x: -0.2425, z: 0.0825, radius: 0.34 },
+  { plot: 'plot_music_box', x: -0.11, z: 0.08, radius: 0.18, wakes: WAKE_GROUP.street | WAKE_GROUP.padMusicBox | WAKE_GROUP.mira },
+  { plot: 'plot_carousel', x: 0.11, z: 0.065, radius: 0.16, wakes: WAKE_GROUP.street | WAKE_GROUP.padCarousel },
+  { plot: 'plot_windmill', x: 0.2425, z: 0.0825, radius: 0.36, wakes: WAKE_GROUP.street | WAKE_GROUP.padWindmill | WAKE_GROUP.bakery },
+  { plot: 'plot_clock_tower', x: -0.2425, z: 0.0825, radius: 0.34, wakes: WAKE_GROUP.street | WAKE_GROUP.padClockTower | WAKE_GROUP.theatre },
 ];
 /** Fixed size of the shader's uniform array; unused slots stay frozen. */
 export const MAX_WAKE_SOURCES = 6;
 
 /**
- * Volumes of the frozen scenery in town space. A fragment inside one is scenery and frozen until a ripple reaches it;
- * everything else sharing the same library materials (machines, workbench, trunk, hands) is untouched. Machines stand on the
- * pads, above `PAD_TOP_M`, so they never fall inside the ground boxes.
+ * Volumes of the frozen scenery in town space. A fragment inside one is scenery and frozen until a ripple that wakes its group
+ * has reached it; everything else sharing the same library materials (machines, workbench, trunk, hands) is untouched.
+ * Machines stand on the pads, above `PAD_TOP_M`, so they never fall inside the ground boxes.
  */
 export interface Box {
   readonly min: readonly [number, number, number];
   readonly max: readonly [number, number, number];
+  readonly group: number;
 }
 const EPS = 1e-5;
-const padBox = (p: PlotLayout): Box => ({
+const padBox = (p: PlotLayout, group: number): Box => ({
   min: [p.x - p.halfW, -0.01, p.z - p.halfD],
   max: [p.x + p.halfW, PAD_TOP_M + EPS, p.z + p.halfD],
+  group,
 });
 export const SCENERY_BOXES: readonly Box[] = [
-  { min: [-0.3, -0.01, -0.15], max: [0.3, STREET_TOP_M + EPS, 0.15] }, // street paving and slab
-  ...PLOT_IDS.map((id) => padBox(PLOTS[id])),
-  { min: [BAKERY_AT.x - 0.065, -0.01, BAKERY_AT.z - 0.0478], max: [BAKERY_AT.x + 0.065, 0.2, BAKERY_AT.z + 0.0478] }, // Bakery, Otto inside it
-  { min: [THEATRE_AT.x - 0.1, -0.01, THEATRE_AT.z - 0.0275], max: [THEATRE_AT.x + 0.1, 0.19, THEATRE_AT.z + 0.0275] }, // theatre facade
-  { min: [MIRA_AT.x - 0.0075, STREET_TOP_M - 0.0005, MIRA_AT.z - 0.0055], max: [MIRA_AT.x + 0.0075, 0.037, MIRA_AT.z + 0.0055] }, // Mira
+  { min: [-0.3, -0.01, -0.15], max: [0.3, STREET_TOP_M + EPS, 0.15], group: WAKE_GROUP.street }, // street paving and slab
+  padBox(PLOTS.plot_music_box, WAKE_GROUP.padMusicBox),
+  padBox(PLOTS.plot_carousel, WAKE_GROUP.padCarousel),
+  padBox(PLOTS.plot_windmill, WAKE_GROUP.padWindmill),
+  padBox(PLOTS.plot_clock_tower, WAKE_GROUP.padClockTower),
+  { min: [BAKERY_AT.x - 0.065, -0.01, BAKERY_AT.z - 0.0478], max: [BAKERY_AT.x + 0.065, 0.2, BAKERY_AT.z + 0.0478], group: WAKE_GROUP.bakery }, // Otto inside it
+  { min: [THEATRE_AT.x - 0.1, -0.01, THEATRE_AT.z - 0.0275], max: [THEATRE_AT.x + 0.1, 0.19, THEATRE_AT.z + 0.0275], group: WAKE_GROUP.theatre },
+  { min: [MIRA_AT.x - 0.0075, STREET_TOP_M - 0.0005, MIRA_AT.z - 0.0055], max: [MIRA_AT.x + 0.0075, 0.037, MIRA_AT.z + 0.0055], group: WAKE_GROUP.mira },
 ];
 export const MAX_SCENERY_BOXES = 10;
 

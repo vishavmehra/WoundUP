@@ -8,7 +8,8 @@ import type { AnimationAction, AnimationClip, Object3D } from '@iwsdk/core';
 import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
 import { TOWN_NODE_ID } from '../stage';
-import { BAKER_SOCKET, BAKERY_AT, MIRA_AT, THEATRE_AT } from './layout';
+import type { PlotId } from '../game/content';
+import { BAKER_SOCKET, BAKERY_AT, MIRA_AT, PLOTS, THEATRE_AT } from './layout';
 
 /** A loaded GLB: its scene graph and animation clips. */
 export interface TownModel {
@@ -37,7 +38,7 @@ export interface Town {
   readonly theatre: Object3D;
   readonly otto: Object3D;
   readonly mira: Object3D;
-  /** Otto's kneading on its own mixer, paused on its first frame while the Bakery is frozen. Null when the clip is missing. */
+  /** Otto's kneading on its own mixer, held on its first frame (timeScale 0) while the Bakery is frozen. Null when the clip is missing. */
   readonly knead: { readonly mixer: AnimationMixer; readonly action: AnimationAction } | null;
 }
 
@@ -99,8 +100,14 @@ export function buildTown(
     const mixer = new AnimationMixer(otto);
     const action = mixer.clipAction(clip);
     action.play();
-    action.paused = true; // frozen on the first frame until the Windmill wakes the Bakery
+    action.timeScale = 0; // frozen on the first frame until the Windmill wakes the Bakery
+    mixer.update(0); // applies that first frame
     knead = { mixer, action };
   }
   return { group, ground, bakery, theatre, otto, mira, knead };
+}
+
+/** The `SOCKET_Plot...` empty of a plot in the town ground: where a machine's base origin lands. Null when the GLB lacks it. */
+export function plotSocket(town: Town, plot: PlotId): Object3D | null {
+  return town.ground.getObjectByName(`SOCKET_${PLOTS[plot].socket}`) ?? null;
 }

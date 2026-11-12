@@ -13,7 +13,7 @@
 import { Matrix4, Vector2 } from '@iwsdk/core';
 import type { Material, WebGLProgramParametersWithUniforms } from '@iwsdk/core';
 import type { MaterialRegistry } from '../materials';
-import { MAX_SCENERY_BOXES, MAX_WAKE_SOURCES, SCENERY_BOXES, WAKE_SOURCES, type Box } from './layout';
+import { MAX_SCENERY_BOXES, MAX_WAKE_SOURCES, SCENERY_BOXES, WAKE_SOURCES, type Box, type WakeSource } from './layout';
 import { FROZEN_SATURATION } from './wake';
 
 export interface WakeUniforms {
@@ -32,16 +32,18 @@ const f = (n: number): string => n.toFixed(5);
 const vec3 = (v: readonly [number, number, number]): string => `vec3( ${f(v[0])}, ${f(v[1])}, ${f(v[2])} )`;
 
 /** GLSL constants for the volumes and sources. Unused box slots are empty (min above max); unused sources sit at the origin. */
-function constants(boxes: readonly Box[], sources: readonly { x: number; z: number }[]): string {
-  const empty: Box = { min: [1, 1, 1], max: [-1, -1, -1] };
+export function constants(boxes: readonly Box[], sources: readonly WakeSource[]): string {
+  const empty: Box = { min: [1, 1, 1], max: [-1, -1, -1], group: 0 };
   const b = Array.from({ length: MAX_SCENERY_BOXES }, (_, i) => boxes[i] ?? empty);
-  const s = Array.from({ length: MAX_WAKE_SOURCES }, (_, i) => sources[i] ?? { x: 0, z: 0 });
+  const s = Array.from({ length: MAX_WAKE_SOURCES }, (_, i) => sources[i] ?? { x: 0, z: 0, wakes: 0 });
   return [
     `#define WU_BOXES ${MAX_SCENERY_BOXES}`,
     `#define WU_SOURCES ${MAX_WAKE_SOURCES}`,
     `const vec3 WU_BOX_MIN[ WU_BOXES ] = vec3[ WU_BOXES ]( ${b.map((x) => vec3(x.min)).join(', ')} );`,
     `const vec3 WU_BOX_MAX[ WU_BOXES ] = vec3[ WU_BOXES ]( ${b.map((x) => vec3(x.max)).join(', ')} );`,
+    `const int WU_BOX_GROUP[ WU_BOXES ] = int[ WU_BOXES ]( ${b.map((x) => x.group).join(', ')} );`,
     `const vec2 WU_SRC_POS[ WU_SOURCES ] = vec2[ WU_SOURCES ]( ${s.map((x) => `vec2( ${f(x.x)}, ${f(x.z)} )`).join(', ')} );`,
+    `const int WU_SRC_WAKES[ WU_SOURCES ] = int[ WU_SOURCES ]( ${s.map((x) => x.wakes).join(', ')} );`,
   ].join('\n');
 }
 
@@ -60,12 +62,15 @@ const FRAGMENT_SCENERY = `
 	float wuRing = 0.0;
 	vec3 wuP = vWuTown;
 	if ( wuP.y < 0.21 && abs( wuP.x ) < 0.31 && abs( wuP.z ) < 0.16 ) {
+		int wuGroups = 0;
 		for ( int i = 0; i < WU_BOXES; i ++ ) {
 			vec3 a = step( WU_BOX_MIN[ i ], wuP ) * step( wuP, WU_BOX_MAX[ i ] );
-			wuScenery = max( wuScenery, a.x * a.y * a.z );
+			if ( a.x * a.y * a.z > 0.0 ) wuGroups |= WU_BOX_GROUP[ i ];
 		}
-		if ( wuScenery > 0.0 ) {
+		if ( wuGroups != 0 ) {
+			wuScenery = 1.0;
 			for ( int i = 0; i < WU_SOURCES; i ++ ) {
+				if ( ( WU_SRC_WAKES[ i ] & wuGroups ) == 0 ) continue;
 				float d = distance( wuP.xz, WU_SRC_POS[ i ] );
 				float r = uWuWake[ i ].x;
 				wuAwake = max( wuAwake, 1.0 - smoothstep( r - 0.008, r, d ) );
