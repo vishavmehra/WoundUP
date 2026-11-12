@@ -20,6 +20,9 @@ export const MODEL_PATHS: Readonly<Record<string, string>> = {
   bracket_support: 'shared/structural/bracket_support.glb',
   cylinder_music_box: 'shared/cylinder/cylinder_music_box.glb',
   comb_music_box: 'shared/comb/comb_music_box.glb',
+  // The fixed fitting at the front of every machine base (SOCKET_BaseHandle). Not a blueprint part, so no PartDefinition: the
+  // place-in-town flow owns it. Listed so it can be loaded on demand like the rest (PartLoader.load).
+  machine_base_handle: 'shared/interaction/machine_base_handle.glb',
   // Tockton machines (Families C to E): housings and their own pieces
   music_box_case: 'tockton/music_box/music_box_case.glb',
   carousel_base: 'tockton/carousel/carousel_base.glb',
