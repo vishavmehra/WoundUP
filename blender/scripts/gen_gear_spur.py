@@ -1,24 +1,24 @@
-"""gen_gear_spur.py - parametric aged-brass storybook spur gear (hero hand-grab test object).
+"""gen_gear_spur.py - the spur_gear family: parametric aged-brass storybook spur gears (forge family).
 
-    blender --background --factory-startup --python blender/scripts/gen_gear_spur.py -- [options]
+Not run directly. The family runner builds it:
 
-Options
-    --teeth N            tooth count (default 16)
-    --tip-diameter D     metres; default = MODULE * (teeth + 2) so every size shares one module (16T -> 0.064)
-    --thickness T        face width in metres (default 0.012)
-    --bore B             bore diameter in metres (default 0.008)
-    --res R              texture resolution (default 1024)
-    --clay               geometry only (no bake / textures) - fast shape review
-    --views a,b,c        preview views to render (default: front,threequarter,top,macro,grazing)
-    --no-previews        skip the render step
-    --out PATH           GLB path override (default: public/assets/models/props/gear_spur_<N>_brass.glb for N=16,
-                         blender/exports/variants/ for other sizes)
+    "$B" --background --factory-startup --python-exit-code 1 --python blender/scripts/forge.py -- \
+         --family spur_gear --only gear_spur_12_m1,gear_spur_16_m1,gear_spur_24_m1 --out-root <dir>
 
-Model space (what ends up in the GLB, glTF Y-up): rotation axis = local +Z, front face towards +Z, origin = centre of
-the bore at mid-thickness, tooth 0 points along +X. The mesh is built in this space at 100x (1 unit = 1 cm, so tiny
-bevels stay far above Blender's merge tolerances), then rotated into Blender space (x, y, z) -> (x, -z, y)
-(Blender-side the rotation axis is the Y axis, front face towards -Y) and scaled to metres before any normal /
-texture work. The glTF exporter's Y-up conversion then returns exactly the model-space axes.
+forge.py reads the manifest entries, calls build(entry, PARAMS[id]) once per id in a fresh scene, then bakes vertex AO into
+COLOR_0, runs the QA gate, exports with the library profile and renders the contact sheet (docs/BLENDER_PRODUCTION_GUIDELINES
+section 4). This file holds the geometry and PARAMS, the generator parameters keyed by asset id (section 4.4).
+
+Every gear shares ONE module, m1 = MODULE_REF = 3.6158 mm (owner decision 5 pending; the manifest default), so any two
+gears of the family mesh. Tip diameter = m * (teeth + 2 * 0.85): 12T 49.5 mm, 16T 64.0 mm, 24T 92.9 mm.
+
+Model space (what ends up in the GLB, glTF Y-up): rotation axis = local +Z, front face towards +Z, origin = centre of the
+bore at mid-thickness, tooth 0 points along +X. The mesh is built in this space at 100x (1 unit = 1 cm, so tiny bevels stay far
+above Blender's merge tolerances), then rotated into Blender space (x, y, z) -> (x, -z, y) (Blender-side the rotation axis is the
+Y axis, front face towards -Y) and scaled to metres. The glTF exporter's Y-up conversion then returns exactly the model-space axes.
+
+Finish: a constants-only Mat_AgedBrass proxy, metric box-projected UVs (1 UV unit = 0.1 m), baked AO in COLOR_0 and one
+COL_Grab sphere. The brass look itself is the shared textured library material, swapped in by name at runtime (ADR-032).
 """
 from __future__ import annotations
 
@@ -37,6 +37,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 import wu_common as wu
+from lib import empties, materials, uvmetric
 
 S = 100.0                              # build scale (1 unit = 1 cm)
 ADDENDUM = 0.85                        # x module (short, chunky storybook teeth)
@@ -73,6 +74,9 @@ class GearParams:
     tip_fillet_segs: int = 2
     root_fillet_segs: int = 2
     spoke_fillet_segs: int = 2
+    rivet_nseg: int = 8                  # sides of a rivet dome
+    bolt_nseg: int = 8                   # sides of a bolt head
+    ring_spacing: float = 1.0            # x the target edge length on the rim, flange and hub circles (more = fewer triangles)
 
     def derive(self):
         z = self.teeth
@@ -205,10 +209,10 @@ def build_plan(p: GearParams) -> Plan:
     d_R = math.atan2(tc_r[1], tc_r[0])
     d_F = math.atan2(tc_h[1], tc_h[0])
     span = two_pi / ns
-    n_att_R = max(2, int(math.ceil(2 * d_R * p.R_R / 0.0034)))
-    n_att_F = max(2, int(math.ceil(2 * d_F * p.r_F / 0.0026)))
-    n_win_R = max(5, int(math.ceil((span - 2 * d_R) * p.R_R / 0.0046)))
-    n_win_F = max(2, int(math.ceil((span - 2 * d_F) * p.r_F / 0.0026)))
+    n_att_R = max(2, int(math.ceil(2 * d_R * p.R_R / (0.0034 * p.ring_spacing))))
+    n_att_F = max(2, int(math.ceil(2 * d_F * p.r_F / (0.0026 * p.ring_spacing))))
+    n_win_R = max(5, int(math.ceil((span - 2 * d_R) * p.R_R / (0.0046 * p.ring_spacing))))
+    n_win_F = max(2, int(math.ceil((span - 2 * d_F) * p.r_F / (0.0026 * p.ring_spacing))))
 
     def circle(radius, delta, n_att, n_win, with_att=True):
         """Vertex loop on a circle: per spoke an attach arc [-delta,+delta] then window-arc interior points."""
@@ -476,9 +480,9 @@ def union_rivets(bm_body, p: GearParams):
     bmr = bmesh.new()
     for (cx, cy, z0, sign, a, h, kind) in rivet_positions(p):
         if kind == "bolt":
-            v, f = pan_head(cx * S, cy * S, z0 * S, sign, a * S, h * S, nseg=8, skirt=0.00018 * S, phase=math.atan2(cy, cx))
+            v, f = pan_head(cx * S, cy * S, z0 * S, sign, a * S, h * S, nseg=p.bolt_nseg, skirt=0.00018 * S, phase=math.atan2(cy, cx))
         else:
-            v, f = dome_shell(cx * S, cy * S, z0 * S, sign, a * S, h * S, nseg=8, rings=1, skirt=0.00018 * S,
+            v, f = dome_shell(cx * S, cy * S, z0 * S, sign, a * S, h * S, nseg=p.rivet_nseg, rings=1, skirt=0.00018 * S,
                               phase=math.atan2(cy, cx))
         vs = [bmr.verts.new(c) for c in v]
         for q in f:
@@ -529,171 +533,9 @@ def mark_shading(bm):
     return sharp
 
 
-# ======================================================================================
-# UV atlas: front / back planar discs, arc-length wall strips, rivet tiles (uniform texel density)
-# ======================================================================================
-def _poly_param(pts, closed, P):
-    """Closest-point arc-length parameter + distance of 2D points P (n,2) on polyline pts (m,2)."""
-    pts = np.asarray(pts, float)
-    if closed:
-        a, b = pts, np.roll(pts, -1, axis=0)
-    else:
-        a, b = pts[:-1], pts[1:]
-    seg = b - a
-    ln = np.hypot(seg[:, 0], seg[:, 1])
-    cum = np.concatenate([[0.0], np.cumsum(ln)])
-    P = np.atleast_2d(P)
-    d = P[:, None, :] - a[None, :, :]
-    t = np.clip((d * seg[None]).sum(-1) / np.maximum(ln ** 2, 1e-18)[None], 0, 1)
-    proj = a[None] + t[..., None] * seg[None]
-    dist = np.hypot(P[:, None, 0] - proj[..., 0], P[:, None, 1] - proj[..., 1])
-    j = dist.argmin(1)
-    idx = np.arange(len(P))
-    return cum[j] + t[idx, j] * ln[j], dist[idx, j]
-
-
-class GearUV:
-    """Analytic atlas (all in UV units; k = UV units per metre, identical everywhere => uniform texel density):
-       top half   : front disc (x,y) planar | back disc (-x,y) planar | one tile per rivet/bolt head
-       bottom half: wall strips (plan arc length x height) for every vertical loop, shelf-packed."""
-
-    def __init__(self, p: GearParams, pl: Plan):
-        self.p, self.pl = p, pl
-        self.loops = {"outline": dict(kind="poly", pts=pl.loops["outline"], closed=True, hz=p.h_rim)}
-        for i, ch in enumerate(pl.flank_chains):
-            self.loops[f"flank{i}"] = dict(kind="poly", pts=ch, closed=False, hz=p.h_spoke)
-        for name, hz in (("rim_inner", p.h_rim), ("flange", p.h_rim), ("boss", p.h_boss), ("bore", p.h_boss)):
-            self.loops[name] = dict(kind="circle", r=pl.circles[name], closed=True, hz=hz)
-        for name, lp in self.loops.items():
-            # right-handed strips: outward wall normal must equal (d/du x d/dv). Inward-facing loops run reversed.
-            lp["flip"] = name in ("rim_inner", "bore") or (name.startswith("flank") and int(name[5:]) % 2 == 0)
-            if lp["kind"] == "poly":
-                pts = np.asarray(lp["pts"], float)
-                nxt = np.roll(pts, -1, 0) if lp["closed"] else pts[1:]
-                prv = pts if lp["closed"] else pts[:-1]
-                cum = np.concatenate([[0.0], np.cumsum(np.hypot(*(nxt - prv).T))])
-                lp["L"] = float(cum[-1])
-                lp["verts_s"] = cum[:-1] if lp["closed"] else cum
-            else:
-                ang = pl.circle_angles[name]
-                lp["theta0"] = float(ang[0])
-                lp["L"] = 2 * math.pi * lp["r"]
-                lp["verts_s"] = ((ang - ang[0]) % (2 * math.pi)) * lp["r"]
-        self.rivets = rivet_positions(p)
-        self._pack()
-
-    def _try_pack(self, k, g):
-        pieces, y, x, row_h = [], g, g, 0.0
-        for name, lp in sorted(self.loops.items(), key=lambda kv: -kv[1]["hz"]):
-            n_p = max(1, int(math.ceil((lp["L"] * k + 0.03) / (1 - 2 * g))))
-            vs = np.sort(np.asarray(lp["verts_s"]))
-            cuts = [0.0]
-            for j in range(1, n_p):
-                cuts.append(float(vs[np.abs(vs - lp["L"] * j / n_p).argmin()]))
-            cuts.append(lp["L"] + 1e-9)
-            lp["cuts"] = cuts
-            for j in range(n_p):
-                w = (cuts[j + 1] - cuts[j]) * k + 0.012
-                h = 2 * lp["hz"] * k + 0.012
-                if x + w > 1 - g + 1e-9:
-                    y += row_h + g
-                    x, row_h = g, 0.0
-                pieces.append(dict(loop=name, j=j, u0=x + 0.006, v0=y + 0.006, h=h, w=w))
-                x += w + g
-                row_h = max(row_h, h)
-        return pieces if (y + row_h) <= 0.5 - g else None
-
-    def _pack(self):
-        p = self.p
-        g = 0.018
-        k = min(0.235 / p.Ro, 6.2)
-        pieces = None
-        for _ in range(60):
-            pieces = self._try_pack(k, g)
-            if pieces is not None:
-                break
-            k *= 0.97
-        assert pieces is not None, "wall strips do not fit the atlas"
-        self.k, self.g, self.pieces = k, g, pieces
-        wall_top = max(pc["v0"] + pc["h"] for pc in pieces)
-        v_lo, v_hi = wall_top + g + p.Ro * k, 0.94 - p.Ro * k
-        self.disc_v = min(max(v_lo, 0.5 + p.Ro * k * 0.0 + (v_hi - v_lo) * 0.5), v_hi) if v_hi >= v_lo else v_lo
-        self.front_c, self.back_c = (0.25, self.disc_v), (0.75, self.disc_v)
-        self.tile = 2 * p.rivet_radius * k + 0.012
-
-    def _piece(self, name, j):
-        return next(pc for pc in self.pieces if pc["loop"] == name and pc["j"] == j)
-
-    def assign(self, bm):
-        uvl = bm.loops.layers.uv.verify()
-        k, p = self.k, self.p
-        names = list(self.loops)
-        stats = dict(front=0, back=0, wall=0, rivet=0, mirrored_uv_faces=0)
-        riv = np.array([(r[0], r[1], r[2], r[4]) for r in self.rivets])
-        for f in bm.faces:
-            c = f.calc_center_median()
-            cm = np.array([c.x, c.y, c.z]) / S
-            ri = -1
-            if abs(cm[2]) > p.h_rim + 3e-5:
-                d = np.hypot(riv[:, 0] - cm[0], riv[:, 1] - cm[1])
-                m = (d < riv[:, 3] * 1.18) & (np.sign(riv[:, 2]) == np.sign(cm[2]))
-                if m.any():
-                    ri = int(np.argmin(np.where(m, d, 9)))
-            if ri >= 0:
-                cx, cy, sign = self.rivets[ri][0], self.rivets[ri][1], self.rivets[ri][3]
-                u0 = 0.03 + (ri % 24) * self.tile
-                v0 = 1 - 0.02 - self.tile * (ri // 24 + 1)
-                for l in f.loops:
-                    x, y = l.vert.co.x / S, l.vert.co.y / S
-                    l[uvl].uv = (u0 + self.tile / 2 + (x - cx) * k * sign, v0 + self.tile / 2 + (y - cy) * k)
-                stats["rivet"] += 1
-                continue
-            nz = f.normal.z
-            if abs(nz) > 0.45:
-                front = cm[2] > 0          # side by position: sliver n-gons can have an unreliable Newell normal sign
-                cu, cv = self.front_c if front else self.back_c
-                for l in f.loops:
-                    x, y = l.vert.co.x / S, l.vert.co.y / S
-                    l[uvl].uv = (cu + (x if front else -x) * k, cv + y * k)
-                stats["front" if front else "back"] += 1
-                continue
-            best, bd = None, 9.0
-            for name in names:
-                lp = self.loops[name]
-                if lp["kind"] == "circle":
-                    d = abs(math.hypot(cm[0], cm[1]) - lp["r"])
-                else:
-                    d = float(_poly_param(lp["pts"], lp["closed"], cm[None, :2])[1][0])
-                if d < bd - 1e-9:
-                    best, bd = name, d
-            lp = self.loops[best]
-            vp = np.array([[l.vert.co.x / S, l.vert.co.y / S, l.vert.co.z / S] for l in f.loops])
-            if lp["kind"] == "circle":
-                sc = ((math.atan2(cm[1], cm[0]) - lp["theta0"]) % (2 * math.pi)) * lp["r"]
-                sv = ((np.arctan2(vp[:, 1], vp[:, 0]) - lp["theta0"]) % (2 * math.pi)) * lp["r"]
-            else:
-                sc = float(_poly_param(lp["pts"], lp["closed"], cm[None, :2])[0][0])
-                sv = _poly_param(lp["pts"], lp["closed"], vp[:, :2])[0]
-            if lp["closed"]:
-                sv = sv + lp["L"] * np.round((sc - sv) / lp["L"])
-            cuts = lp["cuts"]
-            j = max(0, min(len(cuts) - 2, int(np.searchsorted(cuts, sc, side="right") - 1)))
-            pc = self._piece(best, j)
-            wlen = cuts[j + 1] - cuts[j]
-            for l, su, zi in zip(f.loops, sv, vp[:, 2]):
-                du = (wlen - (su - cuts[j])) if lp["flip"] else (su - cuts[j])
-                l[uvl].uv = (pc["u0"] + du * k, pc["v0"] + (zi + lp["hz"]) * k)
-            stats["wall"] += 1
-        for f in bm.faces:
-            uvs = np.array([l[uvl].uv[:] for l in f.loops])
-            ar = 0.5 * (np.dot(uvs[:, 0], np.roll(uvs[:, 1], -1)) - np.dot(uvs[:, 1], np.roll(uvs[:, 0], -1)))
-            if ar < -1e-9:
-                stats["mirrored_uv_faces"] += 1
-        return stats
-
 
 # ======================================================================================
-# build (mesh in Blender space, metres) -> bake -> textures -> export -> QA -> previews
+# mesh (Blender space, metres) -> forge family interface
 # ======================================================================================
 def build_gear_mesh(p: GearParams, name: str):
     pl = build_plan(p)
@@ -710,18 +552,13 @@ def build_gear_mesh(p: GearParams, name: str):
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     n_sharp = mark_shading(bm)
-    uv = GearUV(p, pl)
-    ustats = uv.assign(bm)
-    wu.log(f"rim triangulation check: {pl.rim_check}")
-    wu.log(f"plan verts={len(pl.V)} faces={len(pl.faces)}; bevelled bore={n_bore} edges={n_edge}; sharp edges={n_sharp}; UV faces={ustats}; "
-           f"atlas k={uv.k:.2f} UV/m (= {uv.k * 1024 / 1000:.2f} px/mm @1024)")
+    wu.log(f"{name}: rim check {pl.rim_check}; bevelled bore={n_bore} edges={n_edge}; sharp edges={n_sharp}")
     M = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1))) @ Matrix.Scale(1.0 / S, 4)
     bmesh.ops.transform(bm, matrix=M, verts=bm.verts)
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
-    me.uv_layers.active.name = "UVMap" if me.uv_layers.active else "UVMap"
-    return me, pl, uv
+    return me, pl
 
 
 def apply_weighted_normals(obj):
@@ -733,122 +570,70 @@ def apply_weighted_normals(obj):
     bpy.ops.object.modifier_apply(modifier=md.name)
 
 
-def run(argv):
-    import argparse
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--teeth", type=int, default=16)
-    ap.add_argument("--tip-diameter", type=float, default=None)
-    ap.add_argument("--thickness", type=float, default=0.012)
-    ap.add_argument("--bore", type=float, default=0.008)
-    ap.add_argument("--res", type=int, default=1024)
-    ap.add_argument("--clay", action="store_true")
-    ap.add_argument("--views", default="front,threequarter,top,macro,grazing")
-    ap.add_argument("--no-previews", action="store_true")
-    ap.add_argument("--out", default=None)
-    ap.add_argument("--preview-prefix", default=None)
-    ap.add_argument("--preview-res", default="1280x960")
-    ap.add_argument("--preview-samples", type=int, default=96)
-    a = ap.parse_args(argv)
+def geometry_check(p: GearParams):
+    """Measure the finished mesh (not the parameters): tooth count, tooth 0 centred on +X, bore radius, bore centre."""
+    def run(g, objs):
+        me = objs[0].data
+        c = np.empty(len(me.vertices) * 3)
+        me.vertices.foreach_get("co", c)
+        c = c.reshape(-1, 3)
+        x, y = c[:, 0], c[:, 2]                                   # the gear plane in glTF axes (Blender z is glTF y)
+        r, ang = np.hypot(x, y), np.arctan2(y, x)
+        pitch = 2 * math.pi / p.teeth
+        tip = r >= p.Ro - 0.0003
+        k = np.round(ang[tip] / pitch).astype(int)
+        resid = ang[tip] - k * pitch
+        teeth, off = len(set(k % p.teeth)), math.degrees(abs(float(resid.mean())))
+        bore = r <= p.r_bore + 1e-6
+        g.info.update(teethFound=teeth, tooth0OffsetDeg=round(off, 4), boreRadiusMm=round(float(r.min()) * 1000, 4),
+                      boreCentreMm=[round(float((x[bore].max() + x[bore].min()) * 500), 4), round(float((y[bore].max() + y[bore].min()) * 500), 4)])
+        if teeth != p.teeth:
+            g.fail("Q13", f"{teeth} teeth found in the mesh, {p.teeth} expected")
+        if off > 0.05:
+            g.fail("Q13", f"tooth 0 is {off:.3f} deg off +X (limit 0.05)")
+        if abs(float(r.min()) - p.r_bore) > 5e-5:
+            g.fail("Q13", f"bore radius {r.min() * 1000:.4f} mm, expected {p.r_bore * 1000:.4f} mm")
+        if max(abs(v) for v in g.info["boreCentreMm"]) > 0.05:
+            g.fail("Q13", f"bore centre {g.info['boreCentreMm']} mm is off the origin")
+    return run
 
-    p = GearParams(teeth=a.teeth, tip_diameter=a.tip_diameter, thickness=a.thickness, bore=a.bore).derive()
-    nm = f"GearSpur{p.teeth}_Brass"
-    asset = f"gear_spur_{p.teeth}_brass"
-    deliverable = p.teeth == 16 and a.tip_diameter is None
-    glb = Path(a.out) if a.out else ((wu.MODEL_DIR / "props" / f"{asset}.glb") if deliverable else (wu.EXPORT_DIR / "variants" / f"{asset}.glb"))
-    blend = (wu.SOURCE_DIR / f"{asset}.blend") if deliverable else (wu.EXPORT_DIR / "variants" / f"{asset}.blend")
-    wu.log(f"== {nm}: teeth={p.teeth} tip D={p.tip_diameter * 1000:.3f} mm module={p.m * 1000:.4f} mm thickness={p.thickness * 1000:.1f} bore={a.bore * 1000:.1f}")
 
-    wu.reset_scene()
-    me, pl, uv = build_gear_mesh(p, nm)
-    obj = wu.link_object(nm, me)
-    place = bpy.data.materials.new("_placeholder")
-    me.materials.append(place)
+FAMILY = "spur_gear"
+
+# Generator parameters keyed by asset id (BLENDER_PRODUCTION_GUIDELINES 4.4; the manifest has no field for them yet).
+# `grab_radius` is the COL_Grab sphere in metres: the gear's tip radius, so the invisible collider never reaches past the
+# visible footprint (INTERACTION_SPEC 7.2: never enlarge the visible mesh; minimum 12 mm). It must equal
+# PartDefinition.grab.colliderRadius (Agent 2).
+# One shared detail tier keeps the family looking alike and every gear inside its 4,000-triangle ceiling (the 24-tooth gear was
+# 5,024 triangles at the shipped settings). One segment on a 0.8 mm tooth fillet and a coarser rim, flange and hub circle are below what
+# a Quest resolves; the 8 rivets and 4 bolts per face, the chamfers, the filleted spokes and the flanged hub are unchanged.
+# The 36-tooth gear (not built here) still needs a lighter tier: 4,768 triangles at these settings.
+DETAIL = dict(tip_fillet_segs=1, root_fillet_segs=1, ring_spacing=1.4, rivet_nseg=8, bolt_nseg=6)
+PARAMS = {
+    "gear_spur_10_m1": dict(teeth=10, **DETAIL, grab_radius=0.0212),
+    "gear_spur_12_m1": dict(teeth=12, **DETAIL, grab_radius=0.0248),
+    "gear_spur_20_m1": dict(teeth=20, **DETAIL, grab_radius=0.0392),
+    "gear_spur_16_m1": dict(teeth=16, **DETAIL, grab_radius=0.0320),
+    "gear_spur_24_m1": dict(teeth=24, **DETAIL, grab_radius=0.0465),
+}
+
+
+def build(entry: dict, params: dict):
+    """Build one gear in the current (empty) scene. Returns ([root mesh, helper empties...], QA hints)."""
+    kw = {k: v for k, v in params.items() if k != "grab_radius"}
+    p = GearParams(**kw).derive()
+    name = entry["meshes"][0]
+    wu.log(f"== {entry['id']}: teeth={p.teeth} tip D={p.tip_diameter * 1000:.3f} mm module={p.m * 1000:.4f} mm")
+    me, _ = build_gear_mesh(p, name)
+    obj = wu.link_object(name, me)
     apply_weighted_normals(obj)
-
-    if not a.clay:
-        res = a.res
-        passes = [dict(name="mask", constant=1.0),
-                  dict(name="ao", distance=0.010, samples=192),
-                  dict(name="cav", distance=0.0035, samples=160),
-                  dict(name="edge", distance=0.0007, inside=True, samples=160)]
-        bk = wu.bake_maps(obj, res, passes, margin=8, samples=192)
-        mask = bk["mask"][0] > 0.5
-        ao = np.where(mask, bk["ao"][0], 1.0)
-        cav = np.where(mask, np.clip((1 - bk["cav"][0]) * 1.5, 0, 1), 0.0)
-        edge = np.where(mask, np.clip((1 - bk["edge"][0]) * 1.6 - 0.05, 0, 1), 0.0)
-        wu.log(f"bake stats: ao mean={ao[mask].mean():.3f} cav mean={cav[mask].mean():.3f} edge mean={edge[mask].mean():.3f} mask={mask.mean() * 100:.1f}%")
-        maps = wu.brass_maps(res, ao=ao, cavity=cav, edge=edge, seed=11)
-        import tempfile
-        tex_dir = Path(tempfile.mkdtemp(prefix="wu_gear_tex_"))
-        imgs = wu.make_textures(asset, "brass", maps, tex_dir)
-        mat = wu.build_pbr_material("Mat_AgedBrass", imgs["base"], imgs["orm"], imgs["normal"])
-        me.materials[0] = mat
-    else:
-        mat = bpy.data.materials.new("Mat_AgedBrass")
-        mat.use_nodes = True
-        b = mat.node_tree.nodes["Principled BSDF"]
-        b.inputs["Base Color"].default_value = (*wu.hex_to_linear(wu.BRASS["base"]), 1)
-        b.inputs["Metallic"].default_value = 0.85
-        b.inputs["Roughness"].default_value = 0.45
-        me.materials[0] = mat
-    bpy.data.materials.remove(place)
-    obj.name = nm
-    me.name = nm
-    for ob in list(bpy.data.objects):
-        if ob is not obj:
-            bpy.data.objects.remove(ob)
-
-    # ---- QA on source mesh
-    wu.log("MESH QA:", wu.mesh_qa(obj))
-    if not a.clay:
-        wu.log("UV QA:", wu.uv_qa(obj, 1024))
-        wu.log("texel density px/m:", wu.texel_density(obj, a.res))
-
-    # ---- save .blend + export GLB
-    bpy.ops.outliner.orphans_purge(do_recursive=True)
-    if deliverable and not a.clay:                       # helper sizes (12T / 24T) only ship a GLB for the composition
-        blend.parent.mkdir(parents=True, exist_ok=True)
-        bpy.ops.wm.save_as_mainfile(filepath=str(blend), compress=True)
-        wu.log("saved", blend, f"{blend.stat().st_size / 1024:.0f} KB")
-    wu.export_glb([obj], glb)
-    rep = wu.inspect_glb(glb)
-
-    if a.no_previews:
-        return rep
-    # ---- previews rendered from the RE-IMPORTED GLB (round trip proof)
-    w, h = (int(x) for x in a.preview_res.split("x"))
-    prefix = a.preview_prefix or asset
-    render_previews(glb, prefix, a.views.split(","), (w, h), a.preview_samples, p)
-    return rep
-
-
-def gear_views(p: GearParams):
-    """glTF-space camera specs: name -> (camera position, target, lens, key light direction or None)."""
-    R = p.Ro
-    return {
-        "front": ((0, 0, 7.2 * R), (0, 0, 0), 85, None),
-        "threequarter": ((3.6 * R, 2.6 * R, 5.6 * R), (0, 0, 0), 85, None),
-        "top": ((0.05 * R, 7.0 * R, 0.9 * R), (0, 0, 0), 85, None),
-        "macro": ((0.58 * R + 0.012, 0.58 * R + 0.010, 0.006 + 0.036), (0.58 * R, 0.58 * R, 0.005), 100, None),
-        "grazing": ((2.6 * R, 2.2 * R, 6.2 * R), (0, 0, 0), 85, (-1.0, 0.10, 0.16)),
-    }
-
-
-def render_previews(glb, prefix, views, res, samples, p):
-    scene = wu.reset_scene()
-    wu.setup_cycles(scene, samples=samples)
-    objs = wu.import_glb(glb)
-    zmin = min((o.matrix_world @ Vector(c)).z for o in objs if o.type == "MESH" for c in o.bound_box)
-    wu.build_studio(scene, 0.064, floor_z=zmin - 0.0003)
-    specs = gear_views(p)
-    for name in views:
-        pos, tgt, lens, key = specs[name]
-        cam = wu.make_camera(scene, wu.g2b(pos), wu.g2b(tgt), lens)
-        wu.isolate_key(scene, key is not None)
-        wu.set_key_light(scene, wu.g2b(key) if key else None, 0.064, 2.2 if key else 1.0)
-        wu.render_to(scene, wu.PREVIEW_DIR / f"{prefix}_{name}.png", res=res, samples=samples, max_kb=600)
-        bpy.data.objects.remove(cam)
+    materials.assign(obj, entry["materials"][0])
+    uvmetric.box_project(obj)
+    obj["wu"] = dict(id=entry["id"], family=FAMILY, teeth=p.teeth, moduleMm=round(p.m * 1000, 4),
+                     tipRadiusM=round(p.Ro, 5), rotationAxis="+Z")
+    col = empties.add_collider(obj, "Grab", "sphere", params["grab_radius"])
+    return [obj, col], dict(origin=("centre", "centre", "centre"), thin_axis_z=True, closed=True, checks=[geometry_check(p)])
 
 
 if __name__ == "__main__":
-    run(wu.script_args())
+    raise SystemExit("gen_gear_spur.py is a forge family. Run blender/scripts/forge.py --family spur_gear --only <ids> --out-root <dir>")

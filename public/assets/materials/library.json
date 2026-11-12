@@ -1,0 +1,516 @@
+{
+  "schemaVersion": 1,
+  "generator": "blender/scripts/make_library_textures.py",
+  "uvUnitMetres": 0.1,
+  "conventions": {
+    "texel": "1 UV unit = 0.1 m of surface; one texture tile covers 10 cm",
+    "baseColor": "sRGB JPEG",
+    "orm": "occlusion R, roughness G, metallic B (PNG, linear)",
+    "normal": "tangent space, OpenGL (+Y up), PNG, linear",
+    "colors": "hex strings are sRGB"
+  },
+  "budget": {
+    "limitMiB": 48.0,
+    "totalMiB": 38.0,
+    "maxPx": 1024,
+    "formula": "w*h*4*4/3 per image, each image once"
+  },
+  "materials": {
+    "Mat_AgedBrass": {
+      "type": "standard",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "aged_brass/baseColor.jpg",
+          "size": 1024,
+          "bytes": 79573,
+          "sha256": "c9e7ebd66bd0c9cfab91d0899d3dfd213e50f48806351d4585d1403ef0b3b3e5"
+        },
+        "orm": {
+          "file": "aged_brass/orm.png",
+          "size": 512,
+          "bytes": 183225,
+          "sha256": "1d0a3150ec3a9bf1400bd7ba869c9060fb31fa8f35b4a09d13a631ed774f3ae4"
+        },
+        "normal": {
+          "file": "aged_brass/normal.png",
+          "size": 512,
+          "bytes": 288234,
+          "sha256": "a0e0d43d1338987a390077f7d752f2cc56d23d2bcea631f0549b950b2c43df14"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#A87C32",
+        "metallic": 0.891,
+        "roughness": 0.402
+      },
+      "gpuMiB": 8.0
+    },
+    "Mat_Walnut": {
+      "type": "standard",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "walnut/baseColor.jpg",
+          "size": 1024,
+          "bytes": 96713,
+          "sha256": "268d5ebcc5b363ad4e462e111403ab3b683ef44d2576274706fef98192a2cded"
+        },
+        "orm": {
+          "file": "walnut/orm.png",
+          "size": 512,
+          "bytes": 132687,
+          "sha256": "d9dc2a062bf632e1623bf2387ba0830252fdbf02f562813ac3725ba4891cfbe7"
+        },
+        "normal": {
+          "file": "walnut/normal.png",
+          "size": 512,
+          "bytes": 163897,
+          "sha256": "bd50f5304bba3163cea924f5d38b0fd00313306e7673ef32719b524f12bd70c5"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#442B1A",
+        "metallic": 0.0,
+        "roughness": 0.599
+      },
+      "gpuMiB": 8.0
+    },
+    "Mat_VelvetTeal": {
+      "type": "physical",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "velvet_teal/baseColor.jpg",
+          "size": 512,
+          "bytes": 17491,
+          "sha256": "9738d082287f0480b60f937789d03a5b18f04474c5514f7a62df33fce9412fec"
+        },
+        "orm": {
+          "file": "velvet_teal/orm.png",
+          "size": 256,
+          "bytes": 35485,
+          "sha256": "ff9a7c35ce40a5d499b599a2d0ecdfe3b0d62ca2d248ace1af8af06d99f91dfd"
+        },
+        "normal": {
+          "file": "velvet_teal/normal.png",
+          "size": 512,
+          "bytes": 362946,
+          "sha256": "d514369b38b3028855b28c4373683eb23d7b0aa566aa72348b2d25d1f5046e83"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#184B4B",
+        "metallic": 0.0,
+        "roughness": 0.942
+      },
+      "gpuMiB": 3.0,
+      "sheen": {
+        "color": "#294545",
+        "roughness": 0.4
+      }
+    },
+    "Mat_PolishedBrass": {
+      "type": "standard",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "polished_brass/baseColor.jpg",
+          "size": 512,
+          "bytes": 16203,
+          "sha256": "f944454b9d5c8413ee32f02959c3a4abe94eecad839f7d7119819798535af8e0"
+        },
+        "orm": {
+          "file": "polished_brass/orm.png",
+          "size": 256,
+          "bytes": 26010,
+          "sha256": "a99c1d0bc935cc02da5bfe895d1126f2f360f82cffc3e9995dff78f0cc4e2cb0"
+        },
+        "normal": {
+          "file": "polished_brass/normal.png",
+          "size": 256,
+          "bytes": 15809,
+          "sha256": "df372563c93a20b7bbd55e952ad28f976d080ee1fa4daf4c08fa0a538e4d4bb5"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#DDBB5E",
+        "metallic": 0.969,
+        "roughness": 0.177
+      },
+      "gpuMiB": 2.0
+    },
+    "Mat_PaintedWood": {
+      "type": "standard",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "painted_wood/baseColor.jpg",
+          "size": 512,
+          "bytes": 13471,
+          "sha256": "aa64c5e9f38ab47152fad51590bde7e878b07932d9b057cb76c2e7cd5f405032"
+        },
+        "orm": {
+          "file": "painted_wood/orm.png",
+          "size": 256,
+          "bytes": 14699,
+          "sha256": "0494795866d74c473852b017f150b2a09abdf3d1e1dfa5a2ca972a572de154fc"
+        },
+        "normal": {
+          "file": "painted_wood/normal.png",
+          "size": 512,
+          "bytes": 72054,
+          "sha256": "c43828e9a92d3a1adc236f6c05168ed345991fa6e5261eab66b7c5534d33a1fa"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#D4C298",
+        "metallic": 0.0,
+        "roughness": 0.519
+      },
+      "gpuMiB": 3.0
+    },
+    "Mat_CreamPaper": {
+      "type": "standard",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "cream_paper/baseColor.jpg",
+          "size": 512,
+          "bytes": 17730,
+          "sha256": "f6fc52d5be441784fe1d8e82e2ff497dbc10c3567586f21f84e3f17cb6e1066b"
+        },
+        "orm": {
+          "file": "cream_paper/orm.png",
+          "size": 256,
+          "bytes": 54875,
+          "sha256": "efa20f717d4575a3cc574333e190fffcf86f0e5f46255057b0162e65c79b3642"
+        },
+        "normal": {
+          "file": "cream_paper/normal.png",
+          "size": 256,
+          "bytes": 83557,
+          "sha256": "f4c7c811ab75122e49a67652145adf039eb6572da111ee929a434881b1cb8eda"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#EFE3C8",
+        "metallic": 0.0,
+        "roughness": 0.88
+      },
+      "gpuMiB": 2.0
+    },
+    "Mat_CreamEnamel": {
+      "type": "standard",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "cream_enamel/baseColor.jpg",
+          "size": 512,
+          "bytes": 14871,
+          "sha256": "3c83221ddd34ac97ac4fef2540922484f3033b9a25cd7c9778ce5654ca6b4ada"
+        },
+        "orm": {
+          "file": "cream_enamel/orm.png",
+          "size": 256,
+          "bytes": 46335,
+          "sha256": "275fa2a91ad529a20b72081cb5a028b1d3e5a4b3a8f0dd965097b64f9646bf81"
+        },
+        "normal": {
+          "file": "cream_enamel/normal.png",
+          "size": 256,
+          "bytes": 44408,
+          "sha256": "940d4219f03be24824c0408e85c0cb8ba7ae9369665f43b258c5890cf33e1286"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#F2E6CF",
+        "metallic": 0.0,
+        "roughness": 0.216
+      },
+      "gpuMiB": 2.0
+    },
+    "Mat_TealPaint": {
+      "type": "standard",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "teal_paint/baseColor.jpg",
+          "size": 512,
+          "bytes": 9064,
+          "sha256": "0bf3cb6dc98b686eb65442a994ae9b6df380064017329ff6bd688096353506d5"
+        },
+        "orm": {
+          "file": "teal_paint/orm.png",
+          "size": 256,
+          "bytes": 16248,
+          "sha256": "d9f89a0177ceaf9a177da0807a5849c18b66c89cfb61a77538cac6f0899f9e2c"
+        },
+        "normal": {
+          "file": "teal_paint/normal.png",
+          "size": 256,
+          "bytes": 18621,
+          "sha256": "5cffd1b175f4bc31e5ae0cde772e9565f9c805737cbfd81fab6fb401a55180b6"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#205C5C",
+        "metallic": 0.004,
+        "roughness": 0.46
+      },
+      "gpuMiB": 2.0
+    },
+    "Mat_WarmGlass": {
+      "type": "standard",
+      "color": "#FFD9A3",
+      "roughness": 0.04,
+      "metalness": 0.0,
+      "alpha": {
+        "opacity": 0.28
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#FFD9A3",
+        "metallic": 0.0,
+        "roughness": 0.04,
+        "alpha": {
+          "opacity": 0.28
+        }
+      },
+      "gpuMiB": 0.0
+    },
+    "Mat_Fabric": {
+      "type": "standard",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "fabric/baseColor.jpg",
+          "size": 512,
+          "bytes": 40987,
+          "sha256": "1f2028b267c4a0b4eef8a826c9891031393e1e3fe8926372a9e5b8b1c55ebd54"
+        },
+        "orm": {
+          "file": "fabric/orm.png",
+          "size": 256,
+          "bytes": 18438,
+          "sha256": "5cadd4e820505aef3bb56b47ee03cb5e97b0e5c9b1bcb9dedfac6b9ef68a0b4b"
+        },
+        "normal": {
+          "file": "fabric/normal.png",
+          "size": 512,
+          "bytes": 82580,
+          "sha256": "4dc43395b446bb3657373ab236a040d374cb1e19fd72d97b4e8dbb4d55f0afa7"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#CDBD98",
+        "metallic": 0.0,
+        "roughness": 0.86
+      },
+      "gpuMiB": 3.0
+    },
+    "Mat_Stone": {
+      "type": "standard",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "stone/baseColor.jpg",
+          "size": 512,
+          "bytes": 27218,
+          "sha256": "9f5369c9d54016c1b4ae24ff1ce45c9a9be005f342512fd1b60427261b9bdc29"
+        },
+        "orm": {
+          "file": "stone/orm.png",
+          "size": 256,
+          "bytes": 48040,
+          "sha256": "db45388fd6f2cf63052a169efd3f405b00051dc3683d2525f62d6d5cab1ad0ad"
+        },
+        "normal": {
+          "file": "stone/normal.png",
+          "size": 512,
+          "bytes": 344235,
+          "sha256": "973bb09efddda261c78f67cf06ac3e28e3192e5be82b6052d0a18245c76d920b"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#AFA38C",
+        "metallic": 0.0,
+        "roughness": 0.86
+      },
+      "gpuMiB": 3.0
+    },
+    "Mat_WarmEmissive": {
+      "type": "standard",
+      "color": "#F2E6CF",
+      "roughness": 0.5,
+      "metalness": 0.0,
+      "emissive": {
+        "color": "#FFC66D",
+        "strength": 1.5
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#F2E6CF",
+        "metallic": 0.0,
+        "roughness": 0.5,
+        "emissive": {
+          "color": "#FFC66D",
+          "strength": 1.5
+        }
+      },
+      "gpuMiB": 0.0
+    },
+    "Mat_Ceramic": {
+      "type": "standard",
+      "color": "#FFFFFF",
+      "roughness": 1.0,
+      "metalness": 1.0,
+      "normalScale": 1.0,
+      "textures": {
+        "baseColor": {
+          "file": "ceramic/baseColor.jpg",
+          "size": 512,
+          "bytes": 10897,
+          "sha256": "28b1925f1f7a34093268e7a79c7860dc5e0bd0f7c64425dbf1d19eee0f8526b9"
+        },
+        "orm": {
+          "file": "ceramic/orm.png",
+          "size": 256,
+          "bytes": 40081,
+          "sha256": "036a27dbe47d479b0f90a2bde215a1dade73d194aa95643e8bf431df7dab49d1"
+        },
+        "normal": {
+          "file": "ceramic/normal.png",
+          "size": 256,
+          "bytes": 56371,
+          "sha256": "a41e23f819031b56911820f5aabd8131c943bd62129df617ae20098e383f5848"
+        }
+      },
+      "tiling": {
+        "uvUnitMetres": 0.1,
+        "repeat": [
+          1,
+          1
+        ]
+      },
+      "proxy": {
+        "baseColor": "#EADFC8",
+        "metallic": 0.0,
+        "roughness": 0.31
+      },
+      "gpuMiB": 2.0
+    }
+  }
+}

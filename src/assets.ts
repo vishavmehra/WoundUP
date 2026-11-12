@@ -11,10 +11,11 @@ export default defineAssets({
     name: 'Tockton velvet stand',
     priority: 'critical',
   },
-  'gear-spur-16-brass': {
-    url: model('props/gear_spur_16_brass.glb'),
+  // Library profile (ADR-032): constants-only proxy material, swapped for the shared Mat_AgedBrass at startup.
+  gear_spur_16_m1: {
+    url: model('shared/spur_gear/gear_spur_16_m1.glb'),
     type: AssetType.GLTF,
-    name: 'Brass spur gear, 16 teeth',
+    name: 'Brass spur gear, 16 teeth, module m1',
     priority: 'critical',
   },
 });

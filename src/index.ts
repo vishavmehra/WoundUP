@@ -4,6 +4,7 @@ import { GrabFeedbackSystem } from './grab-feedback.js';
 import { GrabModeSystem } from './grab-mode.js';
 import { useSelfHostedHands } from './hands.js';
 import { mountLanding, type LandingOptions } from './landing/landing.js';
+import { applyLibraryMaterials, createMaterialRegistry } from './materials/index.js';
 import { installRenderBudget, type RenderBudget } from './render-budget.js';
 import { StageSystem } from './stage.js';
 import { standZoom } from './stage-framing.js';
@@ -53,6 +54,15 @@ try {
   world = created;
   // Landing actions stay disabled until setSupport below, so the preview cannot have started yet.
   const budget = (renderBudget = installRenderBudget(world));
+  // Shared library materials (ADR-032) go only on GLBs built with the library profile; the M0 stand still carries its
+  // own baked textures and no 0.1 m UVs. Swap before the grab feedback system copies the part's materials.
+  const materials = await createMaterialRegistry();
+  await materials.loadTextures(['Mat_AgedBrass']);
+  const gear = world.getSceneObject('gear-16');
+  if (gear) {
+    const report = applyLibraryMaterials(gear, materials);
+    if (report.unknown.length) console.warn('[wound-up] Not in the material library:', report.unknown);
+  }
   useSelfHostedHands(world);
   world
     .registerSystem(StageSystem)
