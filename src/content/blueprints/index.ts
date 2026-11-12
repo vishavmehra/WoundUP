@@ -1,6 +1,7 @@
 export * from './gift';
 export * from './registry';
 export * from './repair';
+export * from './rules';
 export * from './solve';
 export * from './types';
 export { validateMachineBlueprint } from './validate';
