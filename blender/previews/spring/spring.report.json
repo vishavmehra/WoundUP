@@ -1,0 +1,227 @@
+{
+  "schema": 1,
+  "family": "spring",
+  "generator": "blender/scripts/gen_spring.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T18:38:52+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\mechanical\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "spring_standard",
+      "exported": true,
+      "ao": {
+        "Spring_Standard": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.6639,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [
+          "Q04 dimensionsBasis is 'proposal': size [0.042961619794368744, 0.04058093950152397, 0.010000000707805157] reported, not enforced until the lead approves it"
+        ],
+        "info": {
+          "tris": 1480,
+          "vertsInBlender": 748,
+          "sizeMm": [
+            42.962,
+            40.581,
+            10.0
+          ],
+          "originOffsetMm": [
+            1.12,
+            -0.723,
+            0.0
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_AgedBrass"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.6639,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Spring_Standard": {
+              "verts": 748,
+              "faces": 768,
+              "tris": 1480,
+              "quads": 712,
+              "ngons": 0,
+              "signed_volume": 4.4671343794286e-06
+            }
+          }
+        }
+      },
+      "buildSeconds": 1.5,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 78156,
+          "tris": 1480,
+          "primitives": 1,
+          "vertices": 1688,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            }
+          },
+          "sizeMm": [
+            42.962,
+            40.581,
+            10.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/spring/spring_standard.glb",
+      "bytes": 78156,
+      "sha256": "8ccf8b91ae0a71c7cba1fc419af2783583b4a080e335064c83dccf763de38970",
+      "profile": "L",
+      "seconds": 2.7
+    },
+    {
+      "id": "spring_worn",
+      "exported": true,
+      "ao": {
+        "Spring_Worn": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.6566,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [
+          "Q04 dimensionsBasis is 'proposal': size [0.042768776416778564, 0.03883771598339081, 0.01079015526920557] reported, not enforced until the lead approves it"
+        ],
+        "info": {
+          "tris": 1304,
+          "vertsInBlender": 660,
+          "sizeMm": [
+            42.769,
+            38.838,
+            10.79
+          ],
+          "originOffsetMm": [
+            2.594,
+            -1.497,
+            -0.395
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_AgedBrass"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.6566,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Spring_Worn": {
+              "verts": 660,
+              "faces": 680,
+              "tris": 1304,
+              "quads": 624,
+              "ngons": 0,
+              "signed_volume": 3.5619261577608093e-06
+            }
+          },
+          "tarnishFactor": 0.66
+        }
+      },
+      "buildSeconds": 0.9,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 69412,
+          "tris": 1304,
+          "primitives": 1,
+          "vertices": 1496,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            }
+          },
+          "sizeMm": [
+            42.769,
+            38.838,
+            10.79
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/spring/spring_worn.glb",
+      "bytes": 69412,
+      "sha256": "c6fb9490d8a089a822232d5444784235a9c828e0b1d25b31db32878c61000fd9",
+      "profile": "L",
+      "seconds": 1.0
+    }
+  ],
+  "sheets": {
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\spring\\spring_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 53.2,
+      "cells": 4,
+      "layoutMm": [
+        110.0,
+        129.6
+      ],
+      "ids": [
+        "spring_standard",
+        "spring_worn"
+      ]
+    }
+  },
+  "seconds": 57.1
+}

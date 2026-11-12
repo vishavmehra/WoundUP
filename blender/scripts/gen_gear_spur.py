@@ -607,14 +607,18 @@ FAMILY = "spur_gear"
 # One shared detail tier keeps the family looking alike and every gear inside its 4,000-triangle ceiling (the 24-tooth gear was
 # 5,024 triangles at the shipped settings). One segment on a 0.8 mm tooth fillet and a coarser rim, flange and hub circle are below what
 # a Quest resolves; the 8 rivets and 4 bolts per face, the chamfers, the filleted spokes and the flanged hub are unchanged.
-# The 36-tooth gear (not built here) still needs a lighter tier: 4,768 triangles at these settings.
+# The 36-tooth gear is 4,768 triangles at these settings and its 288 outline edges alone cost 3,900 (ceiling 4,000), so it takes
+# the lighter tier DETAIL_36: three spokes, a coarser rim, flange and hub circle, and 3 rivets + 3 bolts per face with 5-sided heads.
+# The teeth, chamfers, recessed spokes and flanged hub are unchanged (3,972 triangles).
 DETAIL = dict(tip_fillet_segs=1, root_fillet_segs=1, ring_spacing=1.4, rivet_nseg=8, bolt_nseg=6)
+DETAIL_36 = dict(tip_fillet_segs=1, root_fillet_segs=1, ring_spacing=2.0, rivet_nseg=5, bolt_nseg=5, rivets_per_face=3, bolts_per_face=3, spokes=3)
 PARAMS = {
     "gear_spur_10_m1": dict(teeth=10, **DETAIL, grab_radius=0.0212),
     "gear_spur_12_m1": dict(teeth=12, **DETAIL, grab_radius=0.0248),
     "gear_spur_20_m1": dict(teeth=20, **DETAIL, grab_radius=0.0392),
     "gear_spur_16_m1": dict(teeth=16, **DETAIL, grab_radius=0.0320),
     "gear_spur_24_m1": dict(teeth=24, **DETAIL, grab_radius=0.0465),
+    "gear_spur_36_m1": dict(teeth=36, **DETAIL_36, grab_radius=0.0682),
 }
 
 

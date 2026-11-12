@@ -1,0 +1,171 @@
+{
+  "schema": 1,
+  "family": "cylinder",
+  "generator": "blender/scripts/gen_cylinder.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T19:28:11+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\music-box\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "cylinder_music_box",
+      "exported": true,
+      "ao": {
+        "Cylinder_MusicBox": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.605,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 1392,
+          "vertsInBlender": 832,
+          "sizeMm": [
+            32.0,
+            32.0,
+            58.6
+          ],
+          "originOffsetMm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "primitives": 2,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_PolishedBrass"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.605,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Cylinder_MusicBox": {
+              "verts": 832,
+              "faces": 832,
+              "tris": 1392,
+              "quads": 560,
+              "ngons": 0,
+              "signed_volume": 3.341063937444754e-05
+            }
+          },
+          "maxRadiusMm": 16.0,
+          "pins": 68
+        }
+      },
+      "buildSeconds": 9.0,
+      "blend": "blender\\source\\cylinder\\cylinder_music_box.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 90580,
+          "tris": 1392,
+          "primitives": 2,
+          "vertices": 1984,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            },
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            }
+          },
+          "sizeMm": [
+            32.0,
+            32.0,
+            58.6
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/cylinder/cylinder_music_box.glb",
+      "bytes": 90580,
+      "sha256": "eabd66ac50c20d7f2647e02655ca3cbf1a811d0d7841defa2f4d2d2d8dbfd139",
+      "profile": "L",
+      "seconds": 13.6
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\cylinder\\cylinder_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1104,
+        1104
+      ],
+      "samples": 16,
+      "seconds": 33.7,
+      "cells": 2,
+      "layoutMm": [
+        66.3,
+        137.0
+      ],
+      "ids": [
+        "cylinder_music_box"
+      ]
+    },
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\cylinder\\cylinder_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 52.9,
+      "cells": 2,
+      "layoutMm": [
+        66.3,
+        137.0
+      ],
+      "ids": [
+        "cylinder_music_box"
+      ]
+    }
+  },
+  "seconds": 47.6,
+  "sheetsDate": "2026-11-12T19:29:16+05:30"
+}

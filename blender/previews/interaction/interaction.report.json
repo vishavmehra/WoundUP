@@ -1,0 +1,158 @@
+{
+  "schema": 1,
+  "family": "interaction",
+  "generator": "blender/scripts/gen_workshop.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T18:43:13+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\workshop\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "machine_base_handle",
+      "exported": true,
+      "ao": {
+        "BaseHandle": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.6135,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 1908,
+          "vertsInBlender": 974,
+          "sizeMm": [
+            30.0,
+            12.0,
+            12.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            0.0,
+            6.0
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_PolishedBrass"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.6135,
+            "max": 1.0
+          },
+          "meshQa": {
+            "BaseHandle": {
+              "verts": 974,
+              "faces": 1022,
+              "tris": 1908,
+              "quads": 804,
+              "ngons": 2,
+              "signed_volume": 1.7186813806895189e-06
+            }
+          }
+        }
+      },
+      "buildSeconds": 1.7,
+      "blend": "blender\\source\\interaction\\machine_base_handle.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 72144,
+          "tris": 1908,
+          "primitives": 1,
+          "vertices": 1474,
+          "materialConstants": {
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            }
+          },
+          "sizeMm": [
+            30.0,
+            12.0,
+            12.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/interaction/machine_base_handle.glb",
+      "bytes": 72144,
+      "sha256": "8aee98d9d793210b879e6c33bacdaf46c009f5715217e0e57679c43424cdbd83",
+      "profile": "L",
+      "seconds": 3.2
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\interaction\\interaction_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1104,
+        1104
+      ],
+      "samples": 16,
+      "seconds": 25.0,
+      "cells": 2,
+      "layoutMm": [
+        33.6,
+        60.2
+      ],
+      "ids": [
+        "machine_base_handle"
+      ]
+    },
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\interaction\\interaction_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 82.0,
+      "cells": 2,
+      "layoutMm": [
+        33.6,
+        60.2
+      ],
+      "ids": [
+        "machine_base_handle"
+      ]
+    }
+  },
+  "seconds": 28.3,
+  "sheetsDate": "2026-11-12T18:50:05+05:30"
+}

@@ -1,0 +1,292 @@
+{
+  "schema": 1,
+  "family": "trunk",
+  "generator": "blender/scripts/gen_workshop.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T18:40:20+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\workshop\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "trunk_main",
+      "exported": true,
+      "ao": {
+        "Trunk_Body": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0664,
+          "mean": 0.707,
+          "max": 1.0
+        },
+        "Trunk_Hinge": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.3225,
+          "max": 0.8867
+        },
+        "Trunk_CornerGuard": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.5344,
+          "max": 1.0
+        },
+        "Trunk_Strap": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.4796,
+          "max": 1.0
+        },
+        "Trunk_Latch": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.5086,
+          "max": 1.0
+        },
+        "Trunk_Lid": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.4936,
+          "max": 1.0
+        },
+        "Trunk_Handle": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.3159,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 18260,
+          "vertsInBlender": 9310,
+          "sizeMm": [
+            350.0,
+            199.755,
+            250.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            99.878,
+            0.0
+          ],
+          "primitives": 15,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_Fabric",
+            "Mat_PolishedBrass",
+            "Mat_VelvetTeal",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.3159,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Trunk_Body": {
+              "verts": 2666,
+              "faces": 2606,
+              "tris": 5328,
+              "quads": 2604,
+              "ngons": 2,
+              "signed_volume": 0.0038555286493172263
+            },
+            "Trunk_Hinge": {
+              "verts": 844,
+              "faces": 920,
+              "tris": 1624,
+              "quads": 644,
+              "ngons": 4,
+              "signed_volume": 1.832630618741255e-05
+            },
+            "Trunk_CornerGuard": {
+              "verts": 880,
+              "faces": 904,
+              "tris": 1712,
+              "quads": 736,
+              "ngons": 8,
+              "signed_volume": 0.00020190125292648053
+            },
+            "Trunk_Strap": {
+              "verts": 472,
+              "faces": 520,
+              "tris": 880,
+              "quads": 320,
+              "ngons": 8,
+              "signed_volume": 5.012585219077425e-05
+            },
+            "Trunk_Latch": {
+              "verts": 448,
+              "faces": 552,
+              "tris": 868,
+              "quads": 310,
+              "ngons": 2,
+              "signed_volume": 5.970031810910819e-06
+            },
+            "Trunk_Lid": {
+              "verts": 3596,
+              "faces": 3596,
+              "tris": 7060,
+              "quads": 3156,
+              "ngons": 20,
+              "signed_volume": 0.0015452868479946405
+            },
+            "Trunk_Handle": {
+              "verts": 404,
+              "faces": 396,
+              "tris": 788,
+              "quads": 334,
+              "ngons": 6,
+              "signed_volume": 1.181632572100355e-05
+            }
+          }
+        }
+      },
+      "buildSeconds": 6.9,
+      "blend": "blender\\source\\trunk\\trunk_main.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 680268,
+          "tris": 18260,
+          "primitives": 15,
+          "vertices": 13864,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            },
+            "Mat_Fabric": {
+              "baseColorFactor": [
+                0.6104955673217773,
+                0.5088813304901123,
+                0.31398871541023254,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8600000143051147
+            },
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_VelvetTeal": {
+              "baseColorFactor": [
+                0.009134058840572834,
+                0.07036009430885315,
+                0.07036009430885315,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.9419999718666077
+            },
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            }
+          },
+          "sizeMm": [
+            350.0,
+            199.755,
+            250.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/trunk/trunk_main.glb",
+      "bytes": 680268,
+      "sha256": "fbebc45a03f6a52d75147aada18366a93448bf3ff1ca019de1e4b2bce4cc05c0",
+      "profile": "L",
+      "seconds": 8.4
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\trunk\\trunk_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1104,
+        1104
+      ],
+      "samples": 16,
+      "seconds": 26.0,
+      "cells": 2,
+      "layoutMm": [
+        464.4,
+        880.8
+      ],
+      "ids": [
+        "trunk_main"
+      ]
+    },
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\trunk\\trunk_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 59.6,
+      "cells": 2,
+      "layoutMm": [
+        464.4,
+        880.8
+      ],
+      "ids": [
+        "trunk_main"
+      ]
+    }
+  },
+  "seconds": 34.5,
+  "sheetsDate": "2026-11-12T18:46:19+05:30"
+}
