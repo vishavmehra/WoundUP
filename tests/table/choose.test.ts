@@ -131,6 +131,15 @@ describe('TBL-02: each unsuitable surface alone gives no table (the stand is use
     expect(choose([goodTable({ width: 0.45, depth: 0.3 })])).not.toBeNull(); // control: exactly 45 x 30
   });
 
+  it('treats numbers the runtime should never send (NaN, Infinity) as an unsuitable surface, never as a table', () => {
+    const nan = Number.NaN;
+    expect(choose([goodTable({ normal: { x: nan, y: nan, z: nan } })])).toBeNull();
+    expect(choose([{ ...goodTable(), origin: { x: 0, y: nan, z: -0.55 } }])).toBeNull();
+    expect(choose([{ ...goodTable(), outline: [{ x: nan, z: nan }, { x: 1, z: 0 }, { x: 0, z: 1 }] }])).toBeNull();
+    expect(choose([goodTable()], { x: nan, y: nan, z: nan })).toBeNull(); // a glitched head pose
+    expect(choose([goodTable()], HEAD, { x: nan, y: nan, z: nan })).not.toBeNull(); // no usable gaze: ahead along -Z
+  });
+
   it('returns nothing for an empty or degenerate surface list', () => {
     expect(choose([])).toBeNull();
     expect(choose([{ ...goodTable(), outline: [] }])).toBeNull();
