@@ -122,6 +122,18 @@ describe('WindTracker (INTERACTION_SPEC §10)', () => {
     expect(new WindTracker(9).capacity).toBe(0);
   });
 
+  it('never allows more than eight, whatever maxUnits or banked units say', () => {
+    expect(new WindTracker(0, 127).capacity).toBe(8);
+    expect(new WindTracker(3, 127).capacity).toBe(5);
+    expect(new WindTracker(-4).capacity).toBe(8); // a negative bank is nonsense, not extra room
+    expect(new WindTracker(Number.NaN).capacity).toBe(8);
+    const t = new WindTracker(0, 127);
+    let total = 0;
+    for (let a = 5; a <= 1800; a += 5) total += t.update(wrapPi(deg(a)));
+    expect(total).toBe(8);
+    expect(t.units).toBe(8);
+  });
+
   it('twisting back and forth does not count the same rotation twice', () => {
     const t = new WindTracker(0);
     let total = 0;

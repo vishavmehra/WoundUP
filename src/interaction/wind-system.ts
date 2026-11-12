@@ -49,7 +49,8 @@ export class WindSystem extends createSystem({
       const select = this.input.xr.getSelectState(hand);
       const session = this.sessions[hand];
       if (session) {
-        const ended = select.end || !select.active || !this.readWrist(frame, space, hand);
+        // The key entity can be destroyed under a hand (level reset): end the grab instead of writing to a dead entity.
+        const ended = select.end || !select.active || !session.key.active || !this.readWrist(frame, space, hand);
         if (ended) this.finish(hand, session);
         else this.step(hand, session);
       } else if (select.start && this.readWrist(frame, space, hand)) {
