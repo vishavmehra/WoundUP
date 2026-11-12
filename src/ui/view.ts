@@ -29,8 +29,11 @@ export interface View {
   /** Tray and blueprint appear when the parcel opens. */
   tray: boolean;
   blueprint: boolean;
+  /** The run sign's post and label: the wind counter or result in Wind, the "It works!" label that stays through Place. */
   runSign: boolean;
-  /** `Place` hint label above the bench. */
+  /** The Run and Adjust plaques: Wind only. */
+  runControls: boolean;
+  /** `Place` hint label above the bench, for a player who arrives in Place without a result to show. */
   placeHint: boolean;
   pauseButton: boolean;
   giftButton: boolean;
@@ -53,13 +56,14 @@ export function viewFor(state: ModeState, local: LocalFlow, ctx: ViewContext): V
   return {
     trunk: mode === 'intro' || local.trunk === 'opening' || local.trunk === 'withdrawing',
     envelope: inTown && ctx.letter !== null ? (local.envelope === 'open' ? 'open' : 'sealed') : 'hidden',
-    closingCard: inTown && ctx.letter === null && ctx.closing !== null,
+    closingCard: inTown && !paused && ctx.letter === null && ctx.closing !== null,
     bench,
     parcel: !bench ? 'hidden' : parcelOpen ? 'open' : 'closed',
     tray: parcelOpen,
     blueprint: parcelOpen,
-    runSign: mode === 'wind',
-    placeHint: mode === 'place',
+    runSign: mode === 'wind' || (mode === 'place' && local.result !== null),
+    runControls: mode === 'wind',
+    placeHint: mode === 'place' && local.result === null,
     pauseButton: !paused && mode !== 'gift',
     giftButton: inTown && ctx.giftAvailable && !paused,
     panel: paused ? (state.restartArmed ? 'restart' : 'pause') : mode === 'gift' ? 'gift' : 'none',

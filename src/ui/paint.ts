@@ -123,7 +123,7 @@ const SLIP: Record<Tone, { bg: string; title: string; text: string }> = {
   bad: { bg: PALETTE.walnut, title: PALETTE.lamp, text: PALETTE.cream },
 };
 
-/** The small result or hint label: a title and one line (UI_UX_SPEC §13). */
+/** The small result or hint label: a title and, under it, a line or two (UI_UX_SPEC §13). Every line that fits is drawn; none is dropped. */
 export function paintSlip(ctx: Ctx, w: number, h: number, title: string, hint: string, tone: Tone): void {
   ctx.clearRect(0, 0, w, h);
   const c = SLIP[tone];
@@ -135,16 +135,22 @@ export function paintSlip(ctx: Ctx, w: number, h: number, title: string, hint: s
   roundedRect(ctx, 6, 6, w - 12, h - 12, 8);
   ctx.stroke();
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  const t = fitText(measureWith(ctx, 700), title, w - 48, h * 0.4, Math.round(h * 0.3), 18, 1.1);
+  ctx.textBaseline = 'middle';
+  const t = fitText(measureWith(ctx, 700), title, w - 48, h * 0.34, Math.round(h * 0.26), 18, 1.1);
   ctx.fillStyle = c.title;
   ctx.font = font(700, t.size);
-  ctx.fillText(t.lines[0] ?? '', w / 2, hint ? h * 0.44 : h * 0.6);
+  drawCentered(ctx, t.lines, t.lineHeight, w / 2, hint ? h * 0.3 : h * 0.5);
   if (!hint) return;
-  const s = fitText(measureWith(ctx, 400), hint, w - 48, h * 0.3, Math.round(h * 0.22), 16, 1.1);
+  const s = fitText(measureWith(ctx, 400), hint, w - 48, h * 0.42, Math.round(h * 0.2), 16, 1.15);
   ctx.fillStyle = c.text;
   ctx.font = font(400, s.size);
-  ctx.fillText(s.lines[0] ?? '', w / 2, h * 0.78);
+  drawCentered(ctx, s.lines, s.lineHeight, w / 2, h * 0.73);
+}
+
+/** Lines of text centred on `y`, one `lineHeight` apart. */
+function drawCentered(ctx: Ctx, lines: readonly string[], lineHeight: number, x: number, y: number): void {
+  const top = y - ((lines.length - 1) * lineHeight) / 2;
+  lines.forEach((line, i) => ctx.fillText(line, x, top + i * lineHeight));
 }
 
 export interface BlueprintSlot {
