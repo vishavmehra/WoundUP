@@ -1,7 +1,9 @@
 import { Grabbed, World } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
-import { BoxGeometry, Euler, Mesh, MeshBasicMaterial, Object3D, Quaternion, Scene, Vector3 } from 'three';
+import { BoxGeometry, Euler, Group, Mesh, MeshBasicMaterial, Object3D, Quaternion, Scene, Vector3 } from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
+import { GrabFeedbackSystem } from '../../src/grab-feedback.js';
+import { ReturnsToRest } from '../../src/returns-to-rest-component.js';
 import { SnapPart, SnappedTo, Socket, WindKey, XRayTarget } from '../../src/interaction/components.js';
 import { setupGlbInteraction } from '../../src/interaction/glb-interaction.js';
 import { interactionIntents } from '../../src/interaction/intents.js';
@@ -195,6 +197,71 @@ describe('SocketSnapSystem', () => {
   });
 });
 
+describe('SocketSnapSystem with GrabFeedbackSystem (the order that installInteraction relies on)', () => {
+  const REST = new Vector3(0.5, 0, 0);
+  function bootWithFeedback(accepts: string[]) {
+    const { world, scene } = boot();
+    world.registerSystem(GrabFeedbackSystem).registerSystem(SocketSnapSystem, { priority: 10 });
+    housing(world, scene, accepts);
+    const gear = part(world, scene, 'gear_spur_16_m1', 'gear_spur', REST.x);
+    gear.addComponent(ReturnsToRest); // its rest pose is taken here: the tray
+    gear.object3D!.position.x = 0.03; // the hand carried it next to the socket
+    return { world, gear };
+  }
+
+  it('a seated part stays in the socket although the return-to-tray ease starts at the same release', () => {
+    const { world, gear } = bootWithFeedback(['gear_spur']);
+    grab(gear);
+    tick(world);
+    letGo(gear);
+    for (let i = 0; i < 40; i++) tick(world); // well past the 0.35 s ease
+    expect(types()).toEqual(['snapped']);
+    expect(gear.object3D!.position.length()).toBeLessThan(1e-6);
+  });
+
+  it('a rejected part ends up back at its tray position', () => {
+    const { world, gear } = bootWithFeedback(['shaft']);
+    grab(gear);
+    tick(world);
+    letGo(gear);
+    for (let i = 0; i < 40; i++) tick(world);
+    expect(types()).toEqual(['rejected']);
+    expect(gear.hasComponent(SnappedTo)).toBe(false);
+    expect(gear.object3D!.position.distanceTo(REST)).toBeLessThan(1e-6);
+  });
+});
+
+describe('socket preview', () => {
+  const fillColor = (ghost: Group): number => ((ghost.children[0] as Mesh).material as MeshBasicMaterial).color.getHex();
+
+  it('is warm for a part that fits, red for one that does not, hidden out of range, and gone on release', () => {
+    const { world, scene } = boot();
+    world.registerSystem(SocketSnapSystem, { priority: 10 });
+    housing(world, scene, ['gear_spur']);
+    const gear = part(world, scene, 'g', 'gear_spur', 0.03);
+    grab(gear);
+    tick(world);
+    const ghost = scene.children[scene.children.length - 1] as Group;
+    expect(ghost.visible).toBe(true);
+    const warm = fillColor(ghost);
+    expect(warm).toBe(0xffc66d);
+    expect(ghost.position.length()).toBeLessThan(1e-9); // at the socket
+
+    gear.object3D!.position.x = 0.1; // out of range
+    tick(world);
+    expect(ghost.visible).toBe(false);
+    letGo(gear);
+    expect(scene.children).not.toContain(ghost);
+
+    const shaft = part(world, scene, 's', 'shaft', 0.03);
+    grab(shaft);
+    tick(world);
+    const red = scene.children[scene.children.length - 1] as Group;
+    expect(red.visible).toBe(true);
+    expect(fillColor(red)).not.toBe(warm);
+  });
+});
+
 // ---- Fake XR input for the hand systems ---------------------------------------------------------------------------
 
 type Hand = 'left' | 'right';
@@ -204,7 +271,13 @@ interface FakeHand {
   quaternion: Quaternion;
 }
 
-function bootXR(): { world: World; scene: Scene; hands: Record<Hand, FakeHand>; tip: Record<Hand, Object3D> } {
+function bootXR(controllers = false): {
+  world: World;
+  scene: Scene;
+  hands: Record<Hand, FakeHand>;
+  tip: Record<Hand, Object3D>;
+  player: Object3D & { gripSpaces: Record<Hand, Object3D> };
+} {
   const { world, scene } = boot();
   const make = (): FakeHand => ({
     select: { start: false, end: false, active: false },
@@ -229,7 +302,9 @@ function bootXR(): { world: World; scene: Scene; hands: Record<Hand, FakeHand>; 
   const input = {
     xr: {
       getSelectState: (hand: Hand) => hands[hand].select,
-      getPrimaryInputSource: (hand: Hand) => ({ hand: { get: (name: string) => (name === 'wrist' ? joints[hand] : undefined) } }),
+      // A controller has no `hand` joints.
+      getPrimaryInputSource: (hand: Hand) =>
+        controllers ? {} : { hand: { get: (name: string) => (name === 'wrist' ? joints[hand] : undefined) } },
     },
   };
   Object.assign(world, {
@@ -237,7 +312,7 @@ function bootXR(): { world: World; scene: Scene; hands: Record<Hand, FakeHand>; 
     input,
     renderer: { xr: { getFrame: () => frame, getReferenceSpace: () => ({}) } },
   });
-  return { world, scene, hands, tip };
+  return { world, scene, hands, tip, player };
 }
 
 /** One frame in which `hand` is pinching: `start` only on the first. */
@@ -319,8 +394,8 @@ describe('WindSystem', () => {
 });
 
 describe('XRaySystem', () => {
-  function bootTarget(): ReturnType<typeof bootXR> & { machine: Entity } {
-    const rig = bootXR();
+  function bootTarget(controllers = false): ReturnType<typeof bootXR> & { machine: Entity } {
+    const rig = bootXR(controllers);
     rig.world.registerSystem(XRaySystem, { priority: 10 });
     const machine = rig.world.createEntity();
     machine.object3D = new Object3D();
@@ -359,6 +434,29 @@ describe('XRaySystem', () => {
     expect(xrayFlag.target).toBeNull();
     setXRayLens(false);
     tick(world);
+    expect(xrayFlag.active).toBe(false);
+  });
+
+  it('an active grab blocks it, and it can start only after the grab ends', () => {
+    const { world, hands, scene } = bootTarget();
+    hands.right.position.set(0, 0.2, 0.07);
+    const held = world.createEntity();
+    held.object3D = new Object3D();
+    scene.add(held.object3D);
+    grab(held);
+    for (let i = 0; i < 40; i++) tick(world);
+    expect(xrayFlag.active).toBe(false);
+    letGo(held);
+    for (let i = 0; i < 20; i++) tick(world); // 0.28 s: it must dwell again
+    expect(xrayFlag.active).toBe(false);
+    for (let i = 0; i < 12; i++) tick(world);
+    expect(xrayFlag.active).toBe(true);
+  });
+
+  it('a controller never triggers it: its grip axes are not a hand', () => {
+    const { world, player } = bootTarget(true);
+    player.gripSpaces.right.position.set(0, 0.2, 0.07); // identity grip: "palm down" if it were read as a wrist
+    for (let i = 0; i < 60; i++) tick(world);
     expect(xrayFlag.active).toBe(false);
   });
 });

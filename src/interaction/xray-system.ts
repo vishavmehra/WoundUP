@@ -66,7 +66,7 @@ export class XRaySystem extends createSystem({
     for (let i = 0; i < HANDS.length; i++) {
       const hand = HANDS[i];
       if (this.input.xr.getSelectState(hand).active) continue; // pinching is not an open hand
-      if (!readWristPose(this.input.xr, frame, space, this.player, hand, _wristPos, _wristQuat)) continue;
+      if (!readWristPose(this.input.xr, frame, space, this.player, hand, _wristPos, _wristQuat, true)) continue;
       if (!palmFacesDown(_wristQuat)) continue;
       // The wrist joint sits at the wrist; the palm centre is a hand-length further along the fingers (-Z).
       _palm.set(0, 0, -PALM_OFFSET_M).applyQuaternion(_wristQuat).add(_wristPos);

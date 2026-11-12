@@ -10,7 +10,8 @@ const _originQuat = new Quaternion();
 /**
  * World pose of the wrist, which the winding twist and the X-ray palm test are measured from.
  * Hand tracking: the standard WebXR `wrist` joint, read from the current XRFrame. Controllers have no joints, so their
- * grip pose (kept by IWSDK in `player.gripSpaces`) stands in. Returns false when the hand has no pose this frame.
+ * grip pose (kept by IWSDK in `player.gripSpaces`) stands in, unless `jointsOnly` (a gesture that needs the real wrist, like
+ * X-ray: a controller's grip axes are not a hand's). Returns false when the hand has no pose this frame.
  * `origin` is `world.player`: poses are in reference-space coordinates, which that group places in the world.
  */
 export function readWristPose(
@@ -21,6 +22,7 @@ export function readWristPose(
   hand: Hand,
   outPosition: Vector3,
   outQuaternion: Quaternion,
+  jointsOnly = false,
 ): boolean {
   const source = input.getPrimaryInputSource(hand);
   if (!source || !frame || !space) return false;
@@ -34,6 +36,7 @@ export function readWristPose(
     outQuaternion.set(o.x, o.y, o.z, o.w).premultiply(_originQuat);
     return true;
   }
+  if (jointsOnly) return false;
   const grip = origin.gripSpaces[hand];
   grip.getWorldPosition(outPosition);
   grip.getWorldQuaternion(outQuaternion);
