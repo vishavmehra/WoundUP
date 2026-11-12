@@ -63,11 +63,12 @@ export class WindTracker {
   private peak = 0;
   private previous = 0;
 
-  constructor(
-    readonly startUnits: number,
-    maxUnits: number = MAX_WIND_UNITS,
-  ) {
-    this.capacity = Math.max(0, maxUnits - startUnits);
+  readonly startUnits: number;
+
+  constructor(startUnits: number, maxUnits: number = MAX_WIND_UNITS) {
+    // The maximum is eight whatever a component says (INTERACTION_SPEC §10; the solver rejects more than 8 units).
+    this.startUnits = Math.min(Math.max(Math.trunc(startUnits) || 0, 0), MAX_WIND_UNITS);
+    this.capacity = Math.max(0, Math.min(maxUnits, MAX_WIND_UNITS) - this.startUnits);
   }
 
   /** Units wound in total, counting those banked before this grab. */

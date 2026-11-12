@@ -1,4 +1,4 @@
-import { Grabbed, World } from '@iwsdk/core';
+import { Grabbed, GrabSystem, World } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
 import { BoxGeometry, Euler, Group, Mesh, MeshBasicMaterial, Object3D, Quaternion, Scene, Vector3 } from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -39,6 +39,11 @@ const deg = (d: number): number => (d * Math.PI) / 180;
 
 function boot(): { world: World; scene: Scene } {
   const world = new World();
+  // Components are module singletons and a component first used in another World keeps that World's type id, which can
+  // collide here. Registering them all up front, in one fixed order, gives every test World its own consistent ids.
+  for (const component of [Grabbed, ReturnsToRest, SnapPart, Socket, SnappedTo, WindKey, XRayTarget]) {
+    world.registerComponent(component);
+  }
   const scene = new Scene();
   Object.assign(world, { scene });
   return { world, scene };
@@ -214,7 +219,13 @@ describe('SocketSnapSystem with GrabFeedbackSystem (the order that installIntera
     grab(gear);
     tick(world);
     letGo(gear);
-    for (let i = 0; i < 40; i++) tick(world); // well past the 0.35 s ease
+    // Inside the 0.35 s return-to-tray ease: the pose the frame ends with must already be the socket's. If the feedback
+    // system ran after the snap system it would win these frames and the part would drift towards the tray.
+    for (let i = 0; i < 20; i++) {
+      tick(world);
+      if (i >= 9) expect(gear.object3D!.position.length(), `frame ${i}`).toBeLessThan(1e-6); // tween (0.12 s) is done
+    }
+    for (let i = 0; i < 40; i++) tick(world); // well past the ease
     expect(types()).toEqual(['snapped']);
     expect(gear.object3D!.position.length()).toBeLessThan(1e-6);
   });
@@ -390,6 +401,46 @@ describe('WindSystem', () => {
     pinch(world, hands.right, false);
     release(world, hands.right);
     expect(intents).toEqual([]); // at the maximum there is nothing to start
+  });
+});
+
+describe('WindSystem and a held part (INTERACTION_SPEC §18: an active grab wins)', () => {
+  function bootHeld(holder: Hand): ReturnType<typeof bootXR> & { key: Entity } {
+    const rig = bootXR();
+    rig.world.registerSystem(WindSystem, { priority: 10 });
+    const key = rig.world.createEntity();
+    key.object3D = new Object3D();
+    rig.scene.add(key.object3D);
+    key.addComponent(WindKey, { axis: [0, 1, 0] });
+    rig.tip.right.position.set(0, 0.005, 0);
+    // GrabSystem needs a live pointer stack; a stub that answers `getHolderHand` is all WindSystem asks of it.
+    const part = rig.world.createEntity();
+    part.object3D = new Object3D();
+    rig.scene.add(part.object3D);
+    grab(part);
+    Object.assign(rig.world, { getSystem: (type: unknown) => (type === GrabSystem ? { getHolderHand: () => holder } : undefined) });
+    return { ...rig, key };
+  }
+  const twist = (rig: ReturnType<typeof bootXR>): void => {
+    pinch(rig.world, rig.hands.right, true);
+    for (let a = 10; a <= 100; a += 10) {
+      rig.hands.right.quaternion.copy(aboutY(a));
+      pinch(rig.world, rig.hands.right, false);
+    }
+    release(rig.world, rig.hands.right);
+  };
+
+  it('a pinch by the hand that holds a part does not start winding', () => {
+    const rig = bootHeld('right');
+    twist(rig);
+    expect(intents).toEqual([]);
+    expect(rig.key.getValue(WindKey, 'units')).toBe(0);
+  });
+
+  it('the other hand can still wind while this one holds a part', () => {
+    const rig = bootHeld('left');
+    twist(rig);
+    expect(types()).toEqual(['wind', 'windEnd']);
   });
 });
 
