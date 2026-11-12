@@ -135,6 +135,9 @@ export class GameSession {
 
   /** The solver says the machine runs correctly. It counts as built; Place starts. */
   machineRanCorrectly(blueprintId: MachineId): boolean {
+    // Place is left only by a built machine, so refuse here rather than strand the player in it (a machine whose letter
+    // is not accepted, or that is not in this build, cannot count as built).
+    if (!machineBuilt(this.currentSave, blueprintId).machines.some((m) => m.blueprintId === blueprintId && m.built)) return false;
     return this.go('machine-ran', (s) => machineBuilt(s, blueprintId));
   }
 

@@ -6,7 +6,8 @@
  * reference), so a caller detects "nothing happened" with `next === save` and hostile or out-of-order calls cannot
  * corrupt state. A legal one returns a new save and never mutates its input.
  *
- * Rules (PRODUCT_SPEC §7, §8; GAMEPLAY_SYSTEMS §4.1; DATA_AND_BLUEPRINT_SPEC §12):
+ * Rules (PRODUCT_SPEC §7, §8; GAMEPLAY_SYSTEMS §4.1; DATA_AND_BLUEPRINT_SPEC §12), the unlock ones held as data in
+ * content.ts:
  *  - Letter 1 becomes available when the trunk opens. Every later letter becomes available when the one before it is
  *    completed, so the story is a single chain.
  *  - Opening a letter never completes it (§4). A build letter completes when its machine is placed in its plot, which
@@ -87,25 +88,29 @@ function withMachine(save: SaveV1, record: MachineRecord): SaveV1 {
 }
 
 /**
- * Applies the unlock rule: a locked letter becomes available once the letter before it is completed. Idempotent. Runs
- * inside every transition that can complete a letter, and once after loading a save (for instance when the Clock Tower
- * has been switched on since the save was written).
+ * Applies each letter's unlock rule (`LETTERS[id].unlock`): a locked letter becomes available once the letter it names
+ * is completed. Idempotent. Runs inside every transition that can complete a letter, and once after loading a save (for
+ * instance when the Clock Tower has been switched on since the save was written). One pass in story order is enough,
+ * because a rule reads "completed" and this only ever writes "available".
  */
 export function settle(save: SaveV1, options: ProgressionOptions = DEFAULT_PROGRESSION): SaveV1 {
-  const sequence = letterSequence(options);
   let next = save;
-  for (let i = 1; i < sequence.length; i++) {
-    if (next.letters[sequence[i]] === 'locked' && next.letters[sequence[i - 1]] === 'completed') {
-      next = withLetter(next, sequence[i], 'available');
+  for (const id of letterSequence(options)) {
+    const rule = LETTERS[id].unlock;
+    if (next.letters[id] === 'locked' && rule.type === 'letter_completed' && next.letters[rule.letterId] === 'completed') {
+      next = withLetter(next, id, 'available');
     }
   }
   return next;
 }
 
-/** The trunk opened: Letter 1 becomes available (PRODUCT_SPEC §3.3; GAMEPLAY_SYSTEMS §4.1). */
+/** The trunk opened: the letters that unlock on it become available (PRODUCT_SPEC §3.3; GAMEPLAY_SYSTEMS §4.1). */
 export function trunkOpened(save: SaveV1, options: ProgressionOptions = DEFAULT_PROGRESSION): SaveV1 {
-  if (save.letters.letter_1 !== 'locked') return save;
-  return settle(withLetter(save, 'letter_1', 'available'), options);
+  let next = save;
+  for (const id of letterSequence(options)) {
+    if (LETTERS[id].unlock.type === 'trunk_opened' && next.letters[id] === 'locked') next = withLetter(next, id, 'available');
+  }
+  return next === save ? save : settle(next, options);
 }
 
 export function canAcceptLetter(save: SaveV1, letterId: LetterId): boolean {

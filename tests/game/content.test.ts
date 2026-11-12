@@ -45,6 +45,11 @@ describe('letters (PRODUCT_SPEC §7)', () => {
     expect(LETTERS.letter_6.objective).toEqual({ type: 'build_and_run', blueprintId: 'clock_tower' });
   });
 
+  it('unlocks Letter 1 from the trunk and every later letter from the one before it being completed (DATA §12)', () => {
+    expect(LETTERS.letter_1.unlock).toEqual({ type: 'trunk_opened' });
+    LETTER_IDS.slice(1).forEach((id, i) => expect(LETTERS[id].unlock, id).toEqual({ type: 'letter_completed', letterId: LETTER_IDS[i] }));
+  });
+
   it('writes every machine through exactly one build letter', () => {
     for (const id of MACHINE_IDS) {
       const builders = LETTER_IDS.filter((l) => {
