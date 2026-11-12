@@ -67,6 +67,10 @@ describe('invalid references fail instead of being ignored (SOLVER §16, DATA §
     expectError(input(base({ targets: { angularVelocity: { b: 0.5 } } }), baseParts()), 'missing_target_tolerance', 'targets.tolerance.b');
   });
 
+  it('rejects a follower pose target on a node no pin drives: it could never be met', () => {
+    expectError(input(base({ targets: { followerPose: { b: 0 }, tolerance: { b: 0 } } }), baseParts()), 'unknown_target_node', 'targets.followerPose.b');
+  });
+
   it('rejects a mesh whose gears give no tooth count and no connection supplies one', () => {
     expectError(input(base(), [spring(), plain('a'), gear('b', 20)]), 'missing_parameter', 'connections[1].parameters.fromTeeth');
   });

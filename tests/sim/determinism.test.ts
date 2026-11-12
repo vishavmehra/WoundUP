@@ -78,11 +78,26 @@ describe('determinism (SOLVER §2, §17)', () => {
     expect(JSON.parse(JSON.stringify(r))).toEqual(r);
   });
 
-  it('emits output keys in sorted order and never -0', () => {
+  it('emits output keys in sorted order', () => {
     const r = run(machine());
     const keys = Object.keys(r.angularVelocity);
     expect(keys).toEqual([...keys].sort());
-    for (const v of Object.values(r.angularVelocity)) expect(Object.is(v, -0)).toBe(false);
+  });
+
+  it('sorts follower poses by follower id, not by connection id', () => {
+    const bp = blueprint(sockets('spring', 'cam', 'alpha', 'zeta'), [
+      shaft('s', 'spring', 'cam'),
+      pin('p1', 'cam', 'zeta', [0, 1]),
+      pin('p2', 'cam', 'alpha', [0, 1]),
+    ]);
+    const r = run(input(bp, [spring(), plain('cam'), plain('alpha'), plain('zeta')]));
+    expect(Object.keys(r.followerPose)).toEqual(['alpha', 'zeta']);
+  });
+
+  it('never emits -0, even where a mesh reverses a zero speed', () => {
+    const bp = blueprint(sockets('spring', 'a', 'b'), [shaft('s', 'spring', 'a'), mesh('m', 'a', 'b')]);
+    const r = run(input(bp, [spring('spring', 0), gear('a', 10), gear('b', 20)])); // b = -(10 / 20) * 0 = -0 before normalising
+    expect(Object.is(r.angularVelocity.b, 0)).toBe(true);
   });
 
   it('returns the same result for the machine as a whole', () => {
