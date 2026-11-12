@@ -1,0 +1,273 @@
+{
+  "schema": 1,
+  "family": "bakery",
+  "generator": "blender/scripts/gen_bakery.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T19:00:44+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\town\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "bakery_building",
+      "exported": true,
+      "ao": {
+        "Bakery_Shell": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.3087,
+          "max": 1.0
+        },
+        "Bakery_Chimney": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.398,
+          "max": 1.0
+        },
+        "Bakery_Oven": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.2256,
+          "max": 0.9549
+        },
+        "Bakery_Window": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.2475,
+          "max": 0.9616
+        },
+        "Bakery_Door": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.2822,
+          "max": 0.9766
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 23906,
+          "vertsInBlender": 12279,
+          "sizeMm": [
+            130.0,
+            190.0,
+            95.617
+          ],
+          "originOffsetMm": [
+            0.0,
+            95.0,
+            0.0
+          ],
+          "primitives": 14,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_PaintedWood",
+            "Mat_Stone",
+            "Mat_TealPaint",
+            "Mat_Walnut",
+            "Mat_WarmEmissive"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.2822,
+            "max": 0.9766
+          },
+          "meshQa": {
+            "Bakery_Shell": {
+              "verts": 10697,
+              "faces": 14440,
+              "tris": 20870,
+              "quads": 6430,
+              "ngons": 0,
+              "signed_volume": 0.0015404343537634229
+            },
+            "Bakery_Chimney": {
+              "verts": 282,
+              "faces": 314,
+              "tris": 524,
+              "quads": 210,
+              "ngons": 0,
+              "signed_volume": 1.3678008410048877e-05
+            },
+            "Bakery_Oven": {
+              "verts": 425,
+              "faces": 500,
+              "tris": 830,
+              "quads": 330,
+              "ngons": 0,
+              "signed_volume": 3.173727651901528e-06
+            },
+            "Bakery_Window": {
+              "verts": 540,
+              "faces": 678,
+              "tris": 1044,
+              "quads": 366,
+              "ngons": 0,
+              "signed_volume": 4.899436243747476e-06
+            },
+            "Bakery_Door": {
+              "verts": 335,
+              "faces": 396,
+              "tris": 638,
+              "quads": 242,
+              "ngons": 0,
+              "signed_volume": 3.099490649927802e-06
+            }
+          }
+        }
+      },
+      "buildSeconds": 30.8,
+      "blend": "blender\\source\\bakery\\bakery_building.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 1617732,
+          "tris": 23906,
+          "primitives": 14,
+          "vertices": 36476,
+          "materialConstants": {
+            "Mat_Stone": {
+              "baseColorFactor": [
+                0.42869049310684204,
+                0.366252601146698,
+                0.2622506618499756,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8600000143051147
+            },
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            },
+            "Mat_WarmEmissive": {
+              "baseColorFactor": [
+                0.8879231214523315,
+                0.7912979125976562,
+                0.6239603757858276,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5
+            },
+            "Mat_PaintedWood": {
+              "baseColorFactor": [
+                0.6583748459815979,
+                0.5394794940948486,
+                0.31398871541023254,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5189999938011169
+            },
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            }
+          },
+          "sizeMm": [
+            130.0,
+            190.0,
+            95.617
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/bakery/bakery_building.glb",
+      "bytes": 1617732,
+      "sha256": "1517daa655cf0fd3ec8ce211aa5d46e789672eb8da42689a51cd2b4e4d86dac8",
+      "profile": "L",
+      "seconds": 34.3
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\bakery\\bakery_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1104,
+        1104
+      ],
+      "samples": 16,
+      "seconds": 36.3,
+      "cells": 2,
+      "layoutMm": [
+        207.6,
+        562.5
+      ],
+      "ids": [
+        "bakery_building"
+      ]
+    },
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\bakery\\bakery_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 60.4,
+      "cells": 2,
+      "layoutMm": [
+        207.6,
+        562.5
+      ],
+      "ids": [
+        "bakery_building"
+      ]
+    }
+  },
+  "seconds": 34.4,
+  "sheetsDate": "2026-11-12T19:20:48+05:30"
+}

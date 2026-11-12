@@ -1,0 +1,682 @@
+{
+  "schema": 1,
+  "family": "workshop",
+  "generator": "blender/scripts/gen_workshop.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T18:42:17+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\workshop\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "workbench",
+      "exported": true,
+      "ao": {
+        "Workbench_Top": {
+          "baked": false,
+          "min": 1.0,
+          "mean": 1.0,
+          "max": 1.0
+        },
+        "Workbench_Frame": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.5342,
+          "max": 1.0
+        },
+        "Workbench_Drawer": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.4257,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 7480,
+          "vertsInBlender": 3796,
+          "sizeMm": [
+            450.0,
+            30.0,
+            250.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            15.0,
+            0.0
+          ],
+          "primitives": 6,
+          "materials": [
+            "Mat_PolishedBrass",
+            "Mat_VelvetTeal",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.4257,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Workbench_Top": {
+              "verts": 2684,
+              "faces": 2530,
+              "tris": 5296,
+              "quads": 2526,
+              "ngons": 4,
+              "signed_volume": 0.0010667471756177613
+            },
+            "Workbench_Frame": {
+              "verts": 772,
+              "faces": 792,
+              "tris": 1524,
+              "quads": 666,
+              "ngons": 2,
+              "signed_volume": 0.0015371385169261945
+            },
+            "Workbench_Drawer": {
+              "verts": 340,
+              "faces": 328,
+              "tris": 660,
+              "quads": 270,
+              "ngons": 6,
+              "signed_volume": 7.1629279580302065e-06
+            }
+          }
+        }
+      },
+      "buildSeconds": 3.6,
+      "blend": "blender\\source\\workshop\\workbench.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 264940,
+          "tris": 7480,
+          "primitives": 6,
+          "vertices": 5316,
+          "materialConstants": {
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            },
+            "Mat_VelvetTeal": {
+              "baseColorFactor": [
+                0.009134058840572834,
+                0.07036009430885315,
+                0.07036009430885315,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.9419999718666077
+            }
+          },
+          "sizeMm": [
+            450.0,
+            30.0,
+            250.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/workshop/workbench.glb",
+      "bytes": 264940,
+      "sha256": "20fefcd30fca113f6a908ad107aed23474acf40ed76ee110bcbd410497c22225",
+      "profile": "L",
+      "seconds": 5.2
+    },
+    {
+      "id": "parts_tray",
+      "exported": true,
+      "ao": {
+        "PartsTray_Body": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.8053,
+          "max": 1.0
+        },
+        "PartsTray_Divider": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.1206,
+          "max": 0.8229
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 1456,
+          "vertsInBlender": 744,
+          "sizeMm": [
+            125.0,
+            25.0,
+            210.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            12.5,
+            0.0
+          ],
+          "primitives": 3,
+          "materials": [
+            "Mat_VelvetTeal",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.1206,
+            "max": 0.8229
+          },
+          "meshQa": {
+            "PartsTray_Body": {
+              "verts": 576,
+              "faces": 546,
+              "tris": 1148,
+              "quads": 544,
+              "ngons": 2,
+              "signed_volume": 0.00023637488396310844
+            },
+            "PartsTray_Divider": {
+              "verts": 168,
+              "faces": 154,
+              "tris": 308,
+              "quads": 154,
+              "ngons": 0,
+              "signed_volume": 1.7012339561843035e-05
+            }
+          }
+        }
+      },
+      "buildSeconds": 2.6,
+      "blend": "blender\\source\\workshop\\parts_tray.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 56884,
+          "tris": 1456,
+          "primitives": 3,
+          "vertices": 1068,
+          "materialConstants": {
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_VelvetTeal": {
+              "baseColorFactor": [
+                0.009134058840572834,
+                0.07036009430885315,
+                0.07036009430885315,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.9419999718666077
+            }
+          },
+          "sizeMm": [
+            125.0,
+            25.0,
+            210.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/workshop/parts_tray.glb",
+      "bytes": 56884,
+      "sha256": "bb5b4046c89100fd744737b44a4607e55a14d2d14e66bb9a33fafd4d7c91a97d",
+      "profile": "L",
+      "seconds": 2.8
+    },
+    {
+      "id": "parcel",
+      "exported": true,
+      "ao": {
+        "Parcel_Box": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.6495,
+          "max": 1.0
+        },
+        "Parcel_Flap": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.2461,
+          "mean": 0.8991,
+          "max": 1.0
+        },
+        "Parcel_String": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.3265,
+          "max": 0.9453
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 2532,
+          "vertsInBlender": 1280,
+          "sizeMm": [
+            120.0,
+            59.844,
+            89.839
+          ],
+          "originOffsetMm": [
+            0.0,
+            29.922,
+            0.0
+          ],
+          "primitives": 3,
+          "materials": [
+            "Mat_CreamPaper",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.3265,
+            "max": 0.9453
+          },
+          "meshQa": {
+            "Parcel_Box": {
+              "verts": 528,
+              "faces": 478,
+              "tris": 1036,
+              "quads": 468,
+              "ngons": 10,
+              "signed_volume": 0.00010797108508953087
+            },
+            "Parcel_Flap": {
+              "verts": 240,
+              "faces": 218,
+              "tris": 476,
+              "quads": 216,
+              "ngons": 2,
+              "signed_volume": 3.109348097278076e-05
+            },
+            "Parcel_String": {
+              "verts": 512,
+              "faces": 520,
+              "tris": 1020,
+              "quads": 500,
+              "ngons": 0,
+              "signed_volume": 8.697890587864655e-07
+            }
+          }
+        }
+      },
+      "buildSeconds": 3.4,
+      "blend": "blender\\source\\workshop\\parcel.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 107344,
+          "tris": 2532,
+          "primitives": 3,
+          "vertices": 2202,
+          "materialConstants": {
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_CreamPaper": {
+              "baseColorFactor": [
+                0.8631572127342224,
+                0.7681511640548706,
+                0.577580451965332,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8799999952316284
+            }
+          },
+          "sizeMm": [
+            120.0,
+            59.844,
+            89.839
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/workshop/parcel.glb",
+      "bytes": 107344,
+      "sha256": "676cbdedce77fca4ac8ae0e2aad0dbb0e25a1ff7f456ccf1e767231e460fa13e",
+      "profile": "L",
+      "seconds": 3.7
+    },
+    {
+      "id": "letter_envelope",
+      "exported": true,
+      "ao": {
+        "Letter_Envelope": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.5938,
+          "mean": 0.9773,
+          "max": 1.0
+        },
+        "Letter_Flap": {
+          "baked": false,
+          "min": 1.0,
+          "mean": 1.0,
+          "max": 1.0
+        },
+        "Letter_Seal": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.7346,
+          "max": 1.0
+        },
+        "Letter_Sheet": {
+          "baked": false,
+          "min": 1.0,
+          "mean": 1.0,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 868,
+          "vertsInBlender": 442,
+          "sizeMm": [
+            120.0,
+            4.0,
+            85.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            2.0,
+            0.0
+          ],
+          "primitives": 4,
+          "materials": [
+            "Mat_CreamPaper",
+            "Mat_TealPaint"
+          ],
+          "ao": {
+            "min": 1.0,
+            "mean": 1.0,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Letter_Envelope": {
+              "verts": 198,
+              "faces": 178,
+              "tris": 392,
+              "quads": 176,
+              "ngons": 2,
+              "signed_volume": 2.468476541972462e-05
+            },
+            "Letter_Flap": {
+              "verts": 18,
+              "faces": 11,
+              "tris": 32,
+              "quads": 9,
+              "ngons": 2,
+              "signed_volume": 1.165218158109364e-06
+            },
+            "Letter_Seal": {
+              "verts": 170,
+              "faces": 196,
+              "tris": 336,
+              "quads": 140,
+              "ngons": 0,
+              "signed_volume": 2.422701198776893e-07
+            },
+            "Letter_Sheet": {
+              "verts": 56,
+              "faces": 52,
+              "tris": 108,
+              "quads": 46,
+              "ngons": 2,
+              "signed_volume": 7.953828141171737e-06
+            }
+          }
+        }
+      },
+      "buildSeconds": 7.4,
+      "blend": "blender\\source\\workshop\\letter_envelope.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 37228,
+          "tris": 868,
+          "primitives": 4,
+          "vertices": 672,
+          "materialConstants": {
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_CreamPaper": {
+              "baseColorFactor": [
+                0.8631572127342224,
+                0.7681511640548706,
+                0.577580451965332,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8799999952316284
+            }
+          },
+          "sizeMm": [
+            120.0,
+            4.0,
+            85.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/workshop/letter_envelope.glb",
+      "bytes": 37228,
+      "sha256": "98d04928dda402f5240cfcf09da883717f208f6d92b17ce7a305c21a5349bb0b",
+      "profile": "L",
+      "seconds": 7.6
+    },
+    {
+      "id": "blueprint_sheet",
+      "exported": true,
+      "ao": {
+        "Blueprint_Sheet": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.4375,
+          "mean": 0.8214,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 1132,
+          "vertsInBlender": 568,
+          "sizeMm": [
+            120.0,
+            11.999,
+            200.249
+          ],
+          "originOffsetMm": [
+            0.0,
+            6.0,
+            -0.125
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_CreamPaper"
+          ],
+          "ao": {
+            "min": 0.4375,
+            "mean": 0.8214,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Blueprint_Sheet": {
+              "verts": 568,
+              "faces": 562,
+              "tris": 1132,
+              "quads": 560,
+              "ngons": 2,
+              "signed_volume": 1.4229146092296994e-05
+            }
+          }
+        }
+      },
+      "buildSeconds": 3.7,
+      "blend": "blender\\source\\workshop\\blueprint_sheet.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 46004,
+          "tris": 1132,
+          "primitives": 1,
+          "vertices": 944,
+          "materialConstants": {
+            "Mat_CreamPaper": {
+              "baseColorFactor": [
+                0.8631572127342224,
+                0.7681511640548706,
+                0.577580451965332,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8799999952316284
+            }
+          },
+          "sizeMm": [
+            120.0,
+            11.999,
+            200.249
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/workshop/blueprint_sheet.glb",
+      "bytes": 46004,
+      "sha256": "8e3b2f8f574fce45760335d2d6de59d306a54bf9a53e2a28831350a6d5de937e",
+      "profile": "L",
+      "seconds": 3.8
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\workshop\\workshop_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1472,
+        832
+      ],
+      "samples": 16,
+      "seconds": 28.1,
+      "cells": 10,
+      "layoutMm": [
+        1537.5,
+        490.1
+      ],
+      "ids": [
+        "workbench",
+        "parts_tray",
+        "parcel",
+        "letter_envelope",
+        "blueprint_sheet"
+      ]
+    },
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\workshop\\workshop_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1920,
+        1088
+      ],
+      "samples": 64,
+      "seconds": 77.2,
+      "cells": 10,
+      "layoutMm": [
+        1537.5,
+        490.1
+      ],
+      "ids": [
+        "workbench",
+        "parts_tray",
+        "parcel",
+        "letter_envelope",
+        "blueprint_sheet"
+      ]
+    }
+  },
+  "seconds": 51.3,
+  "sheetsDate": "2026-11-12T18:48:33+05:30"
+}

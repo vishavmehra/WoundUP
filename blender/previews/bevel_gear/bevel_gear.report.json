@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "family": "bevel_gear",
+  "generator": "blender/scripts/gen_bevel_gear.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T18:36:20+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\mechanical\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "gear_bevel_12",
+      "exported": true,
+      "ao": {
+        "GearBevel12": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0469,
+          "mean": 0.7611,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [
+          "Q04 dimensionsBasis is 'proposal': size [0.04696504399180412, 0.04696504399180412, 0.012000000104308128] reported, not enforced until the lead approves it"
+        ],
+        "info": {
+          "tris": 3372,
+          "vertsInBlender": 1674,
+          "sizeMm": [
+            46.965,
+            46.965,
+            12.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_AgedBrass"
+          ],
+          "ao": {
+            "min": 0.0469,
+            "mean": 0.7611,
+            "max": 1.0
+          },
+          "meshQa": {
+            "GearBevel12": {
+              "verts": 1674,
+              "faces": 2542,
+              "tris": 3372,
+              "quads": 830,
+              "ngons": 0,
+              "signed_volume": 6.7512028530356e-06
+            }
+          },
+          "teethFound": 12,
+          "tooth0OffsetDeg": 0.0,
+          "boreRadiusMm": 4.0,
+          "outerDiameterMm": 47.109
+        }
+      },
+      "buildSeconds": 5.1,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 173732,
+          "tris": 3372,
+          "primitives": 1,
+          "vertices": 3793,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            }
+          },
+          "sizeMm": [
+            46.965,
+            46.965,
+            12.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/bevel_gear/gear_bevel_12.glb",
+      "bytes": 173732,
+      "sha256": "5a8babcde056111cfd7e23c44dba4c74b5a6315c914be9e7dcf228ca57faacba",
+      "profile": "L",
+      "seconds": 6.1
+    }
+  ],
+  "sheets": {
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\bevel_gear\\bevel_gear_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 62.3,
+      "cells": 2,
+      "layoutMm": [
+        57.1,
+        148.3
+      ],
+      "ids": [
+        "gear_bevel_12"
+      ]
+    }
+  },
+  "seconds": 68.6
+}

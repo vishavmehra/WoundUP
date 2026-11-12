@@ -1,0 +1,228 @@
+{
+  "schema": 1,
+  "family": "structural",
+  "generator": "blender/scripts/gen_structural.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T18:39:54+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\mechanical\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "bearing_pillow_block",
+      "exported": true,
+      "ao": {
+        "Bearing_PillowBlock": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.7354,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [
+          "Q04 dimensionsBasis is 'proposal': size [0.02999741304665804, 0.022000000812113285, 0.012000000104308128] reported, not enforced until the lead approves it"
+        ],
+        "info": {
+          "tris": 1230,
+          "vertsInBlender": 621,
+          "sizeMm": [
+            29.997,
+            22.0,
+            12.0
+          ],
+          "originOffsetMm": [
+            -0.001,
+            1.0,
+            0.0
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_AgedBrass"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.7354,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Bearing_PillowBlock": {
+              "verts": 621,
+              "faces": 824,
+              "tris": 1230,
+              "quads": 402,
+              "ngons": 2,
+              "signed_volume": 3.942555207942084e-06
+            }
+          },
+          "boreRadiusMm": 4.0
+        }
+      },
+      "buildSeconds": 1.6,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 70008,
+          "tris": 1230,
+          "primitives": 1,
+          "vertices": 1522,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            }
+          },
+          "sizeMm": [
+            29.997,
+            22.0,
+            12.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/structural/bearing_pillow_block.glb",
+      "bytes": 70008,
+      "sha256": "f3acb09963ca660f6d8e0ebc5aa64ebb33115b304fd7f89df56d4e8e200eaf3b",
+      "profile": "L",
+      "seconds": 2.6
+    },
+    {
+      "id": "bracket_support",
+      "exported": true,
+      "ao": {
+        "Bracket_Support": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.7153,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [
+          "Q04 dimensionsBasis is 'proposal': size [0.02200000174343586, 0.04500000085681677, 0.006000000052154064] reported, not enforced until the lead approves it"
+        ],
+        "info": {
+          "tris": 1432,
+          "vertsInBlender": 722,
+          "sizeMm": [
+            22.0,
+            45.0,
+            6.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            -12.5,
+            0.0
+          ],
+          "primitives": 1,
+          "materials": [
+            "Mat_AgedBrass"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.7153,
+            "max": 1.0
+          },
+          "meshQa": {
+            "Bracket_Support": {
+              "verts": 722,
+              "faces": 932,
+              "tris": 1432,
+              "quads": 500,
+              "ngons": 0,
+              "signed_volume": 2.7597333068744556e-06
+            }
+          },
+          "boreRadiusMm": 4.0
+        }
+      },
+      "buildSeconds": 1.3,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 76716,
+          "tris": 1432,
+          "primitives": 1,
+          "vertices": 1658,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            }
+          },
+          "sizeMm": [
+            22.0,
+            45.0,
+            6.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/shared/structural/bracket_support.glb",
+      "bytes": 76716,
+      "sha256": "597165562bc8a4085d47f71212ae6d7ce7863c0790c9f1cf3c7c061f49072b27",
+      "profile": "L",
+      "seconds": 1.3
+    }
+  ],
+  "sheets": {
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\structural\\structural_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 48.7,
+      "cells": 4,
+      "layoutMm": [
+        77.3,
+        121.1
+      ],
+      "ids": [
+        "bearing_pillow_block",
+        "bracket_support"
+      ]
+    }
+  },
+  "seconds": 52.7
+}

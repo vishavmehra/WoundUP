@@ -1,0 +1,205 @@
+{
+  "schema": 1,
+  "family": "environment",
+  "generator": "blender/scripts/gen_lamp_post.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T19:20:21+05:30",
+  "outRoot": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\lamp_post\\out",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\lamp_post\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "lamp_post",
+      "exported": true,
+      "ao": {
+        "LampPost_Housing": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.6218,
+          "max": 1.0
+        },
+        "LampPost_Bulb": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.1962,
+          "max": 0.4472
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 2580,
+          "vertsInBlender": 1338,
+          "sizeMm": [
+            22.234,
+            65.0,
+            18.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            32.5,
+            0.0
+          ],
+          "primitives": 4,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_TealPaint",
+            "Mat_WarmEmissive",
+            "Mat_WarmGlass"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.1962,
+            "max": 0.4472
+          },
+          "meshQa": {
+            "LampPost_Housing": {
+              "verts": 1276,
+              "faces": 1414,
+              "tris": 2460,
+              "quads": 1046,
+              "ngons": 0,
+              "signed_volume": 5.577673015015783e-06
+            },
+            "LampPost_Bulb": {
+              "verts": 62,
+              "faces": 70,
+              "tris": 120,
+              "quads": 50,
+              "ngons": 0,
+              "signed_volume": 8.598119890142677e-08
+            }
+          }
+        }
+      },
+      "buildSeconds": 6.5,
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 137988,
+          "tris": 2580,
+          "primitives": 4,
+          "vertices": 2936,
+          "materialConstants": {
+            "Mat_WarmEmissive": {
+              "baseColorFactor": [
+                0.8879231214523315,
+                0.7912979125976562,
+                0.6239603757858276,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5
+            },
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            },
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_WarmGlass": {
+              "baseColorFactor": [
+                1,
+                0.6938717365264893,
+                0.366252601146698,
+                0.2800000011920929
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.03999999910593033
+            }
+          },
+          "sizeMm": [
+            22.234,
+            65.0,
+            18.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/environment/lamp_post.glb",
+      "bytes": 137988,
+      "sha256": "9f982b136f69f1e18e83e050ceb326727b8483b1c60d79de25f3b2d6f3e50e75",
+      "profile": "L",
+      "seconds": 9.0
+    }
+  ],
+  "sheets": {
+    "final": {
+      "path": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\lamp_post\\out\\blender\\previews\\environment\\environment_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 70.1,
+      "cells": 2,
+      "layoutMm": [
+        46.1,
+        173.1
+      ],
+      "ids": [
+        "lamp_post"
+      ]
+    },
+    "draft": {
+      "path": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\lamp_post\\out\\blender\\previews\\environment\\environment_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1104,
+        1104
+      ],
+      "samples": 16,
+      "seconds": 25.9,
+      "cells": 2,
+      "layoutMm": [
+        46.1,
+        173.1
+      ],
+      "ids": [
+        "lamp_post"
+      ]
+    }
+  },
+  "seconds": 79.4,
+  "sheetsDate": "2026-11-12T19:22:44+05:30"
+}

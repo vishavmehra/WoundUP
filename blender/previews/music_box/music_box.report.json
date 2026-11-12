@@ -1,0 +1,307 @@
+{
+  "schema": 1,
+  "family": "music_box",
+  "generator": "blender/scripts/gen_music_box_case.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T19:30:05+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\music-box\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "music_box_case",
+      "exported": true,
+      "ao": {
+        "MusicBoxCase_Body": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.3242,
+          "max": 1.0
+        },
+        "MusicBoxCase_Lid": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.3366,
+          "max": 1.0
+        },
+        "MusicBoxCase_SidePanel_L": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.499,
+          "max": 1.0
+        },
+        "MusicBoxCase_SidePanel_R": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.4581,
+          "max": 1.0
+        },
+        "MusicBoxCase_Hinge_L": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.2849,
+          "max": 1.0
+        },
+        "MusicBoxCase_Hinge_R": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.2849,
+          "max": 1.0
+        },
+        "MusicBoxCase_Foot": {
+          "baked": true,
+          "samples": 64,
+          "min": 0.0,
+          "mean": 0.5681,
+          "max": 1.0
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 18272,
+          "vertsInBlender": 9322,
+          "sizeMm": [
+            130.34,
+            100.001,
+            90.05
+          ],
+          "originOffsetMm": [
+            0.03,
+            50.0,
+            -0.025
+          ],
+          "primitives": 19,
+          "materials": [
+            "Mat_AgedBrass",
+            "Mat_CreamEnamel",
+            "Mat_PolishedBrass",
+            "Mat_TealPaint",
+            "Mat_Walnut"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.5681,
+            "max": 1.0
+          },
+          "meshQa": {
+            "MusicBoxCase_Body": {
+              "verts": 4672,
+              "faces": 5086,
+              "tris": 9168,
+              "quads": 4082,
+              "ngons": 0,
+              "signed_volume": 0.0001982949158768512
+            },
+            "MusicBoxCase_Lid": {
+              "verts": 1990,
+              "faces": 2196,
+              "tris": 3944,
+              "quads": 1748,
+              "ngons": 0,
+              "signed_volume": 9.408801515743265e-05
+            },
+            "MusicBoxCase_SidePanel_L": {
+              "verts": 796,
+              "faces": 878,
+              "tris": 1564,
+              "quads": 686,
+              "ngons": 0,
+              "signed_volume": 1.7933547710180268e-06
+            },
+            "MusicBoxCase_SidePanel_R": {
+              "verts": 796,
+              "faces": 878,
+              "tris": 1564,
+              "quads": 686,
+              "ngons": 0,
+              "signed_volume": 1.3358710945025433e-06
+            },
+            "MusicBoxCase_Hinge_L": {
+              "verts": 402,
+              "faces": 482,
+              "tris": 760,
+              "quads": 278,
+              "ngons": 0,
+              "signed_volume": 5.480082425994105e-07
+            },
+            "MusicBoxCase_Hinge_R": {
+              "verts": 402,
+              "faces": 482,
+              "tris": 760,
+              "quads": 278,
+              "ngons": 0,
+              "signed_volume": 5.479770098052815e-07
+            },
+            "MusicBoxCase_Foot": {
+              "verts": 264,
+              "faces": 320,
+              "tris": 512,
+              "quads": 192,
+              "ngons": 0,
+              "signed_volume": 2.3288708916879824e-06
+            }
+          },
+          "sockets": [
+            "SOCKET_BracketL",
+            "SOCKET_BracketR",
+            "SOCKET_Arbor",
+            "SOCKET_Cylinder",
+            "SOCKET_Comb",
+            "SOCKET_GearB",
+            "SOCKET_GearC",
+            "SOCKET_Spring",
+            "SOCKET_GearA",
+            "SOCKET_Governor",
+            "SOCKET_GearD",
+            "SOCKET_Key",
+            "SOCKET_BaseHandle"
+          ]
+        }
+      },
+      "buildSeconds": 14.1,
+      "blend": "blender\\source\\music_box\\music_box_case.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 829548,
+          "tris": 18272,
+          "primitives": 19,
+          "vertices": 17316,
+          "materialConstants": {
+            "Mat_AgedBrass": {
+              "baseColorFactor": [
+                0.3915724754333496,
+                0.2015562504529953,
+                0.03189603239297867,
+                1
+              ],
+              "metallicFactor": 0.890999972820282,
+              "roughnessFactor": 0.4020000100135803
+            },
+            "Mat_PolishedBrass": {
+              "baseColorFactor": [
+                0.7230551242828369,
+                0.4969329833984375,
+                0.1119324266910553,
+                1
+              ],
+              "metallicFactor": 0.968999981880188,
+              "roughnessFactor": 0.1770000010728836
+            },
+            "Mat_Walnut": {
+              "baseColorFactor": [
+                0.05780543014407158,
+                0.024157632142305374,
+                0.01032982300966978,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.5989999771118164
+            },
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_CreamEnamel": {
+              "baseColorFactor": [
+                0.8879231214523315,
+                0.7912979125976562,
+                0.6239603757858276,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.2160000056028366
+            }
+          },
+          "sizeMm": [
+            130.34,
+            100.001,
+            90.05
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/music_box/music_box_case.glb",
+      "bytes": 829548,
+      "sha256": "6c28ec9ec3aa8401b4645b4e1c116231a27e441bad2b7e6e71ae68b4ff705d6f",
+      "profile": "L",
+      "seconds": 15.8
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\music_box\\music_box_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1104,
+        1104
+      ],
+      "samples": 16,
+      "seconds": 25.2,
+      "cells": 2,
+      "layoutMm": [
+        179.3,
+        383.5
+      ],
+      "ids": [
+        "music_box_case"
+      ]
+    },
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\music_box\\music_box_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 64.9,
+      "cells": 2,
+      "layoutMm": [
+        179.3,
+        383.5
+      ],
+      "ids": [
+        "music_box_case"
+      ]
+    }
+  },
+  "seconds": 41.1,
+  "sheetsDate": "2026-11-12T19:31:22+05:30"
+}

@@ -5150,6 +5150,80 @@
       "notes": "EXISTS as the M0 asset public/assets/models/environment/tockton_base_round.glb, integrated in the M0 scene as node stand (IWER verified). Source of record after the move is blender/source/environment/tockton_base_round.blend; today the .blend is built by the authoring script blender/scripts/gen_tockton_base.py (legacy.generator) and no GUI edit is recorded. It breaks the new rules: 9 embedded images, 20 MiB of texture memory against the 16 MiB hero-pool cap, and 2.12 MB (2.02 MiB) which with the gear (2.38 MB) takes the page to about 4.5 MB before Enter against 3.0 MB (ADR-034, audit F section 7.2). Fix: regenerate with the ADR-032 profile or let it use the hero pool, then move it in one lead change (ADR-033). It is 0.46 m across, so it cannot carry the 0.60 x 0.40 m town; whether the stand and the town base are one asset is open (G-06); the default here is two files."
     },
     {
+      "id": "lamp_post",
+      "filename": "lamp_post.glb",
+      "displayName": "Town lamp post",
+      "category": "prop",
+      "family": "G",
+      "productionClass": "E",
+      "production": "hand_modelled",
+      "description": "Wrought brass and teal street lamp for Tockton paths, with a warm glass lantern head. One GLB, placed several times along the paths at runtime (instances, ADR-030).",
+      "gameplayPurpose": "Town dressing that lights up when its district awakens (frozen: unlit and desaturated; awake: warm lantern glow). Owner-approved pilot environmental prop.",
+      "contains": "Lamp housing and a bulb node that takes the emissive material.",
+      "distinctBecause": "The only light fixture; the six lamps are instances.",
+      "classification": "G0-optional",
+      "worldId": "tockton",
+      "sharedOrWorldSpecific": "world-specific",
+      "reuseEligible": false,
+      "scopeClass": "world-specific",
+      "relatedMachineOrEnvironment": "Tockton town paths",
+      "specExists": true,
+      "boardExists": true,
+      "references": [
+        "Clockwork Town Awakening Infographic.png"
+      ],
+      "specifications": [
+        "Owner decision 2026-11-12 19:03 IST (\"make the lamp post\"); ART_ASSET_PIPELINE.md section 18 supporting props; CLAUDE.md section 8 night lighting (emissive, not point lights)"
+      ],
+      "blenderSource": "blender/scripts/gen_lamp_post.py",
+      "glbPath": "public/assets/models/tockton/environment/lamp_post.glb",
+      "meshes": [
+        "LampPost_Housing",
+        "LampPost_Bulb"
+      ],
+      "materials": [
+        "Mat_AgedBrass",
+        "Mat_TealPaint",
+        "Mat_WarmGlass",
+        "Mat_WarmEmissive"
+      ],
+      "animations": [],
+      "runtimeMotion": "Emissive intensity animated by the runtime (twinkle); no transform motion.",
+      "colliders": [],
+      "originAndPivot": "Origin at the centre of the base on the ground, +Y up; transforms applied (ADR-020)",
+      "approxDimensionsM": [
+        0.022234,
+        0.065,
+        0.018
+      ],
+      "dimensionsBasis": "derived",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Authored at workbench scale 1:1; the runtime applies the town scale when the machine settles on its plot (INTERACTION_SPEC.md section 3).",
+      "budgets": {
+        "triangles": 3000,
+        "primitives": 4,
+        "materials": 4,
+        "textureMiB": 0,
+        "glbKB": 250,
+        "basis": "ADR-034 prop category ceiling, not an allowance"
+      },
+      "dependencies": [
+        "town_ground"
+      ],
+      "usedBy": "Town paths (instanced)",
+      "owner": "World",
+      "priority": "pilot",
+      "status": "EXPORTED",
+      "validationStatus": "NOT_RUN",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "notes": "Added by owner decision on 2026-11-12 as the fifth pilot asset (the owner pilot list: spur gear, Music Box mechanism, Bakery, Mira, lamp post). Height from TOCKTON_DIMENSIONS.md town scale. No point light: the glow is Mat_WarmEmissive (CLAUDE.md section 8 allows at most four point lights at night).",
+      "allowAlpha": [
+        "Mat_WarmGlass"
+      ],
+      "glbSha256": "9f982b136f69f1e18e83e050ceb326727b8483b1c60d79de25f3b2d6f3e50e75",
+      "validationEvidence": "validate-glb 0 FAIL 0 WARN, 2026-11-12; sheet blender/previews/environment/lamp_post_sheet_final.png"
+    },
+    {
       "id": "town_ground",
       "filename": "town_ground.glb",
       "displayName": "Town ground and plots",

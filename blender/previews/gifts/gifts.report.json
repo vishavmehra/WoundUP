@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "family": "gifts",
+  "generator": "blender/scripts/gen_workshop.py",
+  "blender": "5.2.1 LTS",
+  "date": "2026-11-12T18:43:51+05:30",
+  "outRoot": "D:\\Development\\AI ML\\WoundUp",
+  "manifest": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\claude\\11151372498ff63e\\3e881673-e213-49c9-8bcf-435cb9f9d086\\scratchpad\\production\\workshop\\manifest.json",
+  "rework": false,
+  "libraryJsonSha256": "efba253c5d3b8fa3dfaa5af2311e961f06d6eef45b04629b98cf65aae0be5afa",
+  "materialConstantsSource": {
+    "Mat_AgedBrass": "library.json",
+    "Mat_Walnut": "library.json",
+    "Mat_VelvetTeal": "library.json",
+    "Mat_PolishedBrass": "library.json",
+    "Mat_PaintedWood": "library.json",
+    "Mat_CreamPaper": "library.json",
+    "Mat_CreamEnamel": "library.json",
+    "Mat_TealPaint": "library.json",
+    "Mat_WarmGlass": "library.json",
+    "Mat_Fabric": "library.json",
+    "Mat_Stone": "library.json",
+    "Mat_WarmEmissive": "library.json",
+    "Mat_Ceramic": "library.json"
+  },
+  "entries": [
+    {
+      "id": "gift_box",
+      "exported": true,
+      "ao": {
+        "GiftBox_Box": {
+          "baked": true,
+          "samples": 128,
+          "min": 0.0488,
+          "mean": 0.6463,
+          "max": 1.0
+        },
+        "GiftBox_Wrap": {
+          "baked": true,
+          "samples": 128,
+          "min": 0.0,
+          "mean": 0.6587,
+          "max": 1.0
+        },
+        "GiftBox_Lid": {
+          "baked": true,
+          "samples": 128,
+          "min": 0.4941,
+          "mean": 0.912,
+          "max": 1.0
+        },
+        "GiftBox_Ribbon": {
+          "baked": true,
+          "samples": 128,
+          "min": 0.0,
+          "mean": 0.3123,
+          "max": 1.0
+        },
+        "GiftBox_Bow": {
+          "baked": true,
+          "samples": 128,
+          "min": 0.0,
+          "mean": 0.2666,
+          "max": 0.8379
+        }
+      },
+      "gate": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "tris": 2956,
+          "vertsInBlender": 1492,
+          "sizeMm": [
+            200.6,
+            200.0,
+            200.0
+          ],
+          "originOffsetMm": [
+            0.0,
+            100.0,
+            0.0
+          ],
+          "primitives": 5,
+          "materials": [
+            "Mat_CreamPaper",
+            "Mat_TealPaint"
+          ],
+          "ao": {
+            "min": 0.0,
+            "mean": 0.2666,
+            "max": 0.8379
+          },
+          "meshQa": {
+            "GiftBox_Box": {
+              "verts": 400,
+              "faces": 382,
+              "tris": 796,
+              "quads": 380,
+              "ngons": 2,
+              "signed_volume": 0.0010102795712475926
+            },
+            "GiftBox_Wrap": {
+              "verts": 232,
+              "faces": 204,
+              "tris": 448,
+              "quads": 196,
+              "ngons": 8,
+              "signed_volume": 0.0004046601397640986
+            },
+            "GiftBox_Lid": {
+              "verts": 260,
+              "faces": 242,
+              "tris": 516,
+              "quads": 240,
+              "ngons": 2,
+              "signed_volume": 0.0008161526839292813
+            },
+            "GiftBox_Ribbon": {
+              "verts": 320,
+              "faces": 320,
+              "tris": 640,
+              "quads": 320,
+              "ngons": 0,
+              "signed_volume": 7.584406406082231e-05
+            },
+            "GiftBox_Bow": {
+              "verts": 280,
+              "faces": 278,
+              "tris": 556,
+              "quads": 268,
+              "ngons": 2,
+              "signed_volume": 1.2978401037126246e-05
+            }
+          }
+        }
+      },
+      "buildSeconds": 4.7,
+      "blend": "blender\\source\\gifts\\gift_box.blend",
+      "post": {
+        "ok": true,
+        "fails": [],
+        "warns": [],
+        "info": {
+          "bytes": 122564,
+          "tris": 2956,
+          "primitives": 5,
+          "vertices": 2476,
+          "materialConstants": {
+            "Mat_TealPaint": {
+              "baseColorFactor": [
+                0.014443843625485897,
+                0.10702310502529144,
+                0.10702310502529144,
+                1
+              ],
+              "metallicFactor": 0.004000000189989805,
+              "roughnessFactor": 0.46000000834465027
+            },
+            "Mat_CreamPaper": {
+              "baseColorFactor": [
+                0.8631572127342224,
+                0.7681511640548706,
+                0.577580451965332,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8799999952316284
+            }
+          },
+          "sizeMm": [
+            200.6,
+            200.0,
+            200.0
+          ]
+        }
+      },
+      "glb": "public/assets/models/tockton/gifts/gift_box.glb",
+      "bytes": 122564,
+      "sha256": "58363f5886adea0aa3ddb3850c70d21f30ae90347f33be4d700016ef12c77324",
+      "profile": "L",
+      "seconds": 6.5
+    }
+  ],
+  "sheets": {
+    "draft": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\gifts\\gifts_sheet_draft.png",
+      "grade": "draft",
+      "engine": "BLENDER_EEVEE",
+      "device": "EEVEE",
+      "resolution": [
+        1104,
+        1104
+      ],
+      "samples": 16,
+      "seconds": 21.7,
+      "cells": 2,
+      "layoutMm": [
+        320.7,
+        707.7
+      ],
+      "ids": [
+        "gift_box"
+      ]
+    },
+    "final": {
+      "path": "D:\\Development\\AI ML\\WoundUp\\blender\\previews\\gifts\\gifts_sheet_final.png",
+      "grade": "final",
+      "engine": "CYCLES",
+      "device": "GPU",
+      "resolution": [
+        1440,
+        1440
+      ],
+      "samples": 64,
+      "seconds": 108.2,
+      "cells": 2,
+      "layoutMm": [
+        320.7,
+        707.7
+      ],
+      "ids": [
+        "gift_box"
+      ]
+    }
+  },
+  "seconds": 28.3,
+  "sheetsDate": "2026-11-12T18:52:48+05:30"
+}
