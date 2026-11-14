@@ -32,14 +32,14 @@ import type { MachineRecord, SaveV1 } from './save';
 
 export interface ProgressionOptions {
   /**
-   * Whether the Clock Tower is in the build. It is the first feature cut (CLAUDE.md §2). When it is out, Letter 6 never
-   * unlocks and the story ends, with the closing card, when Letter 5 is completed. The specifications do not say what
-   * happens to Letter 6 and the closing card when the Tower is cut (STORY_AND_QUEST_ENGINE §3.3); this is the default
-   * until the owner rules, and the one switch to flip when the Tower is built.
+   * Whether the Clock Tower is in the build. ADR-047 made it the fourth playable machine, so the game runs with it. If it is
+   * ever cut again, Letter 6 never unlocks and the story ends, with the closing card, when Letter 5 is completed. The
+   * specifications do not say what happens to Letter 6 and the closing card when the Tower is cut (STORY_AND_QUEST_ENGINE
+   * §3.3); this is the default until the owner rules, and the one switch to flip.
    */
   readonly clockTower: boolean;
 }
-export const DEFAULT_PROGRESSION: ProgressionOptions = { clockTower: false };
+export const DEFAULT_PROGRESSION: ProgressionOptions = { clockTower: true };
 
 /**
  * Where the specifications leave "after Letter N" open (STORY_AND_QUEST_ENGINE §3.3), one rule applies to both uses:

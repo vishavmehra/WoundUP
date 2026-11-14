@@ -227,7 +227,7 @@ export function paintPanel(ctx: Ctx, w: number, h: number, title: string, lines:
 }
 
 /** A round brass medallion with a glyph and a word: the pause and gift controls. */
-export function paintMedallion(ctx: Ctx, size: number, glyph: 'pause' | 'gift', label: string, hover: boolean): void {
+export function paintMedallion(ctx: Ctx, size: number, glyph: 'pause' | 'gift' | 'repair', label: string, hover: boolean): void {
   ctx.clearRect(0, 0, size, size);
   const c = size / 2;
   const g = ctx.createRadialGradient(c, c * 0.8, size * 0.05, c, c, c);
@@ -247,6 +247,18 @@ export function paintMedallion(ctx: Ctx, size: number, glyph: 'pause' | 'gift', 
   if (glyph === 'pause') {
     ctx.fillRect(c - 28, c - 52, 18, 58);
     ctx.fillRect(c + 10, c - 52, 18, 58);
+  } else if (glyph === 'repair') {
+    // A spanner: a handle and a round head with an open jaw, leaning 45 degrees.
+    ctx.save();
+    ctx.translate(c, c - 6);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillRect(-7, -4, 14, 50);
+    ctx.beginPath();
+    ctx.arc(0, -16, 17, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = PALETTE.brass;
+    ctx.fillRect(-6, -40, 12, 22);
+    ctx.restore();
   } else {
     ctx.fillRect(c - 36, c - 30, 72, 44);
     ctx.fillStyle = PALETTE.brassLit;

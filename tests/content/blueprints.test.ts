@@ -36,11 +36,12 @@ describe('blueprint data', () => {
   });
 
   it('uses the machine ids of the game core, once each', () => {
-    expect(BLUEPRINTS.map((b) => b.id)).toEqual(['music_box', 'carousel', 'windmill']);
+    expect(BLUEPRINTS.map((b) => b.id)).toEqual(['music_box', 'carousel', 'windmill', 'clock_tower']);
+    expect([...BLUEPRINTS.map((b) => b.id)].sort()).toEqual([...MACHINE_IDS].sort());
     for (const b of BLUEPRINTS) expect(MACHINE_IDS).toContain(b.id);
     expect(getBlueprint('music_box')).toBe(MUSIC_BOX);
     expect(getBlueprint('constructor')).toBeUndefined();
-    expect(getBlueprint('clock_tower')).toBeUndefined();
+    expect(getBlueprint('clock_tower')?.name).toBe('Clock Tower');
   });
 
   it('gives the Music Box its 12 required sockets, ids unique, every one mapped to a GLB empty', () => {
@@ -319,7 +320,9 @@ describe('gift catalogue', () => {
     expect(info.accepts('main_spring', 'spring_worn_brass')).toBe(true);
     expect(info.accepts('main_spring', 'gear_spur_10_m1_brass')).toBe(false);
     expect(info.accepts('constructor', 'spring_worn_brass')).toBe(false);
-    expect(giftCatalogue.blueprint('clock_tower')).toBeUndefined();
+    expect(giftCatalogue.blueprint('clock_tower')?.sockets).toHaveLength(17);
+    expect(giftCatalogue.blueprint('clock_tower')?.accepts('spring', 'spring_standard_brass')).toBe(true);
+    expect(giftCatalogue.blueprint('clock_tower')?.accepts('spring', 'spring_worn_brass')).toBe(false);
     expect(giftCatalogue.blueprint('__proto__')).toBeUndefined();
     expect(giftCatalogue.hasPart('spring_worn_brass')).toBe(true);
     expect(giftCatalogue.hasPart('constructor')).toBe(false);

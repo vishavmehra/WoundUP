@@ -35,6 +35,18 @@ export const MODEL_PATHS: Readonly<Record<string, string>> = {
   windmill_tower: 'tockton/windmill/windmill_tower.glb',
   windmill_sails: 'tockton/windmill/windmill_sails.glb',
   windmill_millstone: 'tockton/windmill/windmill_millstone.glb',
+  // Clock Tower (Families A and F, ADR-047). The base is the housing; the shell stands on it and is not a blueprint part (the
+  // tower's structural slots are meshes of these two files, see src/content/blueprints/clock-tower.ts).
+  clock_tower_base: 'tockton/clock_tower/clock_tower_base.glb',
+  clock_tower_shell: 'tockton/clock_tower/clock_tower_shell.glb',
+  clock_face: 'tockton/clock_tower/clock_face.glb',
+  clock_hands: 'tockton/clock_tower/clock_hands.glb',
+  clock_bell: 'tockton/clock_tower/clock_bell.glb',
+  pendulum_clock: 'shared/pendulum/pendulum_clock.glb',
+  escapement_wheel: 'shared/escapement/escapement_wheel.glb',
+  escapement_anchor: 'shared/escapement/escapement_anchor.glb',
+  cam_hourly_chime: 'shared/cam/cam_hourly_chime.glb',
+  spring_barrel: 'shared/spring/spring_barrel.glb',
 };
 
 /** URL of an asset's GLB under the app's base path, or undefined for an unknown asset id. */

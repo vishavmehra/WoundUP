@@ -32,6 +32,16 @@ describe('viewFor: which props exist in which mode', () => {
     expect(viewFor(at('town'), base, { letter: LETTERS.letter_2, closing: null, giftAvailable: false })).toMatchObject({ closingCard: false, giftButton: false });
   });
 
+  it('shows the daily repair medallion only in the town, while it is on offer, and not under a panel', () => {
+    const base = local({ trunk: 'gone' });
+    const offer = { ...ctx, dailyAvailable: true };
+    expect(viewFor(at('town'), base, offer).dailyButton).toBe(true);
+    expect(viewFor(at('town'), base, ctx).dailyButton).toBe(false); // nothing on offer (before Letter 5, or done today)
+    expect(viewFor(at('town'), base, { ...ctx, dailyAvailable: false }).dailyButton).toBe(false);
+    for (const mode of ['intro', 'build', 'wind', 'place', 'gift'] as const) expect(viewFor(at(mode), base, offer).dailyButton, mode).toBe(false);
+    expect(viewFor(at('pause', { resume: 'town' }), base, offer).dailyButton).toBe(false);
+  });
+
   it('shows the bench in Build, Wind and Place, with the parcel closed until it is opened', () => {
     for (const mode of ['build', 'wind', 'place'] as const) {
       const closed = viewFor(at(mode), local({ trunk: 'gone' }), ctx);

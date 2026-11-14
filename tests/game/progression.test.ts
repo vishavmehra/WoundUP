@@ -20,6 +20,7 @@ import { freshSave, validateSave, type SaveV1 } from '../../src/game/save';
 import { acceptAndRepair, advance, buildAndPlace, deepFreeze, playStory } from './helpers';
 
 const TOWER = { clockTower: true } as const;
+const OUT = { clockTower: false } as const;
 
 /** A save frozen at some point of the story, to prove nothing mutates its input. */
 const frozen = (save: SaveV1) => deepFreeze(structuredClone(save));
@@ -132,12 +133,12 @@ describe('story repairs (PRODUCT_SPEC §8)', () => {
 describe('the whole story', () => {
   it('unlocks one letter at a time and ends with the closing card after Letter 5 when the Clock Tower is out', () => {
     const seen: SaveV1[] = [];
-    const end = playStory(undefined, (s) => seen.push(deepFreeze(structuredClone(s))));
+    const end = playStory(OUT, (s) => seen.push(deepFreeze(structuredClone(s))));
     expect(LETTER_IDS.filter((id) => end.letters[id] === 'completed')).toEqual(['letter_1', 'letter_2', 'letter_3', 'letter_4', 'letter_5']);
     expect(end.letters.letter_6).toBe('locked');
-    expect(storyComplete(end)).toBe(true);
-    expect(closingCard(end)).toBe(CLOSING_CARD);
-    expect(activeLetter(end)).toBeNull();
+    expect(storyComplete(end, OUT)).toBe(true);
+    expect(closingCard(end, OUT)).toBe(CLOSING_CARD);
+    expect(activeLetter(end, OUT)).toBeNull();
     // At most one letter is ever open at a time, and every intermediate save is one the loader accepts.
     for (const s of seen) {
       expect(LETTER_IDS.filter((id) => s.letters[id] === 'available' || s.letters[id] === 'accepted').length).toBeLessThanOrEqual(1);
@@ -151,14 +152,16 @@ describe('the whole story', () => {
     expect(closingCard(s)).toBeNull();
     playStory(undefined, (step) => {
       s = step;
-      if (step.letters.letter_5 !== 'completed') expect(closingCard(step)).toBeNull();
+      if (step.letters.letter_6 !== 'completed') expect(closingCard(step)).toBeNull();
     });
     expect(closingCard(s)).toBe(CLOSING_CARD);
   });
 
   it('adds Letter 6 and moves the closing card after it when the Clock Tower is in', () => {
     expect(letterSequence(TOWER)).toEqual(LETTER_IDS);
-    expect(letterSequence(DEFAULT_PROGRESSION)).toEqual(LETTER_IDS.slice(0, 5));
+    expect(letterSequence(OUT)).toEqual(LETTER_IDS.slice(0, 5));
+    expect(DEFAULT_PROGRESSION).toEqual(TOWER); // ADR-047: the Clock Tower is the fourth playable machine
+    expect(letterSequence(DEFAULT_PROGRESSION)).toEqual(LETTER_IDS);
     let atLetter5Done: SaveV1 | undefined;
     const end = playStory(TOWER, (s) => {
       if (s.letters.letter_5 === 'completed' && !atLetter5Done) atLetter5Done = s;
@@ -170,8 +173,8 @@ describe('the whole story', () => {
   });
 
   it('keeps Letter 6 locked while the Clock Tower is out, and unlocks it when settle runs with the Tower on', () => {
-    const end = playStory();
-    expect(settle(end)).toBe(end);
+    const end = playStory(OUT);
+    expect(settle(end, OUT)).toBe(end);
     const unlocked = settle(end, TOWER);
     expect(unlocked.letters.letter_6).toBe('available');
     expect(settle(unlocked, TOWER)).toBe(unlocked); // idempotent
@@ -200,7 +203,7 @@ describe('letters and objectives', () => {
       const id = activeLetter(s)?.id;
       if (id && order[order.length - 1] !== id) order.push(id);
     });
-    expect(order).toEqual(['letter_1', 'letter_2', 'letter_3', 'letter_4', 'letter_5']);
+    expect(order).toEqual(['letter_1', 'letter_2', 'letter_3', 'letter_4', 'letter_5', 'letter_6']);
     expect(LETTERS[order[0] as 'letter_1'].sender).toBe('Mira');
   });
 

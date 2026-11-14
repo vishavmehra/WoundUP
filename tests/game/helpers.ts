@@ -1,4 +1,4 @@
-import { acceptLetter, machineBuilt, machinePlaced, repairVerified, trunkOpened, type ProgressionOptions } from '../../src/game/progression';
+import { acceptLetter, DEFAULT_PROGRESSION, machineBuilt, machinePlaced, repairVerified, trunkOpened, type ProgressionOptions } from '../../src/game/progression';
 import { freshSave, type SaveV1 } from '../../src/game/save';
 import { MACHINE_PLOT, type LetterId, type MachineId, type RepairId } from '../../src/game/content';
 import type { StorageLike } from '../../src/game/store';
@@ -70,7 +70,7 @@ export function acceptAndRepair(save: SaveV1, letterId: LetterId, repairId: Repa
   return s;
 }
 
-/** The whole Tockton story through Letter 5 (and Letter 6 when the Clock Tower is on), with every intermediate save reported. */
+/** The whole Tockton story through Letter 5, and Letter 6 when the Clock Tower is on (the game's default, ADR-047), with every intermediate save reported. */
 export function playStory(options?: ProgressionOptions, onStep: (s: SaveV1) => void = () => undefined): SaveV1 {
   let s = freshSave();
   s = advance(s, trunkOpened(s, options));
@@ -80,6 +80,6 @@ export function playStory(options?: ProgressionOptions, onStep: (s: SaveV1) => v
   s = buildAndPlace(s, 'letter_3', 'carousel', options, onStep);
   s = buildAndPlace(s, 'letter_4', 'windmill', options, onStep);
   s = acceptAndRepair(s, 'letter_5', 'wrong_gear', options, onStep);
-  if (options?.clockTower) s = buildAndPlace(s, 'letter_6', 'clock_tower', options, onStep);
+  if ((options ?? DEFAULT_PROGRESSION).clockTower) s = buildAndPlace(s, 'letter_6', 'clock_tower', options, onStep);
   return s;
 }

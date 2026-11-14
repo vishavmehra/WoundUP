@@ -7,7 +7,7 @@
  */
 import type { PlotId } from '../game/content';
 import { WAKE_CHIMES } from './notes';
-import { bonkVoice, chimeVoice, makeNoise, pluckVoice, snapVoice, windVoice } from './voices';
+import { bellVoice, bonkVoice, chimeVoice, makeNoise, pluckVoice, snapVoice, tickVoice, windVoice } from './voices';
 
 /** What the town and the interaction layer need from the audio. `AudioEngine` implements it; tests pass a recorder. */
 export interface TownAudio {
@@ -127,6 +127,18 @@ export class AudioEngine implements TownAudio {
   chime(plot: PlotId): void {
     const ctx = this.ready();
     if (ctx && this.bells) chimeVoice(ctx, this.bells, WAKE_CHIMES[plot]);
+  }
+
+  /** One strike of the Clock Tower bell: `index` of `total` strikes of the hour. */
+  bell(index: number, total: number): void {
+    const ctx = this.ready();
+    if (ctx && this.bells && this.noise) bellVoice(ctx, this.bells, this.noise, index >= total);
+  }
+
+  /** One beat of the Clock Tower pendulum: tick (0) and tock (1). */
+  tick(parity: 0 | 1): void {
+    const ctx = this.ready();
+    if (ctx && this.sfx && this.noise) tickVoice(ctx, this.sfx, this.noise, parity);
   }
 
   /** The context, resumed if the browser suspended it again, or null while locked. */

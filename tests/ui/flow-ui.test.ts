@@ -2,7 +2,9 @@ import { PokeInteractable, RayInteractable, World } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D, Scene, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { LETTERS } from '../../src/game/content';
+import { LETTERS, MACHINE_PLOT } from '../../src/game/content';
+import { dailyRepairFor } from '../../src/game/daily';
+import { dateKey } from '../../src/game/date';
 import { SETTING_ROWS } from '../../src/ui/copy';
 import { BENCH } from '../../src/ui/layout';
 import { SAVE_KEY, parseSave } from '../../src/game/save';
@@ -557,6 +559,75 @@ describe('FlowUi: a build without a letter (the daily repair)', () => {
     Object.defineProperty(r.game, 'letter', { get: () => null }); // every letter is done: the build comes from the daily repair
     click(r, 'parcel');
     expect(last(r)).toEqual({ type: 'parcel-opened', letter: null });
+  });
+});
+
+/** Letters 1 to 5 done through the real commands: the town of a player for whom the daily repair is unlocked (Letter 6 is waiting). */
+function playToLetter5(game: GameSession): void {
+  const step = (ok: boolean, what: string): void => expect(ok, what).toBe(true);
+  step(game.openTrunk(), 'trunk');
+  for (const [n, machine, repair] of [
+    [1, 'music_box', null],
+    [2, 'music_box', 'worn_spring'],
+    [3, 'carousel', null],
+    [4, 'windmill', null],
+    [5, 'windmill', 'wrong_gear'],
+  ] as const) {
+    step(game.acceptLetter(`letter_${n}`), `accept ${n}`);
+    step(game.assemblyComplete(), `assemble ${n}`);
+    if (repair) step(game.repairVerified(repair), `repair ${n}`);
+    step(game.machineRanCorrectly(machine), `run ${n}`);
+    step(game.machinePlaced(machine, MACHINE_PLOT[machine]), `place ${n}`);
+  }
+}
+
+describe('FlowUi: the daily repair entry (ADR-027)', () => {
+  it('shows the Repair medallion in the town only once Letter 5 is done, and not while paused', async () => {
+    const early = await rig();
+    await toTown(early);
+    expect(live(early)).not.toContain('UI_Daily'); // Letter 1 is waiting: nothing to repair yet
+    expect(visible(early, 'UI_Daily')).toBe(false);
+
+    const r = await rig(playToLetter5);
+    run(r, 2); // the letter arrives
+    expect(r.game.letter?.id).toBe('letter_6'); // the story is not finished: the repair does not wait for it
+    expect(live(r)).toEqual(['UI_Daily', 'UI_Gift', 'UI_Pause', 'letter_envelope']);
+    expect(visible(r, 'UI_Daily')).toBe(true);
+    click(r, 'UI_Pause');
+    expect(find(r, 'UI_Daily').active).toBe(false);
+    expect(visible(r, 'UI_Daily')).toBe(false);
+    click(r, 'UI_PanelLeft'); // Resume
+    expect(find(r, 'UI_Daily').active).toBe(true);
+  });
+
+  it("starts today's repair from the medallion: Build opens on the bench, the integrator is told which repair and on what date, and it is done once for the date", async () => {
+    const r = await rig(playToLetter5);
+    run(r, 1);
+    const before = dateKey(new Date());
+    expect(click(r, 'UI_Daily')).toBe(true);
+    const after = dateKey(new Date());
+    expect(r.game.mode).toBe('build');
+    const event = real(r).find((e) => e.type === 'daily-repair');
+    if (event?.type !== 'daily-repair') throw new Error('no daily-repair event');
+    expect([before, after]).toContain(event.date);
+    expect(event.repair).toBe(dailyRepairFor(event.date)); // deterministic by date
+    expect(r.ui.currentView).toMatchObject({ bench: true, parcel: 'closed', envelope: 'hidden', dailyButton: false });
+    expect(live(r)).toEqual(['UI_Pause', 'parcel']);
+
+    click(r, 'parcel'); // the parcel opens as for a letter; the integrator ignores the letter that is waiting
+    expect(types(r)).toContain('parcel-opened');
+
+    // The repair ran correctly and the machine went back to its plot (the integrator's `finish` and `commitPlacement`).
+    expect(r.game.assemblyComplete()).toBe(true);
+    expect(r.game.dailyRepairVerified(event.date)).toBe(true);
+    expect(r.game.machineRanCorrectly(event.repair.blueprintId)).toBe(true);
+    expect(r.game.machinePlaced(event.repair.blueprintId, MACHINE_PLOT[event.repair.blueprintId])).toBe(true);
+    r.ui.onModeChange();
+    expect(r.game.save.dailyDone).toBe(event.date);
+    run(r, 1);
+    expect(live(r)).toEqual(['UI_Gift', 'UI_Pause', 'letter_envelope']);
+    expect(click(r, 'UI_Daily')).toBe(false); // done for today
+    expect(visible(r, 'UI_Daily')).toBe(false);
   });
 });
 

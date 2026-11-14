@@ -91,6 +91,16 @@ export const PART_DEFINITIONS: readonly PartDefinition[] = Object.freeze([
   part('windmill_sails', 'Mat_Walnut', 'structural', 'Windmill sails', 0.025),
   part('windmill_millstone', 'Mat_Stone', 'structural', 'Millstone', 0.025),
   part('windmill_tower', 'Mat_PaintedWood', 'structural', 'Windmill tower', null),
+  // Clock Tower pieces (ADR-047). The gears, shaft, brackets, spring and key are the shared ones above. The barrel is a spring housing
+  // with no speed or energy of its own (the coil in it, `spring_standard`, is the power), so it is `structural` and has no mechanics.
+  part('spring_barrel', 'Mat_AgedBrass', 'structural', 'Spring barrel', 0.015),
+  part('escapement_wheel', 'Mat_AgedBrass', 'escapement', 'Escape wheel', 0.0175),
+  part('escapement_anchor', 'Mat_AgedBrass', 'escapement', 'Escapement anchor', 0.012),
+  part('pendulum_clock', 'Mat_AgedBrass', 'pendulum', 'Pendulum', 0.012), // rod and bob are one file, one swinging group
+  part('cam_hourly_chime', 'Mat_AgedBrass', 'cam', 'Hourly chime cam', 0.0125),
+  part('clock_bell', 'Mat_PolishedBrass', 'structural', 'Clock bell', null),
+  part('clock_face', 'Mat_CreamEnamel', 'structural', 'Clock face', null),
+  part('clock_hands', 'Mat_Walnut', 'structural', 'Clock hands', null),
 ]);
 
 const byId: ReadonlyMap<string, PartDefinition> = new Map(PART_DEFINITIONS.map((p) => [p.id, p] as const));

@@ -51,8 +51,8 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
   it('spawns every catalogue part with the library material, a grab collider exactly when the definition says so, and no reader warning', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { scene, registry, loader } = setup();
-    // The two parts that carry sockets of their own are built into their machine, as the game does.
-    const carrier: Record<string, string> = { carousel_canopy: 'carousel', windmill_tower: 'windmill' };
+    // The parts that carry sockets of their own are built into their machine, as the game does.
+    const carrier: Record<string, string> = { carousel_canopy: 'carousel', windmill_tower: 'windmill', clock_face: 'clock_tower' };
     for (const def of PART_DEFINITIONS) {
       const machineId = carrier[def.visual.assetId];
       const machine = machineId === undefined ? undefined : await loader.spawnMachine(machineId, { parent: scene });

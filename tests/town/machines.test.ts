@@ -12,6 +12,7 @@ const SOCKETS = [
   'Tower', 'Rotor', 'Millstone', 'BaseHandle',
   'Lamp0', 'Lamp1', 'Lamp2', 'Lamp3', 'Lamp4', 'Lamp5',
   'Arbor', 'BracketL', 'BracketR', 'Comb', 'Cylinder', 'GearA', 'GearB', 'GearC', 'GearD', 'Governor', 'Key', 'Spring',
+  'Face', 'Hands', 'Bell',
 ];
 
 function standIn(path: string, withSockets: readonly string[] = SOCKETS): Object3D {
@@ -94,12 +95,12 @@ describe('machine assembly', () => {
     expect(rig.lid?.pivot.children.some((c) => c.name === 'MusicBoxCase_Lid')).toBe(true);
   });
 
-  it('builds each machine by id, and nothing for the Clock Tower (cut first)', async () => {
+  it('builds each machine by id, the Clock Tower included (ADR-047)', async () => {
     const registry = libraryRegistry();
     expect((await buildMachine('windmill', source, registry))?.machineId).toBe('windmill');
     expect((await buildMachine('carousel', source, registry))?.machineId).toBe('carousel');
     expect((await buildMachine('music_box', source, registry))?.machineId).toBe('music_box');
-    expect(await buildMachine('clock_tower', source, registry)).toBeNull();
+    expect((await buildMachine('clock_tower', source, registry))?.machineId).toBe('clock_tower');
   });
 
   it('warns and goes on when a model lacks a socket, instead of leaving a machine in pieces silently', async () => {

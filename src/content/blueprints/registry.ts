@@ -1,11 +1,11 @@
 // The machine blueprints (Agent 2): data only. The solver is `src/sim`, the game rules are `src/game`, the scene is `src/parts`.
-// The Clock Tower has no blueprint: it is G0-optional and has no targets (MACHINE_SLOT_MAPPINGS §5, gap G-13).
 import { CAROUSEL } from './carousel';
+import { CLOCK_TOWER } from './clock-tower';
 import { MUSIC_BOX } from './music-box';
 import { WINDMILL } from './windmill';
 import type { MachineBlueprint } from './types';
 
-export const BLUEPRINTS: readonly MachineBlueprint[] = Object.freeze([MUSIC_BOX, CAROUSEL, WINDMILL]);
+export const BLUEPRINTS: readonly MachineBlueprint[] = Object.freeze([MUSIC_BOX, CAROUSEL, WINDMILL, CLOCK_TOWER]);
 
 const byId: ReadonlyMap<string, MachineBlueprint> = new Map(BLUEPRINTS.map((b) => [b.id, b] as const));
 
