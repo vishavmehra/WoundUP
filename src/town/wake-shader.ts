@@ -9,22 +9,54 @@
  * A fragment inside a scenery volume is frozen (saturation 0.15, cool tint, emissive off) until a ripple has reached it; the
  * ripple's front carries a thin warm glow. Fragments outside every volume (machines, workbench, trunk, hands) are untouched.
  * Nothing allocates per frame: the system copies numbers into these uniforms.
+ *
+ * Two more uniforms serve the dressing and the night (ADR-045, PRODUCT_SPEC F16): `uWuDress` is the byte grid of dressing.ts
+ * (the wake group bits of every house, prop and lamp post, read above the paving), and `uWuNight` (0 day, 1 night) strengthens
+ * the emissive windows and lamp bulbs of the scenery, which carry the town at night.
  */
-import { Matrix4, Vector2 } from '@iwsdk/core';
+import { DataTexture, Matrix4, NearestFilter, RGFormat, UnsignedByteType, Vector2 } from '@iwsdk/core';
 import type { Material, WebGLProgramParametersWithUniforms } from '@iwsdk/core';
 import type { MaterialRegistry } from '../materials';
-import { MAX_SCENERY_BOXES, MAX_WAKE_SOURCES, SCENERY_BOXES, WAKE_SOURCES, type Box, type WakeSource } from './layout';
+import { dressingGrid } from './dressing-table';
+import { DRESS_GRID, DRESS_READ_Y_M, MAX_SCENERY_BOXES, MAX_WAKE_SOURCES, SCENERY_BOXES, WAKE_SOURCES, type Box, type WakeSource } from './layout';
 import { FROZEN_RESIDUAL, FROZEN_TINT } from './wake';
 
 export interface WakeUniforms {
   uWuToTown: { value: Matrix4 };
   uWuWake: { value: Vector2[] };
+  uWuDress: { value: DataTexture };
+  uWuNight: { value: number };
+}
+
+/** How much brighter the scenery's emissive surfaces are at full night: windows and lamp bulbs carry the dark town. */
+export const NIGHT_GLOW = 1.2;
+
+/**
+ * The dressing's wake groups as a 120 x 60 texture of two bytes a cell (red the low byte of the group bits, green the high byte:
+ * sixteen groups), nearest, no mips, built once from the table in dressing-table.ts.
+ */
+export function createDressTexture(): DataTexture {
+  const bits = dressingGrid();
+  const bytes = new Uint8Array(bits.length * 2);
+  for (let i = 0; i < bits.length; i++) {
+    bytes[i * 2] = bits[i] & 0xff;
+    bytes[i * 2 + 1] = bits[i] >> 8;
+  }
+  const texture = new DataTexture(bytes, DRESS_GRID.w, DRESS_GRID.h, RGFormat, UnsignedByteType);
+  texture.magFilter = NearestFilter;
+  texture.minFilter = NearestFilter;
+  texture.generateMipmaps = false;
+  texture.unpackAlignment = 1;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 export function createWakeUniforms(): WakeUniforms {
   return {
     uWuToTown: { value: new Matrix4() },
     uWuWake: { value: Array.from({ length: MAX_WAKE_SOURCES }, () => new Vector2(-1, 0)) },
+    uWuDress: { value: createDressTexture() },
+    uWuNight: { value: 0 },
   };
 }
 
@@ -44,6 +76,9 @@ export function constants(boxes: readonly Box[], sources: readonly WakeSource[])
     `const int WU_BOX_GROUP[ WU_BOXES ] = int[ WU_BOXES ]( ${b.map((x) => x.group).join(', ')} );`,
     `const vec2 WU_SRC_POS[ WU_SOURCES ] = vec2[ WU_SOURCES ]( ${s.map((x) => `vec2( ${f(x.x)}, ${f(x.z)} )`).join(', ')} );`,
     `const int WU_SRC_WAKES[ WU_SOURCES ] = int[ WU_SOURCES ]( ${s.map((x) => x.wakes).join(', ')} );`,
+    `#define WU_DRESS_Y ${f(DRESS_READ_Y_M)}`,
+    `const vec2 WU_DRESS_ORIGIN = vec2( ${f(DRESS_GRID.x0)}, ${f(DRESS_GRID.z0)} );`,
+    `const vec2 WU_DRESS_SIZE = vec2( ${f(DRESS_GRID.w * DRESS_GRID.cell)}, ${f(DRESS_GRID.h * DRESS_GRID.cell)} );`,
   ].join('\n');
 }
 
@@ -55,7 +90,7 @@ const VERTEX_BODY = `
 	#endif
 	vWuTown = ( uWuToTown * ( modelMatrix * wuW ) ).xyz;`;
 
-const FRAGMENT_DECL = 'uniform vec2 uWuWake[ WU_SOURCES ];\nvarying vec3 vWuTown;';
+const FRAGMENT_DECL = 'uniform vec2 uWuWake[ WU_SOURCES ];\nuniform sampler2D uWuDress;\nuniform float uWuNight;\nvarying vec3 vWuTown;';
 const FRAGMENT_SCENERY = `
 	float wuScenery = 0.0;
 	float wuAwake = 0.0;
@@ -66,6 +101,10 @@ const FRAGMENT_SCENERY = `
 		for ( int i = 0; i < WU_BOXES; i ++ ) {
 			vec3 a = step( WU_BOX_MIN[ i ], wuP ) * step( wuP, WU_BOX_MAX[ i ] );
 			if ( a.x * a.y * a.z > 0.0 ) wuGroups |= WU_BOX_GROUP[ i ];
+		}
+		if ( wuP.y > WU_DRESS_Y ) {
+			vec2 wuUv = ( wuP.xz - WU_DRESS_ORIGIN ) / WU_DRESS_SIZE;
+			if ( wuUv.x >= 0.0 && wuUv.x < 1.0 && wuUv.y >= 0.0 && wuUv.y < 1.0 ) { vec2 wuBits = texture2D( uWuDress, wuUv ).rg * 255.0 + 0.5; wuGroups |= int( wuBits.x ) | ( int( wuBits.y ) << 8 ); }
 		}
 		if ( wuGroups != 0 ) {
 			wuScenery = 1.0;
@@ -79,7 +118,8 @@ const FRAGMENT_SCENERY = `
 		}
 	}
 	float wuFrozen = wuScenery * ( 1.0 - clamp( wuAwake, 0.0, 1.0 ) );
-	totalEmissiveRadiance *= 1.0 - wuFrozen;`;
+	totalEmissiveRadiance *= 1.0 - wuFrozen;
+	totalEmissiveRadiance *= 1.0 + uWuNight * ${f(NIGHT_GLOW)} * wuScenery;`;
 const FRAGMENT_GRADE = `
 	if ( wuScenery > 0.0 ) {
 		float wuLum = dot( outgoingLight, vec3( 0.2126, 0.7152, 0.0722 ) );
@@ -105,7 +145,7 @@ export function patchWakeShader(vertex: string, fragment: string): { vertexShade
 }
 
 /** `customProgramCacheKey` of every patched material: a patched and a plain program never share a cache entry. */
-export const WAKE_PROGRAM_KEY = 'wu-wake-1';
+export const WAKE_PROGRAM_KEY = 'wu-wake-2';
 
 /** Patches one material in place. */
 export function patchMaterial(material: Material, uniforms: WakeUniforms): void {
@@ -116,6 +156,8 @@ export function patchMaterial(material: Material, uniforms: WakeUniforms): void 
       shader.fragmentShader = patched.fragmentShader;
       shader.uniforms.uWuToTown = uniforms.uWuToTown;
       shader.uniforms.uWuWake = uniforms.uWuWake;
+      shader.uniforms.uWuDress = uniforms.uWuDress;
+      shader.uniforms.uWuNight = uniforms.uWuNight;
     } catch (error) {
       console.error('[wound-up] The wake shading could not be applied; the town stays unshaded.', error);
     }

@@ -18,7 +18,8 @@ import type { MachineRig } from '../../src/town/motion';
 import { TownRuntime } from '../../src/town/runtime';
 import type { TownEvents } from '../../src/town/runtime';
 import { TownSystem } from '../../src/town/system';
-import { libraryRegistry, recorder, socket as socketEmpty, sourceOf, townModels } from './helpers';
+import { DRESSING_MODEL_PATHS } from '../../src/town/dressing-table';
+import { dressingModels, libraryRegistry, recorder, socket as socketEmpty, sourceOf, townModels } from './helpers';
 
 /**
  * The town in a real IWSDK World, headless (no renderer, no session): installTown, TownSystem, the interaction layer's
@@ -61,6 +62,9 @@ const models = {
   'tockton/theatre/theatre_facade.glb': () => townModels().theatre,
   'tockton/characters/figure_otto.glb': () => townModels().otto,
   'tockton/characters/figure_mira.glb': () => townModels().mira,
+  [DRESSING_MODEL_PATHS.houses]: () => dressingModels().houses,
+  [DRESSING_MODEL_PATHS.props]: () => dressingModels().props,
+  [DRESSING_MODEL_PATHS.lamp]: () => dressingModels().lamp,
 };
 
 async function bootTown(events: TownEvents = {}, keepAwake?: () => void) {

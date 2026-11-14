@@ -11,6 +11,9 @@
  *   if (rig) { rig.result = ...; town.placeRig(rig); makeCarriable(world, rig); }
  *   // each frame after the solver: rig.result = solve(...); rig.running = machine is wound
  *
+ * The dressing (houses, props, lamp posts, dressing.ts) comes with `installTown`, frozen and woken by the plot each row names; the
+ * Night setting is `town.setNight(on)` (night.ts; src/index.ts calls it from the saved setting and the pause menu's `setting` event).
+ *
  * A machine finished on the workbench: `createRig(id, root)` + `createRotor(node, solverSocketId)` per turning node, then
  * `town.addRig(rig)` and `makeCarriable(world, rig)`; the town does the rest (snap on its own plot, scale, wake, chime).
  * `makeCarriable` makes only the machine's COL_ empties colliders: destroy the machine's own socket entities (build mode's
@@ -33,6 +36,9 @@ import { createWakeUniforms, installWakeShading } from './wake-shader';
 export { makeCarriable } from './carry';
 export { MACHINE_SNAP_PART, PLOTS, WAKE_GROUP, WAKE_SOURCES } from './layout';
 export { BLUEPRINT_SOCKET_IDS, buildMachine } from './machines';
+export { buildDressing, loadDressingModels } from './dressing';
+export type { Dressing, DressingModels } from './dressing';
+export { DRESSING } from './dressing-table';
 export { createRig, createRotor } from './motion';
 export type { MachineRig, Rotor } from './motion';
 export { TownRuntime } from './runtime';
@@ -54,6 +60,8 @@ export interface InstallTownOptions {
   keepAwake?: () => void;
   /** Defaults to `loadModel` (IWSDK's AssetManager). Tests pass their own. */
   source?: ModelSource;
+  /** False leaves out the houses, props and lamp posts (the gift page never shows the town). Default true. */
+  dressing?: boolean;
 }
 
 /**
@@ -65,7 +73,7 @@ export async function installTown(world: World, options: InstallTownOptions): Pr
   if (!stage) throw new Error(`Scene node "${STAGE_NODE_ID}" is missing; the town has nothing to stand on.`);
   const uniforms = createWakeUniforms();
   installWakeShading(options.registry, uniforms);
-  const town = await loadTown(options.source ?? loadModel, options.registry);
+  const town = await loadTown(options.source ?? loadModel, options.registry, options.dressing ?? true);
   stage.add(town.group);
   const placement = world.getSystem(StageSystem);
   if (placement && placement.placement !== 'idle') town.group.scale.setScalar(placement.townScale); // the choice was made while the town loaded

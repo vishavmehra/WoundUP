@@ -102,7 +102,7 @@ async function installGiftPage(
 ): Promise<void> {
   const audio = new AudioEngine();
   audio.installGestureUnlock();
-  const town = await installTown(giftWorld, { registry: materials, audio, keepAwake: () => budget.wake() });
+  const town = await installTown(giftWorld, { registry: materials, audio, keepAwake: () => budget.wake(), dressing: false });
   town.town.group.visible = false;
   const reveal = async (gift: Gift): Promise<void> => {
     await texturesReady;

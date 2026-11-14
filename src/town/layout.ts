@@ -51,6 +51,14 @@ export const WAKE_GROUP = {
   mira: 128,
 } as const;
 
+/** The group a plot wakes besides the street: its own pad. Dressing (houses, props, lamps) names one of these as "wakes with" (dressing-table.ts). */
+export const PLOT_WAKE_GROUP: Readonly<Record<PlotId, number>> = {
+  plot_music_box: WAKE_GROUP.padMusicBox,
+  plot_carousel: WAKE_GROUP.padCarousel,
+  plot_windmill: WAKE_GROUP.padWindmill,
+  plot_clock_tower: WAKE_GROUP.padClockTower,
+};
+
 /**
  * A ripple source: the wake spreads from (x, z) up to `radius` when `plot` is woken, and only through the groups in `wakes`.
  * The Windmill wakes the Bakery and Otto, the Clock Tower the theatre, the Music Box Mira (PRODUCT_SPEC §6, TOCKTON_DIMENSIONS
@@ -104,6 +112,19 @@ export const SCENERY_BOXES: readonly Box[] = [
   { min: [MIRA_AT.x - 0.0075, STREET_TOP_M - 0.0005, MIRA_AT.z - 0.0055], max: [MIRA_AT.x + 0.0075, 0.037, MIRA_AT.z + 0.0055], group: WAKE_GROUP.mira },
 ];
 export const MAX_SCENERY_BOXES = 10;
+
+/**
+ * The dressing's wake groups come from a small grid texture instead of boxes (there can be dozens of pieces and the lead moves
+ * them in data): sixteen bits per cell holding the `WAKE_GROUP` bits of the pieces standing on it, rasterised from `DRESSING`
+ * (dressing-table.ts) into two bytes. Cells are 5 mm over the whole 60 x 30 cm ground. Only fragments above the paving read it.
+ * The dressing uses no scenery box and no wake source, so the two new plots take the last two of each (6 sources, 10 boxes); their
+ * pad groups (256 and 512) already fit the grid, so a piece can wake with them by naming them in its row.
+ */
+export const DRESS_GRID = { x0: -0.3, z0: -0.15, cell: 0.005, w: 120, h: 60 } as const;
+/** Houses, props and lamp posts stand this high (town space): just above the street box, so a piece never shares the paving's wake group. */
+export const DRESS_Y_M = STREET_TOP_M + 0.0001;
+/** The dressing grid is read above this height: the street box ends here, and nothing of the dressing's wake belongs to the paving. */
+export const DRESS_READ_Y_M = STREET_TOP_M + EPS;
 
 /** `SOCKET_PlotMusicBox` -> `plot_music_box`; null for any other name. */
 export function plotIdFromSocketName(name: string): PlotId | null {

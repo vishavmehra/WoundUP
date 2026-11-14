@@ -1,7 +1,7 @@
 /**
  * Builds Tockton's scenery under one `town` group: the ground with its four plot sockets, the Bakery with Otto at its baker
- * socket, the theatre facade and Mira (TOCKTON_DIMENSIONS §3.3, §7). Pure scene-graph work on loaded models, so Node tests can
- * run it on real GLBs; the app's loader is `loadModel`.
+ * socket, the theatre facade and Mira (TOCKTON_DIMENSIONS §3.3, §7), and the dressing of houses, props and lamp posts
+ * (dressing.ts). Pure scene-graph work on loaded models, so Node tests can run it on real GLBs; the app's loader is `loadModel`.
  */
 import { AnimationMixer, AssetManager, Group } from '@iwsdk/core';
 import type { AnimationAction, AnimationClip, Object3D } from '@iwsdk/core';
@@ -9,6 +9,8 @@ import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
 import { TOWN_NODE_ID } from '../stage';
 import type { PlotId } from '../game/content';
+import { buildDressing, loadDressingModels } from './dressing';
+import type { Dressing, DressingModels } from './dressing';
 import { BAKER_SOCKET, BAKERY_AT, MIRA_AT, PLOTS, THEATRE_AT } from './layout';
 
 /** A loaded GLB: its scene graph and animation clips. */
@@ -40,6 +42,8 @@ export interface Town {
   readonly mira: Object3D;
   /** Otto's kneading on its own mixer, held on its first frame (timeScale 0) while the Bakery is frozen. Null when the clip is missing. */
   readonly knead: { readonly mixer: AnimationMixer; readonly action: AnimationAction } | null;
+  /** The houses, props and lamp posts. Null when their files did not load (the town is then bare but plays). */
+  readonly dressing: Dressing | null;
 }
 
 /** The app's loader: IWSDK's AssetManager caches the file and hands out a clone (shared geometry and materials) per call. */
@@ -52,19 +56,23 @@ export const loadModel: ModelSource = async (path) => {
   return { scene: gltf.scene, animations: gltf.animations };
 };
 
-/** Loads and assembles the town. `source` is `loadModel` in the app. */
-export async function loadTown(source: ModelSource, registry: MaterialRegistry): Promise<Town> {
+/** Loads and assembles the town. `source` is `loadModel` in the app; `withDressing` false skips the houses, props and lamps (the gift page hides the town). */
+export async function loadTown(source: ModelSource, registry: MaterialRegistry, withDressing = true): Promise<Town> {
+  const dressing = (withDressing ? loadDressingModels(source) : Promise.resolve(undefined)).catch((error: unknown) => {
+    console.warn('[wound-up] The town dressing did not load; Tockton stays bare.', error);
+    return undefined;
+  });
   const [ground, bakery, theatre, otto, mira] = await Promise.all(
     Object.values(TOWN_MODEL_PATHS).map((path) => source(path)),
   );
-  return buildTown({ ground, bakery, theatre, otto, mira }, registry);
+  return buildTown({ ground, bakery, theatre, otto, mira, dressing: await dressing }, registry);
 }
 
 export function buildTown(
-  models: { ground: TownModel; bakery: TownModel; theatre: TownModel; otto: TownModel; mira: TownModel },
+  models: { ground: TownModel; bakery: TownModel; theatre: TownModel; otto: TownModel; mira: TownModel; dressing?: DressingModels },
   registry: MaterialRegistry,
 ): Town {
-  for (const model of Object.values(models)) applyLibraryMaterials(model.scene, registry);
+  for (const model of [models.ground, models.bakery, models.theatre, models.otto, models.mira]) applyLibraryMaterials(model.scene, registry);
 
   const group = new Group();
   group.name = 'Tockton';
@@ -98,6 +106,8 @@ export function buildTown(
   }
 
   group.add(ground, bakery, theatre, mira);
+  const dressing = models.dressing ? buildDressing(models.dressing, registry) : null;
+  if (dressing) group.add(dressing.group);
 
   const clip = models.otto.animations.find((c) => c.name === KNEAD_CLIP);
   let knead: Town['knead'] = null;
@@ -109,7 +119,7 @@ export function buildTown(
     mixer.update(0); // applies that first frame
     knead = { mixer, action };
   }
-  return { group, ground, bakery, theatre, otto, mira, knead };
+  return { group, ground, bakery, theatre, otto, mira, knead, dressing };
 }
 
 /** The `SOCKET_Plot...` empty of a plot in the town ground: where a machine's base origin lands. Null when the GLB lacks it. */

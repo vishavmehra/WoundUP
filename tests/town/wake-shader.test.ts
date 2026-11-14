@@ -1,9 +1,10 @@
 import { MeshStandardMaterial, ShaderLib } from '@iwsdk/core';
 import type { WebGLProgramParametersWithUniforms } from '@iwsdk/core';
 import { describe, expect, it, vi } from 'vitest';
-import { MAX_SCENERY_BOXES, MAX_WAKE_SOURCES, SCENERY_BOXES, WAKE_SOURCES } from '../../src/town/layout';
+import { dressingGrid } from '../../src/town/dressing-table';
+import { DRESS_GRID, MAX_SCENERY_BOXES, MAX_WAKE_SOURCES, SCENERY_BOXES, WAKE_SOURCES } from '../../src/town/layout';
 import { FROZEN_RESIDUAL, FROZEN_TINT } from '../../src/town/wake';
-import { constants, createWakeUniforms, installWakeShading, patchMaterial, patchWakeShader, WAKE_PROGRAM_KEY } from '../../src/town/wake-shader';
+import { constants, createWakeUniforms, installWakeShading, NIGHT_GLOW, patchMaterial, patchWakeShader, WAKE_PROGRAM_KEY } from '../../src/town/wake-shader';
 import { libraryRegistry } from './helpers';
 
 const physical = ShaderLib.physical;
@@ -46,6 +47,28 @@ describe('patchWakeShader', () => {
     for (const b of SCENERY_BOXES) expect(text).toContain(`${b.group}`);
   });
 
+  it('declares every constant and uniform it uses: an undeclared name is a shader that does not compile, and Node cannot compile it', () => {
+    const used = new Set(fragmentShader.match(/\b(?:WU_[A-Z_]+|uWu[A-Za-z]+|vWu[A-Za-z]+)\b/g));
+    expect(used.size).toBeGreaterThan(10);
+    for (const name of used) {
+      const declared = new RegExp(`(#define ${name}\\b|\\b(?:const [A-Za-z0-9]+|uniform [A-Za-z0-9]+|varying [A-Za-z0-9]+) ${name}\\b)`);
+      expect(declared.test(fragmentShader), name).toBe(true);
+    }
+    for (const name of vertexShader.match(/\b(?:uWu[A-Za-z]+|vWu[A-Za-z]+)\b/g) ?? []) expect(vertexShader, name).toMatch(new RegExp(`(uniform|varying) [a-z0-9]+ ${name}`));
+  });
+
+  it('reads the dressing grid above the paving only, and strengthens the scenery emissive at night', () => {
+    expect(fragmentShader).toContain('uniform sampler2D uWuDress;');
+    expect(fragmentShader).toContain('if ( wuP.y > WU_DRESS_Y )');
+    expect(fragmentShader).toContain('texture2D( uWuDress, wuUv ).rg * 255.0 + 0.5');
+    expect(fragmentShader).toContain('wuGroups |= int( wuBits.x ) | ( int( wuBits.y ) << 8 )'); // sixteen groups: room for the two new plots' pads
+    expect(fragmentShader).toContain(`totalEmissiveRadiance *= 1.0 + uWuNight * ${NIGHT_GLOW.toFixed(5)} * wuScenery;`);
+    expect(fragmentShader.indexOf('totalEmissiveRadiance *= 1.0 - wuFrozen;')).toBeLessThan(fragmentShader.indexOf('uWuNight *')); // a frozen window is dark at night too
+    const text = constants(SCENERY_BOXES, WAKE_SOURCES);
+    expect(text).toContain(`vec2( ${DRESS_GRID.x0.toFixed(5)}, ${DRESS_GRID.z0.toFixed(5)} )`);
+    expect(text).toContain(`vec2( ${(DRESS_GRID.w * DRESS_GRID.cell).toFixed(5)}, ${(DRESS_GRID.h * DRESS_GRID.cell).toFixed(5)} )`);
+  });
+
   it('works on the standard material program too, and throws on a program it cannot hook', () => {
     expect(() => patchWakeShader(ShaderLib.standard.vertexShader, ShaderLib.standard.fragmentShader)).not.toThrow();
     expect(() => patchWakeShader('void main() {}', 'void main() {}')).toThrow(/not found/);
@@ -70,6 +93,24 @@ describe('patchMaterial and installWakeShading', () => {
     expect(sa.uniforms.uWuToTown).toBe(uniforms.uWuToTown);
     expect(sa.uniforms.uWuWake).toBe(sb.uniforms.uWuWake);
     expect(a.customProgramCacheKey()).toBe(WAKE_PROGRAM_KEY);
+  });
+
+  it('shares one dressing grid texture and one night value, byte for byte the table of dressing-table.ts', () => {
+    const u = createWakeUniforms();
+    const texture = u.uWuDress.value;
+    expect(texture.image.width).toBe(DRESS_GRID.w);
+    expect(texture.image.height).toBe(DRESS_GRID.h);
+    const bytes = texture.image.data as Uint8Array;
+    expect(bytes.length).toBe(DRESS_GRID.w * DRESS_GRID.h * 2);
+    expect(Array.from(dressingGrid(), (_, i) => bytes[i * 2] | (bytes[i * 2 + 1] << 8))).toEqual(Array.from(dressingGrid()));
+    expect(texture.generateMipmaps).toBe(false);
+    expect(u.uWuNight.value).toBe(0);
+    const a = new MeshStandardMaterial();
+    patchMaterial(a, u);
+    const shader = fakeShader();
+    a.onBeforeCompile(shader, undefined as never);
+    expect(shader.uniforms.uWuDress).toBe(u.uWuDress);
+    expect(shader.uniforms.uWuNight).toBe(u.uWuNight);
   });
 
   it('is not inherited by a clone: GrabFeedbackSystem clones the materials of a carried machine, which are never frozen', () => {
