@@ -80,6 +80,24 @@ describe('XRayShell', () => {
     expect(ghost.emissive.b).toBeLessThan(0.2);
   });
 
+  it('shows the cool tint on a carried machine too: GrabFeedbackSystem leaves its materials a warm colour at intensity 0, and X-ray does not turn that into a glow', () => {
+    const { root, wood, bodyMesh } = musicBox();
+    wood.emissive.set(0xffc66d); // what GrabFeedbackSystem's own copy of a material holds while its glow is off
+    wood.emissiveIntensity = 0;
+    const shell = new XRayShell(root, XRAY_SHELL.music_box);
+
+    shell.setAmount(0.05);
+    const ghost = bodyMesh.material as MeshStandardMaterial;
+    const early = ghost.emissive.clone().multiplyScalar(ghost.emissiveIntensity);
+    expect(early.r, 'no warm flash as the fade begins').toBeLessThan(0.02);
+
+    shell.setAmount(1);
+    const full = ghost.emissive.clone().multiplyScalar(ghost.emissiveIntensity);
+    expect(full.b, 'the cool tint shows').toBeGreaterThan(0.02);
+    expect(full.b).toBeGreaterThan(full.r);
+    expect(wood.emissiveIntensity).toBe(0); // the machine's own material is untouched
+  });
+
   it('gives the shared materials back at 0, makes its copies once, and disposes them with the machine', () => {
     const { root, wood, bodyMesh } = musicBox();
     const shell = new XRayShell(root, XRAY_SHELL.music_box);

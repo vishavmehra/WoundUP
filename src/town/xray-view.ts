@@ -148,7 +148,11 @@ export class XRayShell {
       const material = original.clone();
       material.transparent = true;
       material.depthWrite = false;
-      ghost = { material, opacity: original.opacity, color: original.color.clone(), emissive: original.emissive.clone() };
+      // The glow a material already shows is its colour times its intensity: GrabFeedbackSystem gives a carried machine's materials a warm
+      // colour at intensity 0, which a plain copy of the colour alone would turn into a glow the moment the cool tint is mixed in.
+      const emissive = original.emissive.clone().multiplyScalar(original.emissiveIntensity);
+      material.emissiveIntensity = 1; // so the cool tint shows on every machine, not only on the ones nothing has touched
+      ghost = { material, opacity: original.opacity, color: original.color.clone(), emissive };
       this.ghosts.set(original, ghost);
       this.ghostList.push(ghost);
     }
