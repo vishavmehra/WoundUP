@@ -1,4 +1,4 @@
-// Binds a ClockTowerRuntime to the nodes of the Clock Tower's GLBs. No IWSDK: it works on a loaded glTF scene graph (three only),
+// Binds a ClockTowerRuntime to the nodes of the Clock Tower's GLBs. No IWSDK: it works on a loaded glTF scene graph (three, plus the train's solver ratios from movement.ts),
 // so Vitest runs it in node. Node names are the mesh names of the manifest (`assets/manifest/glb-manifest.json`) and the
 // `PIV_` empties of the generators (`blender/scripts/gen_pendulum.py`, `gen_escapement.py`).
 
