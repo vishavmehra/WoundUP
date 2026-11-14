@@ -75,9 +75,11 @@ test.describe.serial('machines in the town (letters played by the debug helper)'
   });
 
   // BUDGET-1. docs/ASSET_OPTIMISATION_BUDGET.md: scene draw calls 150 target, 200 ceiling (renderer.info; IWER renders both eyes, so this is the two-eye count, and per eye it is half; a headset
-  // draws both eyes). Reads the numbers the previous test wrote. `test.fail` keeps the suite green while the town is over budget and
-  // turns red ("expected to fail but passed") when it comes under.
-  test.fail('BUDGET-1: draw calls with the Music Box, the Carousel and the Windmill placed stay under the 200 ceiling (expected to FAIL today: 226 and 296)', async () => {
+  // draws both eyes). Reads the numbers the previous test wrote. It was a `test.fail` while the town was over budget (226 and 296 draws);
+  // static batching (src/town/bake.ts, docs/evidence/PERF_2026-11-15.md) brought the same story to about 160 and 186 in the IWER perf
+  // script, so it is a plain test now and goes red again if the town goes back over the ceiling. Not re-run here: this spec needs the
+  // dev runtime on port 8081.
+  test('BUDGET-1: draw calls with the Music Box, the Carousel and the Windmill placed stay under the 200 ceiling', async () => {
     const fs = (await import('node:fs' as string)) as { readFileSync(path: string, encoding: string): string };
     const cwd = (globalThis as unknown as { process: { cwd(): string } }).process.cwd();
     const { perf } = JSON.parse(fs.readFileSync(`${cwd}/docs/evidence/screens/motion-run.json`, 'utf8')) as { perf: PerfSample[] };

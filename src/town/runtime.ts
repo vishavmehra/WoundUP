@@ -14,6 +14,7 @@ import { MACHINE_PLOT } from '../game/content';
 import type { MachineId, PlotId } from '../game/content';
 import type { InteractionIntent } from '../interaction/intents';
 import { UNSNAP_DISTANCE_M } from '../interaction/snap';
+import { disposeBaked } from './bake';
 import { machineOfPlot, MAX_WAKE_SOURCES, plotIdFromSocketName } from './layout';
 import { approach, SPIN_EASE_S, stepRig, stepScaler } from './motion';
 import type { MachineRig, Scaler } from './motion';
@@ -86,6 +87,7 @@ export class TownRuntime {
     const i = this.rigs.indexOf(rig);
     if (i >= 0) this.rigs.splice(i, 1);
     this.release(rig.root);
+    disposeBaked(rig); // the machine is gone for good: its merged geometries go with it
   }
 
   /** How far the town is into the night, 0 (day) to 1 (night). */

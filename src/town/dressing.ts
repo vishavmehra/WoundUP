@@ -86,7 +86,7 @@ const _origin = new Matrix4();
 const _v = new Vector3();
 const _normalMatrix = new Matrix3();
 
-interface Piece {
+export interface Piece {
   readonly geometry: BufferGeometry;
   readonly matrix: Matrix4;
 }
@@ -95,7 +95,7 @@ interface Piece {
 const KEPT = ['position', 'normal', 'uv', 'color'] as const;
 
 /** One geometry from many placements: each piece's vertices and normals moved by its matrix, indices offset. Runs once at load. */
-function mergePieces(pieces: readonly Piece[]): BufferGeometry {
+export function mergePieces(pieces: readonly Piece[]): BufferGeometry {
   const names = KEPT.filter((n) => pieces.every((p) => p.geometry.hasAttribute(n)));
   let vertices = 0;
   let indices = 0;
