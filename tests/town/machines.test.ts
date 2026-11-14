@@ -87,7 +87,8 @@ describe('machine assembly', () => {
     expect(rig.machineId).toBe('music_box');
     expect(rig.melody?.socketId).toBe('cylinder');
     const slots = rig.rotors.map((r) => r.socketId).sort();
-    expect(slots).toEqual(['arbor', 'geara', 'gearb', 'gearc', 'geard', 'governor', 'cylinder', 'key', 'spring'].sort());
+    // The key is not a node of the solver's graph: it turns with the spring it is fitted to, so it takes the spring's slot.
+    expect(slots).toEqual(['arbor', 'geara', 'gearb', 'gearc', 'geard', 'governor', 'cylinder', 'spring', 'spring'].sort());
     const governor = rig.rotors.find((r) => r.socketId === 'governor');
     expect(governor?.node.name).toBe('Governor_Weights'); // the frame stays still, the weights turn
     expect(rig.lid?.openRad).toBeCloseTo(Math.PI / 2, 9);

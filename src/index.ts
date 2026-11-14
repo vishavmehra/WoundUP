@@ -2,6 +2,7 @@ import { VisibilityState, World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { AudioEngine, bindInteractionAudio } from './audio/index.js';
 import { giftCatalogue, verifyGift } from './content/blueprints/index.js';
+import { demoRequest, DEMO_HINT, installDemo } from './debug/demo.js';
 import { Gameplay, installGameplay } from './gameplay.js';
 import { GameSession } from './game/session.js';
 import { hasGiftHash, type Gift } from './game/gift.js';
@@ -148,8 +149,15 @@ try {
   // cannot start, the page still works as a stand to look at, and says so.
   let debugHandle: ReturnType<Gameplay['debug']> | undefined;
   try {
+    const demo = demoRequest(location.search); // ?debug&demo=<machine>: a finished machine running, no flow, no save (src/debug/demo.ts)
     if (hasGiftHash(location.hash)) await installGiftPage(world, materials, texturesReady, landing, budget);
-    else debugHandle = await installGame(world, materials, texturesReady, budget, (fraction) => landing.setLoading(fraction));
+    else if (demo) {
+      await installDemo(world, materials, texturesReady, budget, demo);
+      landingOptions.previewHint = DEMO_HINT;
+      idleMode = 'preview';
+      landing.setMode('preview');
+      budget.setMode('live');
+    } else debugHandle = await installGame(world, materials, texturesReady, budget, (fraction) => landing.setLoading(fraction));
   } catch (error) {
     console.error('[wound-up] Could not start the game:', error);
     landing.showError('The town could not be unpacked. Reload the page to try again.');
@@ -163,7 +171,7 @@ try {
     budget.wake(); // the scene moved while the session ran, so redraw what the landing shows
   });
   // With WebXR available parts answer to hands, not the mouse (ADR-024), so the default "drag it" hint would be untrue.
-  if (support !== 'none') {
+  if (support !== 'none' && landingOptions.previewHint !== DEMO_HINT) {
     const enter = support === 'vr' ? 'Enter VR' : 'Enter mixed reality';
     landingOptions.previewHint = `This preview is for looking. ${enter} to build the machines with your hands.`;
   }
