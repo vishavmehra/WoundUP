@@ -32,7 +32,7 @@ import { MACHINE_PLOT, REPAIRS } from './game/content';
 import type { EngravingId, LetterDef, MachineId, PlotId, RepairDef } from './game/content';
 import type { Gift } from './game/gift';
 import type { GameSession } from './game/session';
-import { interactionIntents, Socket, SnappedTo, WindKey } from './interaction';
+import { interactionIntents, Socket, SnappedTo, WindKey, XRayTarget } from './interaction';
 import type { InteractionIntent } from './interaction';
 import { CLOCK_TOWER_MODEL_PATHS, ClockTowerRigComponent, ClockTowerSystem, clockTowerEvents, installClockTower, TheatreDoors } from './machines/clock-tower';
 import type { MaterialRegistry } from './materials';
@@ -45,6 +45,7 @@ import { BLUEPRINT_SOCKET_IDS, buildMachine, loadModel, makeCarriable, PLOTS, To
 import { PAD_TOP_M } from './town/layout';
 import type { MachineRig } from './town';
 import type { LidHinge } from './town/motion';
+import { XRAY_SHELL, xrayZoneOf } from './town/xray-view';
 import type { FlowEvent, FlowUi } from './ui';
 import { BENCH, benchPoint } from './ui/layout';
 import { dropSeatedByGame, placeTrayParts } from './tray-layout';
@@ -112,6 +113,8 @@ export class Gameplay {
 
   private readonly stage: Object3D;
   private build: Build | null = null;
+  /** Unregisters the bench machine from the X-ray view (town.xray): the lens opens it while it is on the bench. */
+  private xrayBench: (() => void) | null = null;
   private buildToken = 0;
   private windUnits = 0;
   private busy = false;
@@ -176,9 +179,17 @@ export class Gameplay {
       const result = this.solve(blueprint, blueprint.intended, MAX_WIND_UNITS);
       rig.result = result;
       rig.running = result !== null && keepsRunning(record.blueprintId, result); // a saved Windmill or Clock Tower runs again, a saved Music Box waits for its next letter
+      const xray = xrayZoneOf(rig.root); // at the bench scale, before placeRig eases it to the town's
       if (!this.town.placeRig(rig)) continue;
-      // Nothing carries a restored machine, so the town holds it; the Clock Tower still needs an entity for its rig component.
-      this.placed.set(record.blueprintId, { rig, entity: record.blueprintId === 'clock_tower' ? this.attachTower(rig, null) : null });
+      // Nothing carries a restored machine, so the town holds it; it still needs an entity, for the palm gesture (and the Clock Tower's rig component).
+      let entity: Entity;
+      if (record.blueprintId === 'clock_tower') entity = this.attachTower(rig, null);
+      else {
+        entity = this.world.createEntity();
+        entity.object3D = rig.root;
+      }
+      entity.addComponent(XRayTarget, xray);
+      this.placed.set(record.blueprintId, { rig, entity });
     }
   }
 
@@ -353,6 +364,7 @@ export class Gameplay {
     const at = benchPoint(this.townScale, BENCH.build);
     const machine = await this.loader.spawnMachine(blueprint.id, { parent: this.stage, position: [at.x, at.y, at.z] });
     if (token !== this.buildToken) return machine.dispose();
+    this.xrayBench = this.town.xray.add({ root: machine.object, prefixes: XRAY_SHELL[blueprint.id] ?? [], lens: () => true });
     this.lid = openLid(machine.object);
 
     // What each socket takes from the player, and what the game seats itself.
@@ -616,6 +628,8 @@ export class Gameplay {
     this.seating = null;
     this.lid = null;
     this.buildToken++;
+    this.xrayBench?.(); // the housing gets its shared materials back before it is disposed
+    this.xrayBench = null;
     if (!build) return;
     for (const part of build.parts) part.dispose();
     build.machine.dispose();
