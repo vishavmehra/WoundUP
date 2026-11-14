@@ -11,7 +11,7 @@ import {
   runMachine,
   seatByHand,
   windByHand,
-  windByHelper,
+  windByHandAuto,
 } from './support/flow';
 import { frames, gameState, GPU_ARGS, Hand, openGame, partPose, press, requireDevRuntime, waitForMode, type Vec3 } from './support/xr';
 
@@ -41,7 +41,7 @@ async function toBench(page: import('@playwright/test').Page): Promise<Hand> {
 }
 
 test.describe('Music Box by hand (IWER hands; UI presses and Run through the debug helper)', () => {
-  test('REAL HANDS pinch-grab and seat all 12 parts, pull one out and seat it again, carry the finished machine onto its plot; WIND and RUN by debug helper', async ({ page }) => {
+  test('REAL HANDS pinch-grab and seat all 12 parts, pull one out and seat it again, WIND by wrist twist, carry the finished machine onto its plot; RUN pressed by debug helper', async ({ page }) => {
     const hand = await toBench(page);
     const state0 = await gameState(page);
     expect(state0.mode).toBe('build');
@@ -87,10 +87,16 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
       expect((await gameState(page)).build?.seated).toBe(12);
     });
 
-    await test.step('DEBUG HELPER: wind the key to 8 units (real-hand wind is BUG-1, see the next tests); press Run (debug helper)', async () => {
-      await windByHelper(page, 8);
-      await frames(page, 4);
-      expect((await gameState(page)).windUnits).toBe(8);
+    await test.step('REAL HAND: wind by wrist twist (2 x 360 degrees = 8 units); while BUG-1 stands the grab handle of the key is removed first (diagnostic, reported); DEBUG HELPER: press Run', async () => {
+      const wind = await windByHandAuto(page, hand, 2, 360);
+      test.info().annotations.push({
+        type: 'wind',
+        description: `path: ${wind.path}; a plain pinch on the seated key grabbed: ${wind.probe.grabbed.join(', ') || 'nothing'}; wind units after each turn: ${wind.report.units.join(', ')}`,
+      });
+      expect(wind.report.units[0], 'first full turn: at least 3 units').toBeGreaterThanOrEqual(3);
+      expect(wind.report.units[1], 'second full turn tops it up').toBeGreaterThanOrEqual(7);
+      expect(wind.report.seatedAfter, 'winding leaves all 12 parts seated').toBe(12);
+      expect((await gameState(page)).windUnits).toBe(wind.report.units[1]);
       await runMachine(page);
       const s = await gameState(page);
       expect(s.mode).toBe('place');
@@ -114,10 +120,10 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
     });
   });
 
-  // BUG-1. A pinch on the seated key near-grabs it as well (IWSDK's grab sphere is 7 cm around the palm, the key's collider is
-  // inside it), WindSystem.tryStart then sees a held part on that hand and refuses to start, and the twist drags the key out of its
-  // socket. `test.fail` keeps the suite green while the bug stands and turns red ("expected to fail but passed") when it is fixed.
-  test.fail('BUG-1 REAL HAND: a pinch on the seated key and a 360 degree wrist twist wind it (expected to FAIL today: the same pinch grabs the key, WindSystem refuses, the key leaves its socket)', async ({ page }) => {
+  // BUG-1. A pinch on the seated key near-grabs it (the probe in windByHandAuto sees `winding_key_*` held), and WindSystem.tryStart
+  // begins with `if (this.holdsAPart(hand)) return`, so a full wrist turn winds nothing (units stay 0, all 12 parts stay seated).
+  // `test.fail` keeps the suite green while the bug stands and turns red ("expected to fail but passed") when it is fixed.
+  test.fail('BUG-1 REAL HAND: a pinch on the seated key and a 360 degree wrist twist wind it (expected to FAIL today: the same pinch grabs the key, WindSystem refuses, nothing is wound)', async ({ page }) => {
     const hand = await toBench(page);
     await page.evaluate(() => (window as unknown as { __wu: { seatAll(): number } }).__wu.seatAll()); // DEBUG HELPER: seat the other 11 parts quickly
     await waitForMode(page, 'wind');
@@ -127,6 +133,19 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
     expect(report.grabbedAtPinch, 'the pinch must not grab the key it winds').not.toContain('winding_key_polished_brass');
     expect(report.units[0], 'one full wrist turn is at least 3 wind units').toBeGreaterThanOrEqual(3);
     expect(report.seatedAfter, 'winding leaves all 12 parts seated').toBe(12);
+  });
+
+  // BUG-4. The Pause medallion is a ray and poke target that sits 12 cm from the second bracket in the tray (medallion (-0.27, 1.31, -0.35),
+  // bracket grab point (-0.18, 1.24, -0.29)). Pinching that bracket with a hand puts the game in Pause: the panel opens in the middle of the
+  // build, while the part is still grabbed. `test.fail` keeps the suite green while this stands and turns red the day it is fixed.
+  test.fail('BUG-4 REAL HAND: pinching the 12 parts out of the tray never opens the Pause panel (expected to FAIL today: the pinch on the second bracket pauses the game)', async ({ page }) => {
+    const hand = await toBench(page);
+    const paused: string[] = [];
+    await assembleByHand(page, hand, async (beat, index) => {
+      if ((await gameState(page)).mode === 'pause') paused.push(`part ${index} ${beat}`);
+    });
+    test.info().annotations.push({ type: 'bug-4', description: `mode was pause at: ${paused.join('; ') || 'no beat'}` });
+    expect(paused, 'beats at which the game was paused while a hand built the Music Box').toEqual([]);
   });
 
   test('DIAGNOSTIC REAL HAND: with the key out of the grab system the same wrist twist winds it (isolates BUG-1 to the near-grab): 2 x 360 degrees reach 8 units, then Run works', async ({ page }) => {

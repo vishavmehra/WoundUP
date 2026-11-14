@@ -211,6 +211,9 @@ export class Hand {
 export interface PerfSample {
   label: string;
   drawCalls: number;
+  /** Eyes the emulated view renders (2), and the draw calls per eye. */
+  eyes: number;
+  drawCallsPerEye: number;
   triangles: number;
   programs: number;
   geometries: number;
@@ -222,9 +225,19 @@ export interface PerfSample {
   jsHeapMiB: number;
   /** Frame counter of the renderer, to show the sample is of a rendered frame. */
   frame: number;
+  /**
+   * Where the draws come from: visible mesh primitives (one per material) under the stage, grouped by the first two names below the
+   * stage root, largest first, and the count outside the stage (hands, interface, room). Counted before frustum culling, so they sum
+   * to a little more than `drawCalls`; read them as shares.
+   */
+  drawSources: string[];
 }
 
-/** Reads `renderer.info` after a rendered frame. Mono emulated view: the headset renders each eye, so on device the calls can be up to double. */
+/**
+ * Reads `renderer.info` after a rendered frame. IWER renders BOTH eyes (the XR camera is an ArrayCamera of two), so `drawCalls` and
+ * `triangles` are the two-eye totals; `drawCallsPerEye` is the same divided by the eyes. Quest Browser may draw one eye pass with
+ * multiview (unverified, see ASSET_OPTIMISATION_BUDGET section 4): the two-eye total is the figure without it.
+ */
 export async function samplePerf(page: Page, label: string): Promise<PerfSample> {
   await frames(page, 3);
   return page.evaluate((label) => {
@@ -236,6 +249,7 @@ export async function samplePerf(page: Page, label: string): Promise<PerfSample>
     w.scene.traverse((node: any) => {
       const materials = Array.isArray(node.material) ? node.material : node.material ? [node.material] : [];
       for (const m of materials) {
+        if (/^controller/i.test(m.name ?? '')) continue; // IWER's two controller models (2 x 21 MiB): emulator, not game
         for (const key of Object.keys(m)) {
           const t = m[key];
           if (t && t.isTexture && !seen.has(t)) {
@@ -250,10 +264,33 @@ export async function samplePerf(page: Page, label: string): Promise<PerfSample>
         }
       }
     });
+    const stage = w.getSceneObject('stage');
+    const groups = new Map<string, number>();
+    const rigs: any[] = (window as any).__wu?.town?.rigs ?? [];
+    let outside = 0;
+    w.scene.traverse((node: any) => {
+      if (!node.isMesh) return;
+      const chain: any[] = [];
+      for (let n = node; n && n !== w.scene; n = n.parent) chain.push(n);
+      if (chain.some((n) => n.visible === false)) return;
+      const draws = Array.isArray(node.material) ? node.material.length : 1;
+      const at = chain.indexOf(stage);
+      const rig = rigs.find((r: any) => chain.includes(r.root));
+      if (at < 0) outside += draws;
+      else {
+        const below = chain.slice(0, at).reverse();
+        const key = rig ? `machine ${rig.machineId}` : below.slice(0, 2).map((n) => n.name || '?').join('/') || stage.name;
+        groups.set(key, (groups.get(key) ?? 0) + draws);
+      }
+    });
+    const drawSources = [...groups.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `${k}: ${n}`);
+    drawSources.push(`outside the stage: ${outside}`);
     const heap = (performance as any).memory?.usedJSHeapSize ?? 0;
     return {
       label,
       drawCalls: info.render.calls,
+      eyes: w.renderer.xr.getCamera().cameras?.length ?? 1,
+      drawCallsPerEye: info.render.calls / (w.renderer.xr.getCamera().cameras?.length ?? 1),
       triangles: info.render.triangles,
       programs: info.programs?.length ?? 0,
       geometries: info.memory.geometries,
@@ -262,6 +299,7 @@ export async function samplePerf(page: Page, label: string): Promise<PerfSample>
       topTextures: sizes.sort((a, b) => b.bytes - a.bytes).slice(0, 5).map((t) => `${t.label} (${(t.bytes / 1048576).toFixed(1)} MiB)`),
       jsHeapMiB: +(heap / 1048576).toFixed(1),
       frame: info.render.frame,
+      drawSources,
     };
   }, label);
 }

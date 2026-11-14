@@ -6,10 +6,9 @@ import {
   grabbedParts,
   MUSIC_BOX_SOCKETS,
   openTrunkAndSetBench,
-  removeKeyGrabHandle,
   repairWornSpringByHand,
   runMachine,
-  windByHand,
+  windByHandAuto,
   type SeatReport,
 } from './support/flow';
 import { checkMusicBox, measureMotion, type MotionReport } from './support/motion';
@@ -32,7 +31,7 @@ import {
  * The evidence run: walks the whole Music Box flow in the emulated Quest 3 (IWER) and saves the 19 screenshots of the
  * competition's acceptance list to docs/evidence/screens/NN-name.png, plus the machine-readable record of the run
  * (docs/evidence/screens/run.json: one row per screenshot, the renderer numbers at four points, the motion readings).
- * EMULATOR evidence (IWER in desktop Chromium, real GPU, mono view), never headset evidence. Screenshot 19 is the desktop gift page.
+ * EMULATOR evidence (IWER in desktop Chromium, real GPU, both eyes rendered), never headset evidence. Screenshot 19 is the desktop gift page.
  *
  * Re-runnable: it starts from a fresh browser context (no save), needs only the IWSDK dev runtime on localhost:8081, and
  * overwrites its own outputs. `driver` in each row says whether a hand or the ?debug helper did the thing in the picture.
@@ -115,13 +114,14 @@ const perf: PerfSample[] = [];
 const motion: Record<string, MotionReport & { failures: string[] }> = {};
 const failures: string[] = [];
 const hands: Record<string, unknown> = {};
+const strayPauses: number[] = [];
 
 // Written whatever happened, so a failed run still leaves its record (and the screenshots it got to).
 test.afterEach(() => {
   rows.sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }));
   fs.writeFileSync(
     path.join(OUT, 'run.json'),
-    JSON.stringify({ ranAt: new Date().toISOString(), runtime: 'IWSDK dev runtime, IWER emulated Quest 3, desktop Chromium (ANGLE D3D11), mono view', rows, perf, motion, hands, failures }, null, 2),
+    JSON.stringify({ ranAt: new Date().toISOString(), runtime: 'IWSDK dev runtime, IWER emulated Quest 3, desktop Chromium (ANGLE D3D11), both eyes rendered (renderer.info counts both)', rows, perf, motion, hands, failures }, null, 2),
   );
 });
 
@@ -129,6 +129,7 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
   t0 = undefined;
   for (const list of [rows, perf, failures]) list.length = 0;
   for (const record of [motion, hands]) for (const key of Object.keys(record)) delete record[key];
+  strayPauses.length = 0;
 
   /** Takes the screenshot after the check; a failing check is recorded in the row and fails the test at the end, the run goes on. */
   async function shot(
@@ -150,10 +151,10 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
       failures.push(`${id}-${name}: ${detail}`);
     }
     const file = `${id}-${name}.png`;
+    const state = options.page ? 'gift page (no game session)' : JSON.stringify(await gameState(target)); // read just before the picture, not after
     lastShotStart = Date.now();
     const png = await target.screenshot({ path: path.join(OUT, file) });
     const at = +((Date.now() - (t0 ?? (t0 = Date.now()))) / 1000).toFixed(2);
-    const state = options.page ? 'gift page (no game session)' : JSON.stringify(await gameState(target));
     rows.push({ id, name, file, scenario, state, result, detail, at, source: options.source ?? 'IWER (emulated Quest 3)', driver });
     return png;
   }
@@ -168,13 +169,13 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
   // ---- 1 to 5: the trunk, the town, the letter, the parcel ----------------------------------------------------------------------
   await openTrunkAndSetBench(page, async (beat) => {
     if (beat === 'trunk-opening') {
-      await shot('02', 'trunk-opening', 'The latch is pinched and the lid swings open (part-way, 0.25 s in).', 'debug helper', async () => {
+      await shot('02', 'trunk-opening', 'The trunk latch is pressed (debug helper) and the lid swings open, part-way.', 'debug helper', async () => {
         const flow = await page.evaluate(() => (window as any).__wu.ui.localFlow.trunk as string);
         expect(['opening', 'withdrawing']).toContain(flow);
         return `trunk flow: ${flow}`;
       });
     } else if (beat === 'town-unfolding') {
-      await shot('03', 'town-unfolding', 'The lid is open, the town has appeared (frozen) and the trunk starts to sink.', 'debug helper', async () => {
+      await shot('03', 'town-unfolding', 'The lid is open and the frozen town has appeared (the game is in its town mode).', 'debug helper', async () => {
         const s = await gameState(page);
         const town = await page.evaluate(() => (window as any).__wu.town.town.group.visible as boolean);
         expect(s.mode).toBe('town');
@@ -192,7 +193,7 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
         return 'no plot awake, no machine placed';
       });
     } else if (beat === 'letter') {
-      await aimAt(page, 'stage', 0.34, 0.26);
+      await aimAt(page, 'stage', 0.55, 0.45); // far enough back to see the whole card and the Accept plaque below it
       await shot('04', 'letter', 'Mira\'s letter open at the reading spot, Accept plaque below it.', 'debug helper', async () => {
         const s = await gameState(page);
         const open = await page.evaluate(() => (window as any).__wu.ui.localFlow.envelope as string);
@@ -232,13 +233,20 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
   });
 
   // ---- 8 to 10: grab, snap, completed assembly (a hand does all of it) ------------------------------------------------------------
-  await aimAt(page, 'build', 0.28, 0.2);
+  await aimAt(page, 'build', 0.2, 0.17);
   const seatReports: SeatReport[] = await assembleByHand(page, hand, async (beat, index) => {
+    if (beat === 'snapped' && (await gameState(page)).mode === 'pause') {
+      // BUG-4: the pinch that took this part pressed the Pause medallion. Recorded, then resumed by the debug helper so the later pictures are clean.
+      strayPauses.push(index);
+      await pressWhenReady(page, 'UI_PanelLeft'); // Resume
+      await waitForMode(page, 'build');
+    }
     if (index !== 5) return; // the 20-tooth wheel: big enough to see, and its socket is in plain view
     if (beat === 'lifted') {
       await shot('08', 'component-grabbing', 'A hand holds the 20-tooth wheel up out of the tray (pinch).', 'hands', async () => {
         const held = await grabbedParts(page);
         expect(held).toContain('gear_spur_20_m1_brass');
+        expect((await gameState(page)).mode, 'no stray pause panel in the picture (BUG-4)').toBe('build');
         return `held: ${held.join(', ')}`;
       });
     } else if (beat === 'near-socket') {
@@ -251,6 +259,7 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
         });
         const d = dist(origin, socket);
         expect(d).toBeLessThan(0.04); // inside the snap radius: the preview is live
+        expect((await gameState(page)).mode, 'no stray pause panel in the picture (BUG-4)').toBe('build');
         return `part ${(d * 100).toFixed(1)} cm from SOCKET_GearB`;
       });
     } else if (beat === 'snapped') {
@@ -261,6 +270,7 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
       });
     }
   });
+  hands.strayPausesWhileBuildingByHand = { atPartIndex: [...strayPauses], note: 'BUG-4: a pinch in the tray opened the Pause panel; each was resumed by the debug helper' };
   hands.seat = seatReports.map((r) => ({ part: r.part.name, socket: r.socket, releasedAtCm: +(r.releasedAt * 100).toFixed(2), grabbed: r.grabbed, snapped: r.snapped, seatedAfter: r.seatedAfter }));
   seatReports.forEach((r, i) => {
     if (!(r.grabbed && r.snapped && r.releasedAt < 0.04 && r.seatedAfter === i + 1)) failures.push(`seat ${i} ${r.part.name}: ${JSON.stringify(r)}`);
@@ -276,22 +286,23 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
     return '12 of 12 seated, mode wind';
   });
 
-  // ---- 12: winding. A real wrist twist, but only with the key's grab handle removed (BUG-1: the same pinch grabs the key) -----------------
-  await removeKeyGrabHandle(page); // DIAGNOSTIC: see hands.spec.ts, BUG-1
+  // ---- 12: winding. A real wrist twist (IWER rolls the pinching hand about the key's axis) ------------------------------------------
+  // A plain pinch on the seated key grabs the key itself (BUG-1) and winding never starts, so while BUG-1 stands the key's grab handle
+  // is removed first (a labelled diagnostic); once it is fixed the probe grabs nothing and the same twist runs on the untouched game.
   await aimAt(page, 'build', 0.2, 0.14);
   let windShot = false;
-  const windReport = await windByHand(page, hand, 2, 360, async (beat, g) => {
+  const wind = await windByHandAuto(page, hand, 2, 360, async (beat, g, path) => {
     if (beat === 'twisting' && g === 0 && !windShot) {
       windShot = true;
-      await shot('12', 'winding', 'A hand turns the key by wrist twist (270 degrees so far); the counter on the run sign counts the wind units. DIAGNOSTIC: the key\'s grab handle was removed first, because a normal pinch grabs the key and winding never starts (BUG-1).', 'hands', async () => {
+      await shot('12', 'winding', 'A hand turns the key by wrist twist (270 degrees so far); the counter on the run sign counts the wind units.', 'hands', async () => {
         const s = await gameState(page);
         expect(s.windUnits).toBeGreaterThanOrEqual(2);
-        return `wind units ${s.windUnits} of 8 mid-twist`;
+        return `wind units ${s.windUnits} of 8 mid-twist; path: ${path}`;
       });
     }
   });
-  hands.wind = windReport;
-  if (!(windReport.units[1] >= 7)) failures.push(`wind: units after two turns ${windReport.units.join(',')}`);
+  hands.wind = wind;
+  if (!(wind.report.units[1] >= 7)) failures.push(`wind: units after two turns ${wind.report.units.join(',')}`);
 
   // ---- 11 and 13: run, the solver's verdict, the machine running -----------------------------------------------------------------
   await runMachine(page);
@@ -329,23 +340,26 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
   await frames(page, 8);
   const seatedRegion = await mechanismRegion(page, 'music_box');
   hands.visibilitySeated = await mechanismVisibility(page, 'music_box');
-  const sa = await shot('13s-a', 'running-seated-view', 'Extra: the running Music Box from the default seated eye position (35 degrees down): the case wall hides the mechanism.', 'hands + debug helper', running);
+  const sa = await shot('13s-a', 'running-seated-view', 'Extra: the running Music Box from the default seated eye position (35 degrees down): the cylinder and gears are in view through the open lid, but small.', 'hands + debug helper', running);
   await sinceLastShot(page, 1000);
-  const sb = await shot('13s-b', 'running-seated-view', 'Extra: the same view half a second later.', 'hands + debug helper', running);
-  hands.visibleMotionSeated = { region: seatedRegion, ...(await changedPixels(page, sa, sb, seatedRegion)) };
+  const sb = await shot('13s-b', 'running-seated-view', 'Extra: the same view about a second later.', 'hands + debug helper', running);
+  hands.visibleMotionSeated = { region: seatedRegion, ...(await changedPixels(page, sa, sb, seatedRegion, 40)) };
 
-  // Then from above, where the lid is open and the cylinder and gears can be seen.
-  await aimAt(page, 'carried', 0.12, 0.26);
+  // Then close and from above (about 55 degrees down), where the lid is open and the cylinder and gears can be seen. 13a to 13c are
+  // one second apart; the lid is open and still while the machine runs (it swings shut only when the music ends).
+  await aimAt(page, 'carried', 0.1, 0.16);
   const topRegion = await mechanismRegion(page, 'music_box');
   hands.visibilityTop = await mechanismVisibility(page, 'music_box');
-  const ta = await shot('13a', 'music-box-running', 'The running Music Box seen from above (65 degrees down), t = 0 s: lid open, cylinder and gears turning.', 'hands + debug helper', running);
+  const ta = await shot('13a', 'music-box-running', 'The running Music Box seen close and from above (about 55 degrees down), t = 0 s: lid open, cylinder and gears turning.', 'hands + debug helper', running);
   await sinceLastShot(page, 1000);
   const tb = await shot('13b', 'music-box-running', 'Same machine one second after the first.', 'hands + debug helper', running);
   await sinceLastShot(page, 1000);
-  await shot('13c', 'music-box-running', 'Same machine two seconds after the first.', 'hands + debug helper', running);
-  hands.visibleMotionTop = { region: topRegion, ...(await changedPixels(page, ta, tb, topRegion)) };
-  const top = hands.visibleMotionTop as { fraction: number };
-  if (!(top.fraction > 0.02)) failures.push(`13a/13b: from above only ${(top.fraction * 100).toFixed(1)} % of the mechanism's pixels changed in a second`);
+  const tc = await shot('13c', 'music-box-running', 'Same machine two seconds after the first.', 'hands + debug helper', running);
+  const topMotion = { region: topRegion, ab: await changedPixels(page, ta, tb, topRegion, 40), bc: await changedPixels(page, tb, tc, topRegion, 40), ac: await changedPixels(page, ta, tc, topRegion, 40) };
+  hands.visibleMotionTop = topMotion;
+  for (const [pair, m] of [['13a/13b', topMotion.ab], ['13b/13c', topMotion.bc]] as const) {
+    if (!(m.fraction > 0.02)) failures.push(`${pair}: from above only ${(m.fraction * 100).toFixed(1)} % of the mechanism's pixels changed in a second`);
+  }
   const topSeen = hands.visibilityTop as { hiddenFraction: number };
   if (!(topSeen.hiddenFraction < 0.35)) failures.push(`13a: from above ${(topSeen.hiddenFraction * 100).toFixed(0)} % of the turning parts are hidden`);
   const benchMotion = await measureMotion(page, 'music_box', 2.5);
@@ -454,7 +468,7 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
   await shot(
     '19',
     'gift-viewer',
-    'The link opened by someone else: "Music Box", the engraving, the part count and the machine turning on the stand behind the card.',
+    'The link opened by someone else on a desktop page: "Music Box", the engraving, the part count and the machine on its stand behind the card, seen from the front (the mechanism inside is out of sight from this angle; motion is not asserted here).',
     'debug helper',
     async () => {
       const text = await viewer.locator('.wu-gift__card').innerText();

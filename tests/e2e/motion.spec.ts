@@ -12,12 +12,12 @@ import { frames, GPU_ARGS, Hand, gameState, openGame, requireDevRuntime, sampleP
 
 /**
  * Motion and renderer numbers for the machines that are reachable without a hand (the ?debug helper plays the letters).
- * EMULATOR evidence (IWER, desktop Chromium on the GPU, mono view), never headset evidence.
+ * EMULATOR evidence (IWER, desktop Chromium on the GPU, both eyes rendered), never headset evidence.
  *
  *  - every turning part of the Carousel and the Windmill turns in the live scene graph at the solver's speed (within 10 %);
  *    Carousel horses rise and fall once per platform turn;
  *  - renderer.info and the JS heap with the Carousel and the Windmill placed (scene draw calls: target 150, ceiling 200);
- *  - BUG-3: from the default seated eye position the running Music Box shows no motion, because the case wall hides it.
+ *  - from the default seated eye position the running Music Box is in view and its picture changes (the case wall does not hide it).
  */
 test.use({ launchOptions: { args: GPU_ARGS }, viewport: { width: 1120, height: 630 } });
 test.setTimeout(600_000);
@@ -33,6 +33,7 @@ test.describe.serial('machines in the town (letters played by the debug helper)'
     const perf: PerfSample[] = [];
     const reports: Record<string, MotionReport & { failures: string[] }> = {};
     await openGame(page);
+    await Hand.enable(page); // the game is hands-only: the headset shows hands, not the emulator's two controller models
     await openTrunkAndSetBench(page);
     await page.evaluate(() => (window as any).__wu.seatAll());
     await waitForMode(page, 'wind');
@@ -73,10 +74,10 @@ test.describe.serial('machines in the town (letters played by the debug helper)'
     for (const [name, r] of Object.entries(reports)) expect(r.failures, `motion of ${name}`).toEqual([]);
   });
 
-  // BUDGET-1. docs/ASSET_OPTIMISATION_BUDGET.md: scene draw calls 150 target, 200 ceiling (renderer.info, mono emulated view; a headset
+  // BUDGET-1. docs/ASSET_OPTIMISATION_BUDGET.md: scene draw calls 150 target, 200 ceiling (renderer.info; IWER renders both eyes, so this is the two-eye count, and per eye it is half; a headset
   // draws both eyes). Reads the numbers the previous test wrote. `test.fail` keeps the suite green while the town is over budget and
   // turns red ("expected to fail but passed") when it comes under.
-  test.fail('BUDGET-1: draw calls with the Music Box, the Carousel and the Windmill placed stay under the 200 ceiling (expected to FAIL today: 222 and 292)', async () => {
+  test.fail('BUDGET-1: draw calls with the Music Box, the Carousel and the Windmill placed stay under the 200 ceiling (expected to FAIL today: 226 and 296)', async () => {
     const fs = (await import('node:fs' as string)) as { readFileSync(path: string, encoding: string): string };
     const cwd = (globalThis as unknown as { process: { cwd(): string } }).process.cwd();
     const { perf } = JSON.parse(fs.readFileSync(`${cwd}/docs/evidence/screens/motion-run.json`, 'utf8')) as { perf: PerfSample[] };
@@ -94,11 +95,10 @@ test.describe.serial('machines in the town (letters played by the debug helper)'
     expect(checkMusicBox(report)).toEqual([]);
   });
 
-  // BUG-3. The motion is real (the tests above and in evidence.spec.ts measure it), but the player cannot see it: from the stand's
-  // seated eye position the case's front wall stands between the eye and the gears, and the picture of the mechanism does not change
-  // from one second to the next. From above (65 degrees and steeper) the same machine shows the cylinder and gears turning. `test.fail`
-  // keeps the suite green while this stands and turns red when the mechanism becomes visible from the seat.
-  test.fail('BUG-3: from the default seated eye position the running Music Box visibly moves (expected to FAIL today: the case wall hides the mechanism)', async ({ page }) => {
+  // SEATED-VIEW. The motion is real (the tests above and in evidence.spec.ts measure it); can the player SEE it from where the stand puts
+  // the head? Earlier runs suspected the case wall hid the mechanism (BUG-3). The lid opens while the machine runs, and from the seated eye
+  // position the cylinder and gears are in view and their picture changes from one second to the next. The numbers go to the annotations.
+  test('SEATED VIEW: from the default seated eye position most of the running Music Box mechanism is in view and its picture changes from one second to the next', async ({ page }) => {
     await openGame(page);
     await Hand.enable(page);
     await openTrunkAndSetBench(page);
@@ -119,14 +119,15 @@ test.describe.serial('machines in the town (letters played by the debug helper)'
     const seen = await mechanismVisibility(page, 'music_box');
     const region = await mechanismRegion(page, 'music_box');
     const a = await page.screenshot();
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(1000);
     const b = await page.screenshot();
-    const seated = await changedPixels(page, a, b, region);
+    const seated = await changedPixels(page, a, b, region, 40);
     test.info().annotations.push({
-      type: 'bug-3',
-      description: `seated eye ${seen.eye.map((v) => v.toFixed(2)).join(', ')}: ${seen.hidden} of ${seen.points} points on the turning parts are hidden behind the case (${(seen.hiddenFraction * 100).toFixed(0)} %); ${(seated.fraction * 100).toFixed(2)} % of the mechanism's region changed in 0.7 s`,
+      type: 'seated-view',
+      description: `seated eye ${seen.eye.map((v) => v.toFixed(2)).join(', ')}: ${seen.hidden} of ${seen.points} points on the turning parts are hidden behind the case (${(seen.hiddenFraction * 100).toFixed(0)} %); mechanism region ${region.x1 - region.x0} x ${region.y1 - region.y0} px of ${page.viewportSize()?.width} x ${page.viewportSize()?.height}; ${(seated.fraction * 100).toFixed(1)} % of its pixels changed in 1 s`,
     });
-    expect(seen.hiddenFraction, 'share of the turning parts hidden behind the case wall, seen from the seated eye position').toBeLessThan(0.5);
+    expect(seen.hiddenFraction, 'share of the turning parts hidden behind the case, seen from the seated eye position').toBeLessThan(0.5);
+    expect(seated.fraction, 'share of the mechanism region that changed between two screenshots one second apart').toBeGreaterThan(0.01);
   });
 });
 

@@ -338,6 +338,53 @@ export async function windByHand(
   return { grabs, units, seatedAfter: await seatedCount(page), grabbedAtPinch };
 }
 
+export interface WindOutcome {
+  /** `real pinch`: the plain pinch winds the key (BUG-1 fixed). `diagnostic`: a pinch grabs the key, so the key's grab handle was removed first. */
+  path: 'real pinch' | 'diagnostic: key grab handle removed (BUG-1)';
+  /** Parts a plain pinch on the seated key grabbed (BUG-1 shows here), and the seated count after the probe let go. */
+  probe: { grabbed: string[]; seatedAfter: number };
+  report: WindReport;
+}
+
+/**
+ * Winds with a HAND whichever way works today. A probe pinches the seated key without moving: if the pinch grabs the key (BUG-1), the
+ * key's grab handle is removed (diagnostic) so the same wrist twist can still be shown; once BUG-1 is fixed the probe grabs nothing
+ * and the twist runs on the untouched game. The outcome says which path ran.
+ */
+export async function windByHandAuto(
+  page: Page,
+  hand: Hand,
+  grabs: number,
+  degreesPerGrab: number,
+  beat: (name: string, grab: number, path: WindOutcome['path']) => Promise<void> | void = noBeat,
+): Promise<WindOutcome> {
+  const key = (await listParts(page)).find((p) => p.name.startsWith('winding_key'));
+  if (!key) throw new Error('no winding key');
+  const K = (await partPose(page, key)).origin;
+  await hand.place(add(K, { x: 0.08, y: 0, z: 0 }), 'index-tip');
+  await frames(page, 2);
+  await hand.glide(K, 0.4, 'index-tip');
+  await hand.pinch(1, 0.15);
+  await frames(page, 3);
+  const grabbed = await grabbedParts(page);
+  await hand.pinch(0, 0.12);
+  await frames(page, 10);
+  let seatedAfter = await seatedCount(page);
+  if (seatedAfter < 12) {
+    // The probe drew the key out of its socket and let go: it comes home to the tray, and a hand seats it again.
+    await waitForMode(page, 'build', 10_000);
+    await frames(page, 90);
+    await seatByHand(page, hand, 'SOCKET_Key', 'winding_key');
+    await waitForMode(page, 'wind');
+    seatedAfter = await seatedCount(page);
+  }
+  const diagnostic = grabbed.some((n) => n.startsWith('winding_key'));
+  if (diagnostic) await removeKeyGrabHandle(page);
+  const path: WindOutcome['path'] = diagnostic ? 'diagnostic: key grab handle removed (BUG-1)' : 'real pinch';
+  const report = await windByHand(page, hand, grabs, degreesPerGrab, (name, grab) => beat(name, grab, path));
+  return { path, probe: { grabbed, seatedAfter }, report };
+}
+
 /** Names of the scene objects whose entity holds the Grabbed tag right now. */
 export const grabbedParts = (page: Page): Promise<string[]> =>
   page.evaluate(() => {
