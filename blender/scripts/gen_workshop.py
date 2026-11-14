@@ -273,29 +273,116 @@ def build_workbench(entry, p):
 
 
 # ======================================================================================
-# parts_tray: 12.5 x 2.5 x 21 cm (TOCKTON_DIMENSIONS 5.2): walnut tray, velvet lining, eight fitted compartments
+# parts_tray: 12.5 x 2.5 x 21 cm (TOCKTON_DIMENSIONS 5.2): walnut tray, velvet lining, twelve fitted compartments
+#
+# One compartment for each of the twelve loose parts of the Music Box (MUSIC_BOX_BLUEPRINT 9.2), sized from the real part GLBs: a part lies in
+# the pose the game gives it in the tray (src/tray-layout.ts: discs flat, everything else as authored), centred in its compartment, with at
+# least CLEAR on every side. The layout is a guillotine tree (columns and rows); slack is shared out equally, so every compartment is the
+# part's footprint plus its clearance plus a little more, and every divider sits in the gap between two compartments. SOCKET_Slot01..12
+# are numbered in the order of the Music Box tray (trayOf), stand at the compartment's centre on the velvet, and carry which assets the
+# compartment is for (`partAssets`), its clear size (`innerMm`) and the yaw the part is turned by (`yawDeg`). The game places by asset.
 # ======================================================================================
-TRAY_COLS = {-1: (-5.55, 0.09, (-4.4, 0.6, 5.2)), 1: (0.31, 5.55, (-6.0, -1.2, 3.6))}      # per column: x range and its row dividers (z)
+TRAY_HALF = (6.25, 10.5)                 # outer half sizes (x, z), cm
+TRAY_WALL = 0.5                          # the inner wall face is 5 mm in from the outer one
+TRAY_FLOOR = 0.6                         # top of the velvet, cm
+DIV_T, DIV_H = 0.22, 1.45                # divider thickness and height; it starts 0.05 below the velvet (cm): its top is 20 mm above the tray's base
+CLEAR = 0.3                              # cm of clearance to every wall, on each side of a part
+YAW90 = 90.0
+
+# leaf = (slot no. in the Music Box tray order, label, assets the compartment is for, footprint (x, z) in mm at yaw 0, yaw about +Y in degrees)
+# footprints: the part GLB's bounding box in the tray pose (tests/assets/tray-fit.test.ts checks them against the real files)
+LEAF = {
+    "shaft": (3, "ArborShaft", ["shaft_short"], (8.0, 105.0), 0.0),
+    "g16": (7, "Gear16", ["gear_spur_16_m1"], (44.25, 44.25), 0.0),
+    "g12": (11, "Gear12", ["gear_spur_12_m1"], (34.25, 34.25), 0.0),
+    "g20": (6, "Gear20", ["gear_spur_20_m1"], (54.25, 54.25), 0.0),
+    "gov": (10, "Governor", ["governor_standard"], (30.56, 24.0), YAW90),
+    "brA": (1, "BracketL", ["bracket_support"], (22.0, 6.0), 0.0),
+    "g10": (9, "Gear10", ["gear_spur_10_m1"], (29.25, 28.47), 0.0),
+    "spring": (8, "Spring", ["spring_standard", "spring_worn"], (30.0, 30.0), 0.0),
+    "key": (12, "Key", ["winding_key"], (30.0, 6.0), 0.0),
+    "cyl": (4, "Cylinder", ["cylinder_music_box"], (32.0, 58.6), 0.0),
+    "comb": (5, "Comb", ["comb_music_box"], (58.6, 26.0), YAW90),
+    "brB": (2, "BracketR", ["bracket_support"], (22.0, 6.0), 0.0),
+}
+# back (z -) to front (z +), left (x -) to right (x +); 'V' = side by side, 'H' = stacked. Found by a guillotine search over all 12 parts.
+TRAY_TREE = ("H",
+             ("V", "shaft", ("H", ("V", "g16", "g12"), ("V", "g20", ("H", "gov", "brA")))),
+             ("V", ("V", ("H", "g10", "spring"), ("H", "key", "cyl")), ("H", "comb", "brB")))
+
+
+def _leaf_min(key):
+    _, _, _, (fx, fz), yaw = LEAF[key]
+    if yaw == YAW90:
+        fx, fz = fz, fx
+    return (fx + 20.0 * CLEAR) / 10.0, (fz + 20.0 * CLEAR) / 10.0       # cm, clear size in the tray's x and z
+
+
+def _min(node, axis):
+    """Smallest clear size of a node along axis 0 (x) or 1 (z), cm."""
+    if isinstance(node, str):
+        return _leaf_min(node)[axis]
+    kind, kids = node[0], node[1:]
+    along = (kind == "V") == (axis == 0)
+    sizes = [_min(k, axis) for k in kids]
+    return sum(sizes) + DIV_T * (len(kids) - 1) if along else max(sizes)
+
+
+def tray_layout():
+    """-> (compartments, dividers), cm. A compartment is dict(slot, label, assets, rect=(x0, z0, x1, z1), yaw); a divider is (x0, z0, x1, z1)."""
+    out, divs = [], []
+    ix, iz = TRAY_HALF[0] - TRAY_WALL, TRAY_HALF[1] - TRAY_WALL
+
+    def go(node, x0, z0, x1, z1):
+        if isinstance(node, str):
+            slot, label, assets, _, yaw = LEAF[node]
+            out.append(dict(slot=slot, label=label, assets=assets, rect=(x0, z0, x1, z1), yaw=yaw))
+            return
+        kind, kids = node[0], node[1:]
+        axis = 0 if kind == "V" else 1
+        if axis == 0:
+            kids = kids[::-1]                                       # the tree reads left to right as written; the tray is mirrored so the long
+                                                                    # shaft and the gears stand on the side next to the build zone (+x)
+        lo, hi = (x0, x1) if axis == 0 else (z0, z1)
+        mins = [_min(k, axis) for k in kids]
+        extra = (hi - lo - sum(mins) - DIV_T * (len(kids) - 1)) / len(kids)
+        assert extra > -1e-9, f"layout does not fit along axis {axis}: {hi - lo:.3f} cm for {sum(mins) + DIV_T * (len(kids) - 1):.3f}"
+        at = lo
+        for i, (k, m) in enumerate(zip(kids, mins)):
+            size = m + extra
+            if axis == 0:
+                go(k, at, z0, at + size, z1)
+            else:
+                go(k, x0, at, x1, at + size)
+            at += size
+            if i < len(kids) - 1:
+                divs.append((at, z0, at + DIV_T, z1) if axis == 0 else (x0, at, x1, at + DIV_T))
+                at += DIV_T
+
+    go(TRAY_TREE, -ix, -iz, ix, iz)
+    return sorted(out, key=lambda c: c["slot"]), divs
 
 
 def build_tray(entry, p):
     body = Part("PartsTray_Body", ["Mat_Walnut", "Mat_VelvetTeal"])
     div = Part("PartsTray_Divider", ["Mat_Walnut"])
-    prof = make_profile([(5.2, 0.0), (0.0, 0.0), (0.0, 2.5), (0.42, 2.5), (0.65, 2.28), (0.65, 0.62), (5.2, 0.6)], [0, 0.14, 0.1, 0.06, 0, 0.12, 0],
-                        [0] * 4 + [1] * 2, n=2, max_len=2.4)
-    body.add(rr_sweep(prof, 6.25, 10.5, 0.6, k=2, space=2.6))
-    div.add(rbox((0.2, 0.55, 0.0), (0.22, 1.45, 19.8), r_edge=0.03, mat=0, space=30.0))
-    sockets = []
-    for col, (x0, x1, zs) in TRAY_COLS.items():
-        edges = [-9.85] + list(zs) + [9.85]
-        for z in zs:
-            div.add(rbox(((x0 + x1) / 2, 0.55, z), (x1 - x0 + 0.2, 1.45, 0.22), r_edge=0.03, mat=0, space=30.0))
-        for i in range(len(edges) - 1):
-            sockets.append(((x0 + x1) / 2, (edges[i] + edges[i + 1]) / 2))
+    prof = make_profile([(5.2, 0.0), (0.0, 0.0), (0.0, 2.5), (0.35, 2.5), (TRAY_WALL, 2.3), (TRAY_WALL, TRAY_FLOOR + 0.02), (5.2, TRAY_FLOOR)],
+                        [0, 0.14, 0.1, 0.06, 0, 0.12, 0], [0] * 4 + [1] * 2, n=2, max_len=2.4)
+    body.add(rr_sweep(prof, TRAY_HALF[0], TRAY_HALF[1], 0.6, k=2, space=2.6))
+    comps, divs = tray_layout()
+    for (x0, z0, x1, z1) in divs:                                   # each strip runs 0.11 into whatever it meets (wall or another divider)
+        long_z = (z1 - z0) > (x1 - x0)
+        ex, ez = (0.0, 0.11) if long_z else (0.11, 0.0)                # lengthen the strip along its own run, never across it
+        div.add(rbox(((x0 + x1) / 2, TRAY_FLOOR - 0.05, (z0 + z1) / 2), (x1 - x0 + 2 * ex, DIV_H, z1 - z0 + 2 * ez), r_edge=0.03, mat=0, space=30.0))
     root = _root(body.build(), entry)
+    root["wu"] = dict(id=entry["id"], family=FAMILY, floorTopMm=TRAY_FLOOR * 10, dividerTopMm=(TRAY_FLOOR - 0.05 + DIV_H) * 10,
+                      interiorMm=[2 * (TRAY_HALF[0] - TRAY_WALL) * 10, 2 * (TRAY_HALF[1] - TRAY_WALL) * 10], clearanceMm=CLEAR * 10, compartments=len(comps))
     objs = [root, div.build(parent=root)]
-    for i, (x, z) in enumerate(sockets, 1):
-        objs.append(empties.add_socket(root, f"Slot{i:02d}", (M(x), M(0.6), M(z)), ["part"], (0.0, 1.0, 0.0)))
+    for c in comps:
+        x0, z0, x1, z1 = c["rect"]
+        objs.append(empties.add_socket(root, f"Slot{c['slot']:02d}", (M((x0 + x1) / 2), M(TRAY_FLOOR), M((z0 + z1) / 2)), ["part"], (0.0, 1.0, 0.0),
+                                       slot=c["slot"], label=c["label"], partAssets=c["assets"],
+                                       innerMm=[round((x1 - x0) * 10, 2), round((z1 - z0) * 10, 2)], yawDeg=c["yaw"]))
     return objs, dict(origin=("centre", "min", "centre"), closed=True)
 
 
