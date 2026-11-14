@@ -20,7 +20,7 @@ type Vec3 = readonly [number, number, number];
 type Quat = readonly [number, number, number, number];
 const IDENTITY: Quat = [0, 0, 0, 1];
 /** 230 degrees about +Z (§7.1): the pawl's hook tip lands on the ratchet's 18.5 mm circle at its 100 degree tooth. */
-const PAWL_ROTATION: Quat = [0, 0, 0.9063, -0.4226];
+const PAWL_ROTATION: Quat = [0, 0, 0.9063078, -0.4226183]; // sin and cos of 115 degrees: the quaternion of 230 degrees about Z
 
 const BEARING = partId('bearing_pillow_block');
 const SPRING_IDS = [partId('spring_standard'), partId('spring_worn')];

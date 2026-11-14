@@ -78,3 +78,26 @@ export function chainPoint(g: ChainGeometry, s: number, out: ChainPoint = { x: 0
   }
   return out;
 }
+
+const _outward = { x: 0, y: 0 };
+
+/**
+ * The unit normal that points out of the loop at a point where the chain's heading is `heading` (the loop is walked clockwise, so the inside
+ * is on the right of the way of travel and out is on the left). The returned object is reused: read it before the next call.
+ */
+export function chainOutward(heading: number): { x: number; y: number } {
+  _outward.x = -Math.sin(heading);
+  _outward.y = Math.cos(heading);
+  return _outward;
+}
+
+/** How far the point (x, y) is from the chain's line, metres: the nearest distance to the loop, found by walking it in 0.2 mm steps. */
+export function distanceToChain(g: ChainGeometry, x: number, y: number): number {
+  const p: ChainPoint = { x: 0, y: 0, heading: 0 };
+  let best = Infinity;
+  for (let s = 0; s < g.length; s += 0.0002) {
+    chainPoint(g, s, p);
+    best = Math.min(best, Math.hypot(p.x - x, p.y - y));
+  }
+  return best;
+}

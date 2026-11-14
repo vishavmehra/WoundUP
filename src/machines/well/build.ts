@@ -11,22 +11,38 @@
 import { sampleFollowerProfile } from '../../sim';
 import { WELL, WELL_BELT_RADIUS_M, WELL_PROFILE, WELL_STROKE_M } from '../../content/blueprints';
 import type { MaterialRegistry } from '../../materials';
-import { axisOfGlb, createHinge, createRotor, turnHinge } from '../../town/motion';
+import { axisOfGlb, createHinge, createRotor, turnHinge, wuField } from '../../town/motion';
 import type { MachineRig, Rotor } from '../../town/motion';
 import type { ModelSource } from '../../town/scene';
 import { Vector3 } from '@iwsdk/core';
 import type { Mesh, Object3D } from '@iwsdk/core';
 import { assembleMachine, machineModelPaths } from '../assemble';
-import { chainGeometry } from './chain';
+import { chainGeometry, distanceToChain } from './chain';
 import { createWellWater } from './water';
-import type { WaterAnchors } from './water';
+import type { BucketTemplate, WaterAnchors } from './water';
 
-/** Nodes of `well_base.glb` the fountain is anchored to (BLUEPRINT §8.1). */
-export const WELL_NODE = { bucket: 'Bucket_Template', nozzle: 'Well_Nozzle', water: 'Well_WaterLevel' } as const;
+/**
+ * Nodes of `well_base.glb` the fountain is anchored to (`gen_well.py`): the bucket template (a group of two primitives, whose `wu.originMm` is
+ * its bottom centre in the housing's frame), the water disc (`wu.baseYMm` and `maxYMm` give the rise), the jet's emitter, the lip the full
+ * basin spills over, and the two chain pulleys' centres.
+ */
+export const WELL_NODE = {
+  bucket: 'Bucket_Template',
+  water: 'Well_WaterLevel',
+  nozzle: 'PIV_Nozzle',
+  lip: 'PIV_Spout',
+  chainDrive: 'PIV_ChainDrive',
+  chainIdle: 'PIV_ChainIdle',
+} as const;
 
-/** Where the anchors are when the housing does not carry them (the blueprint's numbers: basin centre (-0.4, -0.3) cm, rim 17.5, jet from 17.6). Warned about. */
-const FALLBACK_WATER = new Vector3(-0.004, 0.157, -0.003);
-const FALLBACK_NOZZLE = new Vector3(-0.004, 0.176, -0.003);
+/** Where a pivot is when the housing does not carry it: the blueprint's numbers (basin centre (-0.4, -0.3) cm, jet from y 17.6, lip y 16.6 at z 1.36). Warned about. */
+const FALLBACK = {
+  [WELL_NODE.nozzle]: new Vector3(-0.004, 0.176, -0.003),
+  [WELL_NODE.lip]: new Vector3(-0.004, 0.166, 0.0136),
+} as const;
+/** How far the basin's water rises when the housing does not say (`wu.maxYMm - wu.baseYMm`), metres, and the pool's surface height (`wu.pool.trayMm`, 58 mm). */
+const FALLBACK_RISE_M = 0.0078;
+const POOL_Y_M = 0.058;
 
 /** Teeth of `ratchet_wheel` (`wu.teeth`), how far the pawl lifts over one, and the share of a tooth it spends riding up the slope. */
 export const RATCHET_TEETH = 16;
@@ -41,11 +57,11 @@ export const WELL_MODEL_PATHS: readonly string[] = machineModelPaths(WELL);
 
 const TAU = Math.PI * 2;
 
-/** The node itself or the first mesh under it, or null. */
-function firstMesh(node: Object3D | undefined): Mesh | null {
-  let found: Mesh | null = null;
+/** Every mesh under `node` (the node itself when it is one): a glTF mesh with two primitives arrives as a group of two meshes. */
+function meshesUnder(node: Object3D | undefined): Mesh[] {
+  const found: Mesh[] = [];
   node?.traverse((o) => {
-    if (found === null && (o as Mesh).isMesh === true) found = o as Mesh;
+    if ((o as Mesh).isMesh === true) found.push(o as Mesh);
   });
   return found;
 }
@@ -60,6 +76,8 @@ function anchor(base: Object3D, name: string, fallback: Vector3): Vector3 {
   base.updateWorldMatrix(true, true);
   return base.worldToLocal(node.getWorldPosition(new Vector3()));
 }
+
+const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
 export async function buildWell(source: ModelSource, registry: MaterialRegistry): Promise<MachineRig> {
   const { rig, base, parts } = await assembleMachine(WELL, 'well', source, registry);
@@ -103,18 +121,38 @@ export async function buildWell(source: ModelSource, registry: MaterialRegistry)
     });
   }
 
-  // The fountain.
-  const bucketMesh = firstMesh(base.getObjectByName(WELL_NODE.bucket));
-  if (!bucketMesh) console.warn(`[wound-up] well_base has no ${WELL_NODE.bucket}; the bucket chain is left out.`);
-  const driveAt = WELL.sockets.find((s) => s.id === 'pulley_drive')?.position as readonly [number, number, number];
-  const idleAt = WELL.sockets.find((s) => s.id === 'pulley_idle')?.position as readonly [number, number, number];
-  const chain = chainGeometry([driveAt[0], driveAt[1]], [idleAt[0], idleAt[1]], WELL_BELT_RADIUS_M);
+  // The fountain: the chain of the two pulleys, the buckets of the template riding it, the water disc, the jet, the stream and the spill.
+  const socketAt = (id: string): Vector3 => new Vector3(...(WELL.sockets.find((s) => s.id === id)?.position as readonly [number, number, number]));
+  const driveAt = anchor(base, WELL_NODE.chainDrive, socketAt('pulley_drive'));
+  const idleAt = anchor(base, WELL_NODE.chainIdle, socketAt('pulley_idle'));
+  const nozzle = anchor(base, WELL_NODE.nozzle, FALLBACK[WELL_NODE.nozzle]);
+  const lip = anchor(base, WELL_NODE.lip, FALLBACK[WELL_NODE.lip]);
+  const chain = chainGeometry([driveAt.x, driveAt.y], [idleAt.x, idleAt.y], WELL_BELT_RADIUS_M);
+  const chainZ = driveAt.z;
+
+  const bucketNode = base.getObjectByName(WELL_NODE.bucket);
+  const origin = wuField(bucketNode ?? base, 'originMm') as readonly number[] | undefined;
+  const bucketMeshes = meshesUnder(bucketNode);
+  let bucket: BucketTemplate | null = null;
+  if (bucketMeshes.length === 0 || !origin || origin.length < 3) console.warn(`[wound-up] well_base has no ${WELL_NODE.bucket} with an originMm; the bucket chain is left out.`);
+  else {
+    const at = new Vector3(origin[0] / 1000, origin[1] / 1000, origin[2] / 1000);
+    bucket = { meshes: bucketMeshes, origin: at, offset: distanceToChain(chain, at.x, at.y) };
+  }
+
+  const surfaceNode = base.getObjectByName(WELL_NODE.water);
+  const surfaces = meshesUnder(surfaceNode);
+  if (surfaces.length === 0) console.warn(`[wound-up] well_base has no ${WELL_NODE.water}; the basin shows no water.`);
+  const baseY = num(wuField(surfaceNode ?? base, 'baseYMm'));
+  const maxY = num(wuField(surfaceNode ?? base, 'maxYMm'));
+  const riseM = baseY !== undefined && maxY !== undefined && maxY > baseY ? (maxY - baseY) / 1000 : FALLBACK_RISE_M;
   const anchors: WaterAnchors = {
-    water: anchor(base, WELL_NODE.water, FALLBACK_WATER),
-    nozzle: anchor(base, WELL_NODE.nozzle, FALLBACK_NOZZLE),
-    spout: new Vector3(idleAt[0], idleAt[1] + WELL_BELT_RADIUS_M, idleAt[2]),
+    nozzle,
+    spout: new Vector3(idleAt.x, idleAt.y + WELL_BELT_RADIUS_M, chainZ),
+    lip,
+    poolY: POOL_Y_M,
   };
-  const water = createWellWater({ base, bucket: bucketMesh ?? null, chain, chainZ: driveAt[2], anchors, dropAt: 0.8 * WELL_STROKE_M });
+  const water = createWellWater({ base, bucket, chain, chainZ, anchors, surface: surfaces[0] ?? null, riseM, dropAt: 0.8 * WELL_STROKE_M });
   rig.moving.push(...water.nodes);
   let started = false;
   rig.updaters.push((r, dt) => {

@@ -20,6 +20,10 @@ export const MODEL_PATHS: Readonly<Record<string, string>> = {
   cam_eccentric: 'shared/cam/cam_eccentric.glb',
   follower_roller: 'shared/follower/follower_roller.glb',
   pulley_standard: 'shared/pulley/pulley_standard.glb',
+  // ADR-048: promoted from G2 and moved into public/ with the Well (WELL_FOUNTAIN_BLUEPRINT §11)
+  ratchet_wheel: 'shared/ratchet/ratchet_wheel.glb',
+  pawl_standard: 'shared/pawl/pawl_standard.glb',
+  flywheel_standard: 'shared/flywheel/flywheel_standard.glb',
   bracket_support: 'shared/structural/bracket_support.glb',
   cylinder_music_box: 'shared/cylinder/cylinder_music_box.glb',
   comb_music_box: 'shared/comb/comb_music_box.glb',
@@ -50,19 +54,17 @@ export const MODEL_PATHS: Readonly<Record<string, string>> = {
   escapement_anchor: 'shared/escapement/escapement_anchor.glb',
   cam_hourly_chime: 'shared/cam/cam_hourly_chime.glb',
   spring_barrel: 'shared/spring/spring_barrel.glb',
+  // The Well's housing (ADR-048, `blender/scripts/gen_well.py`)
+  well_base: 'tockton/well/well_base.glb',
 };
 
 /**
- * The GLBs of the Well and the Belfry (ADR-048) that the asset agents have not delivered into `public/assets/models/` yet: where each
+ * The GLBs of the Belfry (ADR-048) that the asset agents have not delivered into `public/assets/models/` yet: where each
  * will live (WELL_FOUNTAIN_BLUEPRINT §8, BELFRY_BLUEPRINT §8, §12). Until a file is there the machine that needs it cannot be
  * started, so the loader says "no model" instead of fetching a 404. When a file lands, move its line into `MODEL_PATHS` (the manifest
  * agrees with that table, tests/content/parts.test.ts); tests/content/pending-models.test.ts fails while a listed file already exists.
  */
 export const PENDING_MODEL_PATHS: Readonly<Record<string, string>> = {
-  ratchet_wheel: 'shared/ratchet/ratchet_wheel.glb',
-  pawl_standard: 'shared/pawl/pawl_standard.glb',
-  flywheel_standard: 'shared/flywheel/flywheel_standard.glb',
-  well_base: 'tockton/well/well_base.glb',
   belfry_base: 'tockton/belfry/belfry_base.glb',
   belfry_vane: 'tockton/belfry/belfry_vane.glb',
 };
