@@ -16,6 +16,7 @@ import {
   solveAssembly,
   solveClockTower,
   unmetDependencies,
+  giftCatalogue,
   validateMachineBlueprint,
   verifyGift,
 } from '../../src/content/blueprints';
@@ -23,6 +24,7 @@ import { SPUR_GEAR_IDS } from '../../src/content/blueprints/shared';
 import { getPart, hasPart, MODEL_PATHS, requirePart, SOLVER_CATALOGUE } from '../../src/content/parts';
 import { CLOCK_TOWER_MODEL_PATHS, ESCAPE_WHEEL_RAD_PER_S } from '../../src/machines/clock-tower';
 import { LETTERS, MACHINE_IDS, MACHINE_PLOT } from '../../src/game/content';
+import { decodeGift, encodeGift, GIFT_URL_TARGET_CHARS } from '../../src/game/gift';
 import { GameSession } from '../../src/game/session';
 import { FakeStorage } from '../game/helpers';
 import { MAX_WIND_UNITS } from '../../src/sim';
@@ -188,6 +190,33 @@ describe('correct assembly', () => {
     const placements = Object.entries(CLOCK_TOWER.intended).map(([socketId, partId]) => ({ socketId, partId }));
     expect(verifyGift({ blueprintId: 'clock_tower', blueprintVersion: 1, placements, engraving: 'for_you' })).toBe(true);
     expect(verifyGift({ blueprintId: 'clock_tower', blueprintVersion: 1, placements: placements.slice(1), engraving: 'for_you' })).toBe(false);
+  });
+});
+
+describe('a gift of the Clock Tower (17 placements, the largest machine)', () => {
+  const options = { catalogue: giftCatalogue, verify: verifyGift };
+  const gift = {
+    blueprintId: 'clock_tower',
+    blueprintVersion: 1,
+    placements: Object.entries(CLOCK_TOWER.intended).map(([socketId, partId]) => ({ socketId, partId })),
+    engraving: 'wind_me_up',
+  } as const;
+
+  it('encodes to a link short enough to share, and the viewer decodes the same tower from it', async () => {
+    const encoded = await encodeGift(gift, options);
+    if (!encoded.ok) throw new Error(`encode failed: ${encoded.error}`);
+    expect(encoded.data.length).toBeLessThanOrEqual(GIFT_URL_TARGET_CHARS);
+    const decoded = await decodeGift(encoded.hash, options);
+    if (!decoded.ok) throw new Error(`decode failed: ${decoded.error}`);
+    expect(decoded.gift.blueprintId).toBe('clock_tower');
+    expect(decoded.gift.placements).toHaveLength(17);
+    expect(Object.fromEntries(decoded.gift.placements.map((p) => [p.socketId, p.partId]))).toEqual(CLOCK_TOWER.intended);
+  });
+
+  it('is refused when a socket is left empty or holds a part it does not take', async () => {
+    expect((await encodeGift({ ...gift, placements: gift.placements.slice(1) }, options)).ok).toBe(false);
+    const swapped = gift.placements.map((p) => (p.socketId === 'spring' ? { ...p, partId: 'spring_worn_brass' } : p));
+    expect((await encodeGift({ ...gift, placements: swapped }, options)).ok).toBe(false);
   });
 });
 
