@@ -9,7 +9,9 @@
  */
 import { test, type Page } from '@playwright/test';
 
-export const DEV_URL = 'https://localhost:8081/?debug';
+/** The IWSDK dev runtime. `WU_DEV_PORT` points the specs at a vite started on another port (a worktree must never touch 8081). */
+const devPort = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env?.WU_DEV_PORT ?? '8081';
+export const DEV_URL = `https://localhost:${devPort}/?debug`;
 
 export const GPU_ARGS = ['--use-angle=d3d11', '--ignore-gpu-blocklist', '--enable-gpu-rasterization', '--enable-precise-memory-info'];
 
@@ -22,7 +24,7 @@ export async function requireDevRuntime(request: import('@playwright/test').APIR
     (r) => r.ok(),
     () => false,
   );
-  test.skip(!up, 'IWSDK dev runtime is not running on https://localhost:8081');
+  test.skip(!up, `IWSDK dev runtime is not running on ${DEV_URL}`);
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- these reach into the emulator and the opt-in ?debug handles (__world, __wu) */

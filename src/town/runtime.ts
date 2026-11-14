@@ -23,6 +23,7 @@ import { plotSocket } from './scene';
 import type { Town } from './scene';
 import { WakeField } from './wake';
 import type { WakeUniforms } from './wake-shader';
+import { XRAY_SHELL, XRayView } from './xray-view';
 
 /** What the game layer wants to hear about the town. All optional. */
 export interface TownEvents {
@@ -48,6 +49,9 @@ const NIGHT_EASE_S = 0.8;
 
 export class TownRuntime {
   readonly wake = new WakeField();
+  /** What X-ray does to the picture (xray-view.ts): every registered rig is a machine it can open, and the game adds the bench machine. */
+  readonly xray = new XRayView();
+  private readonly xrayOf = new Map<MachineRig, () => void>();
   private readonly rigs: MachineRig[] = [];
   private readonly scalers: Scaler[] = [];
   /** Machines standing on a plot: they follow the town's scale when the stage changes it (stand to table, a new placement). */
@@ -83,12 +87,17 @@ export class TownRuntime {
 
   /** Registers a finished machine for animation. */
   addRig(rig: MachineRig): void {
-    if (!this.rigs.includes(rig)) this.rigs.push(rig);
+    if (this.rigs.includes(rig)) return;
+    this.rigs.push(rig);
+    // The lens opens the machine in the hand; one standing on its plot is opened by the palm only.
+    this.xrayOf.set(rig, this.xray.add({ root: rig.root, prefixes: XRAY_SHELL[rig.machineId] ?? [], lens: () => this.isCarried(rig) }));
   }
 
   removeRig(rig: MachineRig): void {
     const i = this.rigs.indexOf(rig);
     if (i >= 0) this.rigs.splice(i, 1);
+    this.xrayOf.get(rig)?.();
+    this.xrayOf.delete(rig);
     this.release(rig.root);
     disposeBaked(rig); // the machine is gone for good: its merged geometries go with it
   }
@@ -107,9 +116,16 @@ export class TownRuntime {
     }
   }
 
-  /** True while anything the town shows is changing: a ripple, a machine running or easing, a scale ease, the night, Otto. */
+  /** Not standing on a plot: on the bench or in the hand. */
+  private isCarried(rig: MachineRig): boolean {
+    if (this.seated.includes(rig.root)) return false;
+    for (let i = 0; i < this.parked.length; i++) if (this.parked[i].rig === rig) return false;
+    return true;
+  }
+
+  /** True while anything the town shows is changing: a ripple, a machine running or easing, a scale ease, the night, X-ray, Otto. */
   get busy(): boolean {
-    if (this.wake.active || this.scalers.length > 0 || this.nightAmount !== this.nightTarget || this.lightsMoving || this.ambienceShowing) return true;
+    if (this.wake.active || this.scalers.length > 0 || this.nightAmount !== this.nightTarget || this.lightsMoving || this.ambienceShowing || this.xray.busy) return true;
     const knead = this.town.knead;
     if (knead && knead.action.timeScale > 0) return true;
     for (let i = 0; i < this.rigs.length; i++) if (this.rigs[i].running || this.rigs[i].speed > 0) return true;
@@ -252,6 +268,7 @@ export class TownRuntime {
     }
     this.knead(dt);
     this.ambienceShowing = this.town.ambience.update(dt, time, this.wake, this.nightAmount, this.windmillSpeed());
+    this.xray.update(dt);
   }
 
   /** The eased run factor of the Windmill in the town, 0 when it is not there. A loop, not `rigOf`, so a frame allocates nothing. */

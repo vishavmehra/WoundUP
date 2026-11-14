@@ -34,19 +34,47 @@ export const READING_SPOT: V3 = v(0, 0.17, 0.27);
  * from the eyes over a stand (UI_UX_SPEC section 23, "avoid large panels close to the face"), still in front of the town.
  */
 export const PANEL_SPOT: V3 = v(0, 0.2, 0.15);
-/** Small brass buttons beside the bench, floating just above the surface: pause on the left, the gift ribbon on the right. */
-export const PAUSE_SPOT: V3 = v(-0.27, 0.09, 0.2);
-export const GIFT_SPOT: V3 = v(0.27, 0.09, 0.2);
-/** The daily repair medallion (ADR-027), above the pause one: the same distance from the town, one medallion higher. */
-export const DAILY_SPOT: V3 = v(-0.27, 0.15, 0.2);
+/**
+ * Small brass buttons beside the bench, floating just above the surface. The two that show while a machine is built (pause and the
+ * lens) stand on the right, away from the parts tray on the left and the build zone: a hand reaching into the tray has its open
+ * fingertip about 12 cm past the part it is about to pinch, and a fingertip within 2 cm of a medallion presses it (BUG-4: the old
+ * pause medallion, 12 cm from the second bracket, opened the Pause panel in the middle of the build). The two that show only in the
+ * town (gift and the daily repair) stand on the left, where no tray stands then. tests/ui/hot-zones.test.ts holds every one of them
+ * clear of the tray compartments and the build zone, against the real tray model.
+ */
+export const PAUSE_SPOT: V3 = v(0.28, 0.09, 0.2);
+export const GIFT_SPOT: V3 = v(-0.28, 0.09, 0.2);
+/** The daily repair medallion (ADR-027), above the gift one: the same distance from the town, one medallion higher. */
+export const DAILY_SPOT: V3 = v(-0.28, 0.15, 0.2);
 /**
  * The lens (X-ray) button, beside the bench on the pause side and nearer the player than the pause button, and the slip that tells
- * the player about the palm gesture just above it. Both clear of the bench (it ends at x = -22.5 cm) and of the town (it ends at z = +15 cm).
+ * the player about the palm gesture just above it. Both clear of the bench (it ends at x = +22.5 cm) and of the town (it ends at z = +15 cm).
  */
-export const LENS_SPOT: V3 = v(-0.27, 0.09, 0.3);
-export const LENS_HINT_SPOT: V3 = v(-0.27, 0.15, 0.3);
+export const LENS_SPOT: V3 = v(0.28, 0.09, 0.3);
+export const LENS_HINT_SPOT: V3 = v(0.28, 0.15, 0.3);
 /** The trunk latch (trunk_main.glb `COL_Latch`) scaled with the town. */
 export const latchSpot = (s: number): V3 => v(0, 0.14 * s, 0.125 * s);
+
+/** Side of a medallion (a square brass plate), metres: the `Surface` size flow-ui builds each of them at. */
+export const MEDALLION_SIZE_M = 0.05;
+/**
+ * How close a fingertip must come to a pressable surface to press it: IWSDK's touch pointer presses at 2 cm (`TOUCH_DEFAULTS.downRadius`
+ * in @iwsdk/xr-input) and clicks when the finger leaves again.
+ */
+export const POKE_PRESS_M = 0.02;
+/**
+ * A medallion turns to face the player, so what presses it is a sphere about its centre: half the plate's diagonal plus the press
+ * distance, whichever way it faces.
+ */
+export const MEDALLION_HOT_RADIUS_M = (MEDALLION_SIZE_M * Math.SQRT2) / 2 + POKE_PRESS_M;
+/**
+ * How far an open hand's index fingertip reaches past the point where the hand pinches (the IWER hand: 6 cm left, 6 cm up, 8 cm
+ * ahead, about 12 cm). A medallion that shows while parts are handled must be this far, beyond its own press sphere, from every
+ * place a part is pinched, or the finger approaching the part presses it.
+ */
+export const FINGER_REACH_M = 0.12;
+/** The footprint and height of the build zone about `BENCH.build` (the widest machine base, the Music Box case and the Carousel base, is 13 cm; the case is 10 cm tall, and a held part rises above it). */
+export const BUILD_ZONE = { halfX: 0.065, halfZ: 0.065, height: 0.13 } as const;
 
 export const benchPoint = (s: number, local: V3): V3 => v(local.x, local.y, benchZ(s) + local.z);
 

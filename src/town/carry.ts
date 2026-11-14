@@ -1,9 +1,10 @@
 import type { Entity, Object3D, World } from '@iwsdk/core';
-import { SnapPart } from '../interaction';
+import { SnapPart, XRayTarget } from '../interaction';
 import { attachColliderProxies, readInteractionNodes } from '../interaction/glb-reader';
 import { ReturnsToRest } from '../returns-to-rest-component';
 import { MACHINE_SNAP_PART } from './layout';
 import type { MachineRig } from './motion';
+import { xrayZoneOf } from './xray-view';
 
 /** The entity that owns `object`: IWSDK keeps the entity index on the objects of authored nodes and of its entities. */
 function entityOf(world: World, object: Object3D | null): Entity | undefined {
@@ -18,6 +19,7 @@ function entityOf(world: World, object: Object3D | null): Entity | undefined {
  *    takes it (TOCKTON_DIMENSIONS §3.4) and the other three plots refuse it with the bonk.
  *  - `ReturnsToRest` makes GrabModeSystem add the grab component and GrabFeedbackSystem return it to where it stood on the
  *    bench when it is let go away from a plot.
+ *  - `XRayTarget` makes the palm gesture open it, in the hand and later on its plot (xray-view.ts draws the result).
  *  - Its `COL_` empties (the handle's grab sphere, the case) become colliders. Its `SOCKET_` empties do not become sockets:
  *    the seated parts of a finished machine carry them 1.5 to 8 cm from its origin, so the machine would always be in snap range
  *    of its own sockets, show a red preview while carried and be rejected wherever it was dropped.
@@ -40,6 +42,7 @@ export function makeCarriable(world: World, rig: MachineRig): Entity {
   }
   entity.addComponent(SnapPart, { partId: MACHINE_SNAP_PART[rig.machineId], family: '' });
   entity.addComponent(ReturnsToRest, {});
+  entity.addComponent(XRayTarget, xrayZoneOf(rig.root));
   const nodes = readInteractionNodes(rig.root);
   for (const warning of nodes.warnings) console.warn(`[wound-up] ${rig.machineId}: ${warning}`);
   attachColliderProxies(nodes.colliders);
