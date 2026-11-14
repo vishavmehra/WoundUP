@@ -38,7 +38,7 @@ import type { MachineRig } from './town';
 import type { LidHinge } from './town/motion';
 import type { FlowEvent, FlowUi } from './ui';
 import { BENCH, benchPoint } from './ui/layout';
-import { placeTrayParts } from './tray-layout';
+import { dropSeatedByGame, placeTrayParts } from './tray-layout';
 
 /** A finished machine keeps running after it is placed for at most this long (the Music Box plays one cylinder turn), seconds. */
 const PLACED_RUN_CAP_S = 16;
@@ -269,6 +269,7 @@ export class Gameplay {
     for (const [socketId, partId] of Object.entries(start ? start.assembly : blueprint.intended)) {
       if (!handPlaced(socketId, partId)) fixed[socketId] = partId;
     }
+    if (!start) dropSeatedByGame(trayIds, fixed); // a part the game seats itself has no place in the tray
     const build: Build = { blueprint, machine, parts: [], fixed, repair, key: null };
     const seatNow: Array<[string, string]> = Object.entries(target).filter(([socketId]) => !(socketId in fixed));
     const spawnIds = [...trayIds.filter((id) => requirePart(id).grab.enabled), ...seatNow.map(([, partId]) => partId)];

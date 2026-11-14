@@ -91,6 +91,18 @@ export function assignSlots(assets: readonly string[], slotCount: number = TRAY_
   });
 }
 
+/**
+ * Takes out of `trayIds`, in place, one entry for each part in `fixed` (the parts the game seats itself: their sockets are in no GLB yet, so no
+ * hand can take them). They would only lie in the tray, unusable: the Windmill's sails (16 cm across) on a 12.5 cm tray, bearings, bevels.
+ * Call it for a first build only; a repair's tray holds exactly the parts a hand has to place.
+ */
+export function dropSeatedByGame(trayIds: string[], fixed: Readonly<Record<string, string>>): void {
+  for (const partId of Object.values(fixed)) {
+    const index = trayIds.indexOf(partId);
+    if (index >= 0) trayIds.splice(index, 1);
+  }
+}
+
 export interface TrayPart {
   readonly assetId: string;
   readonly family: string;

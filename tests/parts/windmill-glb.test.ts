@@ -1,6 +1,6 @@
 import { Grabbed, World } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
-import { Object3D, Scene, Texture, Vector3 } from 'three';
+import { DoubleSide, Mesh, MeshBasicMaterial, Object3D, Raycaster, Scene, Texture, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -12,6 +12,7 @@ import { MaterialRegistry, parseLibrary } from '../../src/materials';
 import { PartLoader } from '../../src/parts';
 import type { ModelSource } from '../../src/parts';
 import { ReturnsToRest } from '../../src/returns-to-rest-component';
+import { assignSlots, dropSeatedByGame } from '../../src/tray-layout';
 
 // Letter 5 on the real files: the Windmill base GLB carries the gear sockets (SOCKET_Pinion, SOCKET_Gear24), so a hand can swap the
 // wrong gear. Like glb-contract.test.ts it points at another folder with WU_MODELS_DIR=<absolute path of a public/assets/models folder>.
@@ -124,6 +125,85 @@ describe.skipIf(missing.length > 0)('Windmill gear sockets on the real GLBs (Let
     const second = solve();
     expect(second.status).toBe('runs');
     expect(second.millstone).toBeCloseTo(0.6, 9);
+  });
+
+  it('the 12T and the 24T at their sockets stand clear of the housing (no gear vertex inside the base): the walls leave room at 46.0 mm', async () => {
+    const source = new GlbSource();
+    await Promise.all(['windmill_base', 'gear_spur_12_m1', 'gear_spur_24_m1'].map((key) => source.load(key)));
+    const base = source.shared('windmill_base')!;
+    base.updateMatrixWorld(true);
+    const solid: Mesh[] = [];
+    base.traverse((n) => {
+      const mesh = n as Mesh;
+      if (!mesh.isMesh) return;
+      mesh.material = new MeshBasicMaterial({ side: DoubleSide }); // a ray has to count the walls it leaves by, too
+      solid.push(mesh);
+    });
+    const ray = new Raycaster();
+    ray.far = 2;
+    const dir = new Vector3(0.3, 0.8, 0.52).normalize(); // odd number of wall crossings along a ray: the point is inside the closed shell
+    const inside = (p: Vector3): boolean => {
+      ray.set(p, dir);
+      return ray.intersectObjects(solid, false).length % 2 === 1;
+    };
+    /** How many of the gear's vertices (every fourth one) lie inside the housing's solid when its origin is at `socket` plus `dx` metres along x. */
+    const trapped = (assetId: string, socket: string, dx = 0): number => {
+      const gear = source.clone(assetId)!;
+      const node = base.getObjectByName(`SOCKET_${socket}`)!;
+      gear.position.copy(node.position);
+      gear.position.x += dx;
+      gear.quaternion.copy(node.quaternion);
+      gear.updateMatrixWorld(true);
+      let count = 0;
+      const v = new Vector3();
+      gear.traverse((o) => {
+        const mesh = o as Mesh;
+        if (!mesh.isMesh) return;
+        const pos = mesh.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i += 4) if (inside(v.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld))) count++;
+      });
+      return count;
+    };
+    expect(trapped('gear_spur_24_m1', 'Gear24')).toBe(0);
+    expect(trapped('gear_spur_12_m1', 'Pinion')).toBe(0);
+    expect(trapped('gear_spur_24_m1', 'Gear24', 0.012)).toBeGreaterThan(0); // the test can see a gear in a wall: 12 mm to the side is
+  }, 60_000); // about 4000 rays against 13,000 triangles, brute force
+
+  it('keeps the parts the game seats itself off the tray of a first build: the Windmill tray holds what a hand can use, and no more', async () => {
+    const { scene, loader } = setup();
+    // What Gameplay.startBuild does for a first build: the tray is the blueprint's, minus what has no socket in the GLB (the game's) and no collider.
+    const trayFor = async (id: string): Promise<{ ids: string[]; fixed: string[] }> => {
+      const blueprint = getBlueprint(id)!;
+      const machine = await loader.spawnMachine(id, { parent: scene });
+      const ids = blueprint.tray.flatMap((e) => Array.from({ length: e.quantity }, () => e.partId));
+      const fixed: Record<string, string> = {};
+      for (const [socketId, partId] of Object.entries(blueprint.intended)) {
+        if (!(machine.sockets.has(socketId) && requirePart(partId).grab.enabled)) fixed[socketId] = partId;
+      }
+      dropSeatedByGame(ids, fixed);
+      return { ids: ids.filter((p) => requirePart(p).grab.enabled), fixed: Object.keys(fixed).sort() };
+    };
+    const windmill = await trayFor('windmill');
+    expect(windmill.fixed).toEqual(['bearing_deck', 'bearing_floor', 'bevel_hub', 'bevel_shaft', 'main_shaft', 'rotor', 'tower']);
+    // the gears (12T, 24T and the two decoys) and the millstone: the bearings, the shaft, the bevels and the 16 cm sails stay off the tray
+    expect(windmill.ids.map((id) => requirePart(id).visual.assetId).sort()).toEqual(
+      ['gear_spur_12_m1', 'gear_spur_16_m1', 'gear_spur_20_m1', 'gear_spur_24_m1', 'windmill_millstone'],
+    );
+    // the 12T and both decoys have a compartment; only the 24T and the millstone lie on the dividers
+    const slots = assignSlots(windmill.ids.map((id) => requirePart(id).visual.assetId));
+    expect(slots.filter((s) => s < 0)).toHaveLength(2);
+
+    // the Music Box has every socket in its GLBs: nothing is dropped, its twelve parts keep their twelve compartments
+    const box = await trayFor('music_box');
+    expect(box.fixed).toEqual([]);
+    expect(box.ids).toHaveLength(12);
+    expect(assignSlots(box.ids.map((id) => requirePart(id).visual.assetId))).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  });
+
+  it('drops one tray entry for each part the game seats, whatever order they come in', () => {
+    const ids = ['a', 'b', 'a', 'c'];
+    dropSeatedByGame(ids, { s1: 'a', s2: 'c', s3: 'missing' });
+    expect(ids).toEqual(['b', 'a']);
   });
 
   it('keeps the dependencies the game enforces: the 24T needs the pinion and the millstone first', () => {
