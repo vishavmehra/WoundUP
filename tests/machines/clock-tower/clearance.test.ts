@@ -35,6 +35,9 @@ const source: ModelSource = async (path) => {
   return { scene: gltf.scene, animations: gltf.animations };
 };
 
+/** Exact triangle tests on real GLBs: 1.6 s alone, over the 5 s default when other test files share the machine. */
+const SLOW = 60_000;
+
 const MM = 0.001;
 /** A part of the movement keeps at least this far from the shell, the base, the bell and the dial: a visible gap, not a touch. */
 const MIN_GAP = 0.3 * MM;
@@ -71,7 +74,7 @@ describe.skipIf(!present)('the Clock Tower movement against the real GLBs', () =
     root.updateMatrixWorld(true);
     statics = collectTriangles(root, (mesh: Mesh) => !underNamed(mesh, CLOCK_TOWER_NODE_NAMES.movement));
     node = (name) => root.getObjectByName(name) as Object3D;
-  });
+  }, SLOW);
 
   const solid = ['spring', 'barrel', 'inter_gear_1', 'large_gear', 'inter_gear_2', 'inter_gear_3', 'drive_shaft', 'hourly_cam'].map(movementNodeName);
   const escapement = ['EscapeWheel', 'EscapementAnchor', 'Pendulum_Rod'];
@@ -141,7 +144,7 @@ describe.skipIf(!present)('the Clock Tower movement against the real GLBs', () =
       }
     }
     expect(Math.abs(ratios.inter_gear_2 / ratios.inter_gear_3)).toBeCloseTo(24 / 10, 12);
-  });
+  }, SLOW);
 
   it('can see a bad mesh: a pinion turned half a tooth out of phase puts a tooth through its gear, and turned back it is clear again', () => {
     for (const [driver, driven, teeth] of [['inter_gear_3', 'inter_gear_2', 10], ['large_gear', 'inter_gear_1', 10]] as const) {
