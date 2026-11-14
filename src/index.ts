@@ -171,7 +171,7 @@ try {
     budget.wake(); // the scene moved while the session ran, so redraw what the landing shows
   });
   // With WebXR available parts answer to hands, not the mouse (ADR-024), so the default "drag it" hint would be untrue.
-  if (support !== 'none') {
+  if (support !== 'none' && landingOptions.previewHint !== DEMO_HINT) {
     const enter = support === 'vr' ? 'Enter VR' : 'Enter mixed reality';
     landingOptions.previewHint = `This preview is for looking. ${enter} to build the machines with your hands.`;
   }

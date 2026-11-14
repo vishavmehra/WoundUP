@@ -200,7 +200,8 @@ class Demo {
   /** Solver values only: what the machine is being driven with right now. */
   private text(): string {
     const { result, rig } = this.winding;
-    const lines = [`${this.machine}: solver says "${result.status}"${result.continuous ? '' : `, wound to ${MAX_WIND_UNITS}/${MAX_WIND_UNITS}`}`];
+    const wound = !result.continuous && rig.running ? `, wound to ${MAX_WIND_UNITS}/${MAX_WIND_UNITS}` : ''; // not claimed once the spring is spent
+    const lines = [`${this.machine}: solver says "${result.status}"${wound}`];
     lines.push(result.continuous ? 'driven by the wind' : `spring: ${this.winding.left.toFixed(1)} of ${result.runSeconds.toFixed(1)} s left${rig.running ? '' : ' (run down)'}`);
     for (const [socket, omega] of Object.entries(result.angularVelocity)) {
       if (rig.rotors.some((r) => r.socketId === socket)) lines.push(`${socket}: ${(omega * rig.speed).toFixed(2)} rad/s`);
@@ -238,7 +239,7 @@ function makeHud(): HTMLElement {
   hud.id = 'wu-demo-hud';
   hud.setAttribute('aria-hidden', 'true');
   hud.style.cssText =
-    'position:fixed;left:12px;bottom:12px;margin:0;padding:8px 10px;max-width:70vw;z-index:50;pointer-events:none;' +
+    'position:fixed;left:12px;top:64px;margin:0;padding:8px 10px;max-width:70vw;z-index:50;pointer-events:none;' + // under the Back button, clear of the hint pill
     'font:12px/1.35 ui-monospace,Consolas,monospace;color:#f2e6cf;background:rgba(43,26,15,0.72);border-radius:4px;white-space:pre-wrap';
   document.body.append(hud);
   return hud;
@@ -258,7 +259,7 @@ async function place(world: World, town: TownRuntime, materials: MaterialRegistr
     stage.add(rig.root);
     town.addRig(rig);
   } else {
-    town.placeRig(rig);
+    if (!town.placeRig(rig)) throw new Error(`The town has no plot for the ${machine}.`);
     town.restore([MACHINE_PLOT[machine]]);
   }
   return rig.root;

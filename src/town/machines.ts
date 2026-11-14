@@ -143,13 +143,15 @@ export async function buildCarousel(source: ModelSource, registry: MaterialRegis
   rig.rotors.push(rotor);
   rig.melody = rotor;
 
-  // Horses on the three poles, facing the way the platform turns, rising and falling a third of a turn apart.
+  // Horses on the three poles, facing the way the platform turns, rising and falling a third of a turn apart. The horse model
+  // looks along +Z. The solver turns the platform the negative way about +Y (the drive pinion's mesh reverses the spring), so
+  // head first is the tangent a quarter turn back from the pole's azimuth: yaw angle - 90 degrees.
   const count = CAROUSEL.poleAngles.length;
   for (let i = 0; i < count; i++) {
     const angle = CAROUSEL.poleAngles[i];
     const horse = await a.load(`${MODELS}carousel/carousel_horse.glb`);
     horse.position.set(CAROUSEL.poleRadius * Math.sin(angle), CAROUSEL.horseY, CAROUSEL.poleRadius * Math.cos(angle));
-    horse.rotation.y = angle + Math.PI / 2;
+    horse.rotation.y = angle - Math.PI / 2;
     platform.add(horse);
     rig.bobbers.push({ node: horse, driver: rotor, baseY: CAROUSEL.horseY, phase: horsePhase(i, count), amplitude: CAROUSEL.horseTravel });
   }

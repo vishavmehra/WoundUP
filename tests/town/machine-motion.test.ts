@@ -305,6 +305,20 @@ describe.skipIf(!modelsPresent)('the Carousel in motion', () => {
     expect(rig.pulsers).toHaveLength(6);
   });
 
+  it('carries every horse head first: it faces the way the platform takes it (the horse model looks along +Z)', () => {
+    rig.root.updateMatrixWorld(true);
+    for (const [i, { node }] of rig.bobbers.entries()) {
+      const before = worldPoint(node);
+      const forward = new Vector3(0, 0, 1).transformDirection(node.matrixWorld);
+      frames(rig, 0.1, 20 + i);
+      const travelled = worldPoint(node).sub(before);
+      travelled.y = 0;
+      forward.y = 0;
+      expect(travelled.length(), `horse_${i} moves`).toBeGreaterThan(0.001);
+      expect(forward.normalize().dot(travelled.normalize()), `horse_${i} moves head first, not tail first`).toBeGreaterThan(0.9);
+    }
+  });
+
   it('bobs three horses 120 degrees apart, as the solver\'s followers do', () => {
     let time = 1;
     for (let k = 0; k < 24; k++) {
