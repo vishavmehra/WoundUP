@@ -749,7 +749,7 @@ describe('FlowUi: the daily repair entry (ADR-027)', () => {
     expect([before, after]).toContain(event.date);
     expect(event.repair).toBe(dailyRepairFor(event.date)); // deterministic by date
     expect(r.ui.currentView).toMatchObject({ bench: true, parcel: 'closed', envelope: 'hidden', dailyButton: false });
-    expect(live(r)).toEqual(['UI_Pause', 'parcel']);
+    expect(live(r)).toEqual(['UI_Lens', 'UI_Pause', 'parcel']); // the lens (X-ray) shows wherever a machine is on the bench
 
     click(r, 'parcel'); // the parcel opens as for a letter; the integrator ignores the letter that is waiting
     expect(types(r)).toContain('parcel-opened');
