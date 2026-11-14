@@ -137,6 +137,7 @@ export class Gameplay {
   private tower: { rig: MachineRig; entity: Entity } | null = null;
   private towerPowered = false;
   private towerWarm = false;
+  private towerSystem: ClockTowerSystem | undefined;
   /** The theatre facade's doors (PIV_DoorL, PIV_DoorR), opened by the tower's hour; `doorsWereOpen` shuts them once it stops. */
   private readonly doors = new TheatreDoors();
   private doorsWereOpen = false;
@@ -299,7 +300,7 @@ export class Gameplay {
 
   /** The theatre doors follow the tower's hour: open for 30 seconds, then shut again (also when the tower is taken away mid-hour). */
   private updateDoors(): void {
-    const runtime = this.world.getSystem(ClockTowerSystem)?.runtime ?? null;
+    const runtime = this.clockTower()?.runtime ?? null;
     const open = runtime?.doorsOpen === true;
     if (open || this.doorsWereOpen) this.doors.apply(open && runtime ? runtime.doorsAmount : 0);
     this.doorsWereOpen = open;
@@ -308,7 +309,12 @@ export class Gameplay {
   /** The tower is on its plot: its clock runs, and the hour rings at once so the town sees the payoff (the real hour rings on the hour). */
   private towerPlaced(): void {
     this.syncTower();
-    this.world.getSystem(ClockTowerSystem)?.runtime?.triggerStrikes();
+    this.clockTower()?.runtime?.triggerStrikes();
+  }
+
+  /** The tower's system, looked up once (it is registered by `installGameplay`, so it exists from the first frame). */
+  private clockTower(): ClockTowerSystem | undefined {
+    return (this.towerSystem ??= this.world.getSystem(ClockTowerSystem));
   }
 
   /** The plot of the machine in the hand breathes in lamp light until the machine is put down on it. */

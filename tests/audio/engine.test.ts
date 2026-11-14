@@ -19,6 +19,10 @@ function playAll(audio: AudioEngine): void {
   audio.wind(3);
   audio.snap();
   audio.bonk();
+  audio.tick(0);
+  audio.tick(1);
+  audio.bell(1, 3);
+  audio.bell(3, 3);
   for (const plot of PLOT_IDS) audio.chime(plot);
 }
 

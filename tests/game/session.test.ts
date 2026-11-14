@@ -383,6 +383,43 @@ describe('GameSession: the daily repair', () => {
     expect(new GameSession({ storage }).dailyRepair('2026-11-15')).not.toBeNull();
   });
 
+  it('gives the same repair for the same date after a reload, and steps through the pool by date', () => {
+    const storage = new FakeStorage();
+    const game = new GameSession({ storage });
+    playUntil(game, 5);
+    const days = ['2026-11-14', '2026-11-15', '2026-11-16', '2026-11-17'];
+    const first = days.map((d) => game.dailyRepair(d)?.id);
+    const reloaded = new GameSession({ storage });
+    expect(days.map((d) => reloaded.dailyRepair(d)?.id)).toEqual(first); // the date alone decides, not the session
+    expect(new Set(first).size).toBe(2); // both repairs come up
+    expect(first[0]).toBe(first[2]);
+    expect(first[0]).not.toBe(first[1]);
+    expect(reloaded.save.dailyDone).toBeNull(); // looking is free: nothing was written
+  });
+
+  it('counts a repair started before midnight and finished after it for the day it was started on, and still offers the new day', () => {
+    const storage = new FakeStorage();
+    const game = new GameSession({ storage });
+    playUntil(game, 5);
+    const started = '2026-11-14';
+    const next = '2026-11-15';
+    ok(game.beginDailyRepair(started), 'begin');
+    ok(game.assemblyComplete(), 'assembled');
+    ok(game.dailyRepairVerified(started), 'verified'); // the integrator passes the date the build started on
+    expect(game.save.dailyDone).toBe(started);
+    expect(game.dailyRepair(started)).toBeNull();
+    expect(game.dailyRepair(next)).not.toBeNull(); // midnight passed: tomorrow's repair is on offer
+    expect(new GameSession({ storage }).save.dailyDone).toBe(started); // saved with the real save
+  });
+
+  it('is not offered after the story alone: Letter 6 and the closing card do not touch it', () => {
+    const game = new GameSession({ storage: null });
+    playUntil(game, 6);
+    expect(game.save.dailyDone).toBeNull();
+    expect(game.dailyRepair(TODAY)).not.toBeNull(); // still there after the story is over: repeat play
+    ok(game.beginDailyRepair(TODAY), 'begin after the closing card');
+  });
+
   it('cannot be completed outside Wind or Place, or before it was offered', () => {
     const game = new GameSession({ storage: null });
     playUntil(game, 5);
