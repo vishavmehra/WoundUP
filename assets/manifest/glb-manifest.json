@@ -5172,8 +5172,8 @@
       "productionClass": "B",
       "production": "hand_modelled",
       "description": "Shallow wooden tray with fitted compartments for loose parts.",
-      "gameplayPurpose": "Holds the correct parts and decoys; small parts get enlarged pinch targets; must not hide the blueprint.",
-      "contains": "Tray body and compartment dividers as named nodes; compartment SOCKET_ empties.",
+      "gameplayPurpose": "Holds the loose parts of the Music Box, one fitted compartment each (at least 3 mm clear of every wall); the game places each part by its asset id (src/tray-layout.ts); parts with no compartment lie on the dividers. Small parts get enlarged pinch targets; must not hide the blueprint.",
+      "contains": "Tray body and compartment dividers as named nodes; twelve compartment SOCKET_ empties (SOCKET_Slot01 to SOCKET_Slot12, in the order of the Music Box tray) at the centre of each compartment on the velvet, each carrying partAssets, innerMm and yawDeg.",
       "distinctBecause": "The only tray; one file serves every machine, with contents set by data.",
       "classification": "G0-required",
       "worldId": "tockton",
@@ -5235,15 +5235,125 @@
       "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Layout and size are open (B-05); one tray or one per machine is open, the default is one file. Tray size would be 12, 22, 26 or 34 slots if Parts means slots plus decoys (A section 2.1).",
+      "notes": "Layout and size follow TOCKTON_DIMENSIONS 5.2 (12.5 x 2.5 x 21 cm, interior 11.5 x 20.0 cm with 5 mm walls); one tray serves every machine, contents set by data. 2026-11-14: twelve compartments sized from the Music Box part GLBs (the 105 mm arbor shaft has a 17 x 116 mm slot); the earlier eight let the 105 mm shaft through the wall and four parts lie outside. All twelve fit, so none starts in the build zone. The front 6 cm of the tray holds parts too: 12 parts with 3 mm to every wall need 186 cm2 of the 230 cm2 interior, more than the 15 cm essential region (TOCKTON_DIMENSIONS 5.1 proposal) holds.",
       "closed": true,
       "origin": {
         "x": "centre",
         "y": "min",
         "z": "centre"
       },
-      "glbSha256": "bb5b4046c89100fd744737b44a4607e55a14d2d14e66bb9a33fafd4d7c91a97d",
-      "validationEvidence": "node tools/validate-glb.mjs (full manifest run, 67 entries), 2026-11-14: parts_tray 0 FAIL, 0 WARN."
+      "glbSha256": "3d25bc1b350ea2f92c0fd8b96edfcbd9c172896e0299ad13e2f6d879e1b79751",
+      "validationEvidence": "node tools/validate-glb.mjs --only parts_tray, 2026-11-14 (twelve compartments, forge --rework): 0 FAIL, 0 WARN, V16, V22 and V62 (the twelve declared SOCKET_Slot empties) PASS. tests/assets/tray-fit.test.ts, against the real part GLBs and the real tray mesh: all twelve Music Box parts and the worn spring rest fully inside their own compartment in the pose the game spawns them in, least clearance to any wall 3.57 mm (need 3.0), compartments 2.2 mm or more apart, no divider inside a compartment and no open velvet between them (rays on a 2 mm grid). Render: docs/evidence/assembly/tray_fit_topdown.png.",
+      "sockets": [
+        {
+          "name": "SOCKET_Slot01",
+          "positionM": [
+            -0.041675,
+            0.006,
+            0.0070837
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot02",
+          "positionM": [
+            -0.04035,
+            0.006,
+            0.0932125
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot03",
+          "positionM": [
+            0.048975,
+            0.006,
+            -0.042075
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot04",
+          "positionM": [
+            -0.001425,
+            0.006,
+            0.0669125
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot05",
+          "positionM": [
+            -0.04035,
+            0.006,
+            0.0511375
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot06",
+          "positionM": [
+            0.0073,
+            0.006,
+            -0.0150625
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot07",
+          "positionM": [
+            0.0123625,
+            0.006,
+            -0.0740875
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot08",
+          "positionM": [
+            0.038925,
+            0.006,
+            0.07968
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot09",
+          "positionM": [
+            0.038925,
+            0.006,
+            0.037605
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot10",
+          "positionM": [
+            -0.041675,
+            0.006,
+            -0.0249288
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot11",
+          "positionM": [
+            -0.0366125,
+            0.006,
+            -0.0740875
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Slot12",
+          "positionM": [
+            -0.001425,
+            0.006,
+            0.0248375
+          ],
+          "axis": "+Y"
+        }
+      ]
     },
     {
       "id": "parcel",

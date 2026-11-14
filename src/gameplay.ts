@@ -38,14 +38,10 @@ import type { MachineRig } from './town';
 import type { LidHinge } from './town/motion';
 import type { FlowEvent, FlowUi } from './ui';
 import { BENCH, benchPoint } from './ui/layout';
+import { placeTrayParts } from './tray-layout';
 
 /** A finished machine keeps running after it is placed for at most this long (the Music Box plays one cylinder turn), seconds. */
 const PLACED_RUN_CAP_S = 16;
-/** Disc-shaped parts lie flat in the tray; long ones (shafts, the cylinder, the comb, brackets) keep their own orientation. */
-const FLAT_FAMILIES: ReadonlySet<string> = new Set(['spur_gear', 'bevel_gear', 'pulley', 'spring', 'cam', 'escapement', 'governor', 'winding_key']);
-const FLAT: readonly [number, number, number, number] = [-Math.SQRT1_2, 0, 0, Math.SQRT1_2];
-/** The tray has 8 compartments; the rest wait in a column in the gap between the tray and the build zone, as a fraction of the column pitch. */
-const OVERFLOW_COLUMN = 0.8;
 const Z_AXIS = new Vector3(0, 0, 1);
 const _spin = new Quaternion();
 
@@ -281,25 +277,24 @@ export class Gameplay {
 
     this.build = build;
     if (handBuilt) {
-      const positions = trayPositions(this.ui.traySlots().map((v) => this.stage.worldToLocal(v)), spawnIds.length);
+      // Each part lies in the compartment made for it (parts_tray.glb, src/tray-layout.ts), in its final pose from the start: the pose it is
+      // spawned in is the one it returns to when it is let go.
+      const slots = this.ui.traySlots().map((v) => this.stage.worldToLocal(v));
+      const lies = placeTrayParts(
+        spawnIds.map((id) => ({ assetId: requirePart(id).visual.assetId, family: requirePart(id).family })),
+        slots,
+        _at.set(at.x, at.y + 0.05, at.z),
+      );
       const spawned = await Promise.all(
-        spawnIds.map((partId, i) => {
-          const family = requirePart(partId).family;
-          const p = positions[i];
-          return this.loader.spawnPart(partId, {
-            parent: this.stage,
-            position: p ? [p.x, p.y, p.z] : [at.x, at.y + 0.05, at.z],
-            quaternion: FLAT_FAMILIES.has(family) ? FLAT : undefined,
-            machine,
-          });
-        }),
+        spawnIds.map((partId, i) => this.loader.spawnPart(partId, { parent: this.stage, position: lies[i].position, quaternion: lies[i].quaternion, machine })),
       );
       if (token !== this.buildToken) return void spawned.forEach((part) => part.dispose());
       for (const part of spawned) {
         build.parts.push(part);
         for (const warning of part.warnings) console.warn(`[wound-up] ${part.partId}: ${warning}`);
       }
-      this.ui.revealParts(spawned.map((part) => part.object));
+      this.ui.revealParts(spawned.map((part) => part.object)); // pops them in; it also moves part i to compartment i, so each goes back to its own
+      spawned.forEach((part, i) => part.object.position.set(...lies[i].position));
       if (seatNow.length > 0) this.seat(build, spawned.slice(trayIds.filter((id) => requirePart(id).grab.enabled).length), seatNow);
     }
     this.ui.showBlueprint({
@@ -632,16 +627,6 @@ function speedRatio(blueprint: MachineBlueprint, result: SolveResult): number | 
   if (!first || first[1] === 0) return undefined;
   const measured = result.angularVelocity[first[0]];
   return measured === undefined ? undefined : Math.abs(measured) / Math.abs(first[1]);
-}
-
-/** Stage-local positions for `count` parts: the tray's compartments first, then one column in the gap beside the tray. */
-function trayPositions(slots: readonly Vector3[], count: number): Vector3[] {
-  const out = slots.slice(0, count).map((v) => v.clone());
-  if (count > slots.length && slots.length >= 8) {
-    const pitch = slots[4].clone().sub(slots[0]).multiplyScalar(OVERFLOW_COLUMN);
-    for (let i = slots.length; i < count; i++) out.push(slots[4 + ((i - 8) % 4)].clone().add(pitch));
-  }
-  return out;
 }
 
 /** The Music Box's lid stands open on the bench so the sockets can be reached; the finished machine closes it when it stops. */
