@@ -29,7 +29,7 @@ import { planBuild } from './build-plan';
 import { getBlueprint, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
 import type { Assembly, MachineBlueprint } from './content/blueprints';
 import { requirePart } from './content/parts';
-import { MACHINE_PLOT, REPAIRS } from './game/content';
+import { LESSON_IDS, MACHINE_PLOT, REPAIRS } from './game/content';
 import type { EngravingId, LetterDef, MachineId, PlotId, RepairDef } from './game/content';
 import type { Gift } from './game/gift';
 import type { GameSession } from './game/session';
@@ -37,6 +37,8 @@ import { interactionIntents, Socket, SnappedTo, WindKey, XRayTarget } from './in
 import type { InteractionIntent } from './interaction';
 import { CLOCK_TOWER_MODEL_PATHS, ClockTowerRigComponent, ClockTowerSystem, clockTowerEvents, installClockTower, TheatreDoors } from './machines/clock-tower';
 import type { MaterialRegistry } from './materials';
+import { installOnboarding } from './onboarding';
+import type { GameplayView, GhostGuide } from './onboarding';
 import { machineAssetIds, PartLoader } from './parts';
 import type { MachineInstance, PartInstance } from './parts';
 import { MAX_WIND_UNITS } from './sim';
@@ -138,6 +140,8 @@ export class Gameplay {
   private towerPowered = false;
   private towerWarm = false;
   private towerSystem: ClockTowerSystem | undefined;
+  /** The ghost-hand onboarding (src/onboarding, PRODUCT_SPEC F15): set by `installGameplay` once the town and the UI exist. */
+  guide: GhostGuide | null = null;
   /** The theatre facade's doors (PIV_DoorL, PIV_DoorR), opened by the tower's hour; `doorsWereOpen` shuts them once it stops. */
   private readonly doors = new TheatreDoors();
   private doorsWereOpen = false;
@@ -151,6 +155,11 @@ export class Gameplay {
     this.stage = stage;
     this.unsubscribe = interactionIntents.subscribe((intent) => this.onIntent(intent));
     this.unbindTowerAudio = bindClockTowerAudio(opt.audio, clockTowerEvents);
+  }
+
+  /** Keeps the 2D page rendering (the render budget's `wake`). */
+  keepAwake(): void {
+    this.opt.keepAwake();
   }
 
   private get session(): GameSession {
@@ -206,6 +215,7 @@ export class Gameplay {
   /** FlowUi's `onEvent`. */
   readonly onFlow = (event: FlowEvent): void => {
     this.opt.keepAwake();
+    this.lessonDone(event.type);
     switch (event.type) {
       case 'trunk-opened':
         this.town.town.group.visible = true;
@@ -240,6 +250,14 @@ export class Gameplay {
     }
   };
 
+  /** The player did what a ghost-hand lesson shows: the flow event is the proof (a press on the latch, the letter, the parcel, Run). */
+  private lessonDone(event: FlowEvent['type']): void {
+    if (event === 'trunk-opened') this.guide?.complete('latch');
+    else if (event === 'letter-accepted') this.guide?.complete('letter');
+    else if (event === 'parcel-opened') this.guide?.complete('parcel');
+    else if (event === 'run') this.guide?.complete('run');
+  }
+
   private cue(cue: 'latch' | 'paper' | 'button'): void {
     const audio = this.opt.audio;
     if (cue === 'latch') audio.snap();
@@ -272,6 +290,7 @@ export class Gameplay {
     const carried = this.carried;
     if (carried?.pending && this.session.mode === 'place') this.commitPlacement(carried, carried.pending.machine, carried.pending.plot);
     this.updateGlow(dt);
+    this.guide?.update(dt);
     for (let i = this.runs.length - 1; i >= 0; i--) {
       const run = this.runs[i];
       run.left -= dt;
@@ -583,6 +602,7 @@ export class Gameplay {
       this.runs.push({ rig: carried.rig, left: keepsRunning(machine, full) ? Infinity : Math.min(full.runSeconds, PLACED_RUN_CAP_S) });
     }
     if (machine === 'clock_tower') this.towerPlaced();
+    this.guide?.complete('place');
     this.daily = null;
     this.ui.onModeChange();
     this.preload(this.session.letter);
@@ -638,6 +658,23 @@ export class Gameplay {
     this.daily = null;
     this.town.reset();
     this.town.town.group.visible = false;
+    this.guide?.reset(this.session.save.learned);
+  }
+
+  /** Read-only windows onto the loop for the onboarding guide (src/onboarding/host.ts). */
+  guideView(): GameplayView {
+    return {
+      world: this.world,
+      session: this.session,
+      ui: this.ui,
+      town: this.town,
+      stage: this.stage,
+      townScale: () => this.townScale,
+      build: () => this.build,
+      carried: () => this.carried,
+      windUnits: () => this.windUnits,
+      assembly: () => this.assembly(),
+    };
   }
 
   /** The gift panel's machine: what the player built, or the intended build for one restored from a save. Null for a machine without a blueprint. */
@@ -654,6 +691,7 @@ export class Gameplay {
   }
 
   dispose(): void {
+    this.guide?.dispose();
     this.unsubscribe();
     this.unbindTowerAudio();
     this.disposeBuild();
@@ -676,6 +714,10 @@ export class Gameplay {
         letter: this.session.letter?.id ?? null,
         daily: this.daily?.repair.id ?? null,
       }),
+      /** The ghost-hand cue on show (lesson, kind, seconds, variant), or null. */
+      guide: () => this.guide?.state() ?? null,
+      /** Which lessons are learned: the tracker's and the save's. */
+      lessons: () => ({ learned: [...this.session.save.learned], tracker: this.guide ? LESSON_IDS.filter((id) => this.guide?.tracker.isLearned(id)) : [] }),
       /** A click on the UI target named `name` (a ray or poke), as pointer events deliver it; `hit` names the child that was hit (the trunk's `COL_Latch`). */
       press: (name: string, hit?: string): boolean => {
         // The three props keep their GLB's root name (`Scene`): they are the first three targets, in build order.
@@ -763,6 +805,7 @@ export class GameplaySystem extends createSystem({}) {
 
 export function installGameplay(world: World, gameplay: Gameplay): void {
   running.set(world, gameplay);
+  gameplay.guide = installOnboarding(gameplay.guideView(), () => gameplay.keepAwake());
   world.registerSystem(GameplaySystem, { priority: 12 });
   installClockTower(world); // after the interaction systems (10), the town (11) and this loop: see src/machines/clock-tower/INTEGRATION.md
 }
