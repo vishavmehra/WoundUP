@@ -179,8 +179,10 @@ const LOOKS: Readonly<Record<DemoRequest, DemoLook>> = {
   music_box: { elevationDeg: 38, closeness: 0.8 },
   carousel: { elevationDeg: 18, closeness: 0.95 },
   windmill: { elevationDeg: 14, closeness: 0.95 },
-  well: { elevationDeg: 22, closeness: 0.62 }, // tall and narrow: close, and high enough to look into the basin
-  belfry: { elevationDeg: 16, closeness: 0.7 },
+  // Tall and narrow: the framing sphere must be at least as tall as the machine, or the basin and jet (Well, 23 cm) and the bell and weathervane
+  // (Belfry, 30.7 cm) are out of the picture, which is the whole payoff. Scroll to come closer.
+  well: { elevationDeg: 24, closeness: 1.1 },
+  belfry: { elevationDeg: 14, closeness: 1.12 },
 };
 
 class Demo {
