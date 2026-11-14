@@ -141,6 +141,10 @@ export class FlowUi {
   private trunk!: { root: Object3D; entity: Entity; hot: Hot; hinge: ReturnType<typeof findHinge> };
   private envelope!: { root: Object3D; entity: Entity; hot: Hot; hinge: ReturnType<typeof findHinge> };
   private bench!: { root: Object3D; entity: Entity };
+  /** The workbench's scene root, for props that stand on it (the workshop lantern, src/town/workshop.ts). Valid after `init`. */
+  get benchRoot(): Object3D {
+    return this.bench.root;
+  }
   private parcel!: { root: Object3D; entity: Entity; hot: Hot; hinge: ReturnType<typeof findHinge> };
   private tray!: { root: Object3D; entity: Entity };
   private sheet!: { root: Object3D; entity: Entity; overlay: Surface };

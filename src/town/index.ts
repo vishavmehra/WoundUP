@@ -39,6 +39,8 @@ export { BLUEPRINT_SOCKET_IDS, buildMachine } from './machines';
 export { buildDressing, loadDressingModels } from './dressing';
 export type { Dressing, DressingModels } from './dressing';
 export { DRESSING } from './dressing-table';
+export { createEngravingPlate, plateText, showGiftPlate } from './engraving-plate';
+export type { EngravingPlate, PlateText } from './engraving-plate';
 export { createRig, createRotor } from './motion';
 export type { MachineRig, Rotor } from './motion';
 export { TownRuntime } from './runtime';
@@ -47,6 +49,7 @@ export { buildTown, loadModel, loadTown, plotSocket } from './scene';
 export type { ModelSource, Town } from './scene';
 export { TownSystem } from './system';
 export { WAKE_RIPPLE_S, WakeField } from './wake';
+export { addWorkshopLantern } from './workshop';
 
 export interface InstallTownOptions {
   /** The shared library materials (ADR-032): patched once for the frozen and awake looks, then used for every town model. */

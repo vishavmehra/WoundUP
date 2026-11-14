@@ -16,7 +16,7 @@ import { PartLoader } from './parts/index.js';
 import { installRenderBudget, type RenderBudget } from './render-budget.js';
 import { StageSystem } from './stage.js';
 import { standZoom } from './stage-framing.js';
-import { installTown } from './town/index.js';
+import { addWorkshopLantern, installTown, loadModel, showGiftPlate } from './town/index.js';
 import { browserShareEnv, installFlowUi, mountGiftViewer, type FlowEvent } from './ui/index.js';
 import { detectXrSupport, enterXR } from './xr-entry.js';
 
@@ -92,6 +92,7 @@ async function installGame(
   });
   progress(0.95);
   play.town.setNight(session.save.settings.night, true); // a saved night: the town loads dark, with no fade
+  void addWorkshopLantern(play.ui.benchRoot, loadModel, materials);
   installGameplay(gameWorld, play);
   await play.start();
   return play.debug();
@@ -112,6 +113,7 @@ async function installGiftPage(
   const reveal = async (gift: Gift): Promise<void> => {
     await texturesReady;
     await showGiftMachine(giftWorld, town, materials, gift);
+    await showGiftPlate(giftWorld, loadModel, materials, gift);
     landingOptions.previewHint = 'Your gift is turning on the stand. Enter mixed reality to see it on your own table.';
     idleMode = 'preview';
     page.setMode('preview');
