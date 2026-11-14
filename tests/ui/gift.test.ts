@@ -91,7 +91,12 @@ class El {
   type = '';
   removed = false;
   focused = false;
+  /** What `getBoundingClientRect` answers: a test sets it to say where the browser would have laid this element out. */
+  rect = { left: 0, top: 0, right: 0, bottom: 0 };
   constructor(readonly tag: string) {}
+  getBoundingClientRect(): { left: number; top: number; right: number; bottom: number } {
+    return this.rect;
+  }
   set textContent(text: string) {
     this.children = [text];
   }
@@ -165,6 +170,79 @@ describe('mountGiftViewer', () => {
     expect(shell.find('button')).toHaveLength(0);
     expect(shell.find('a')).toHaveLength(1);
     expect(onReveal).not.toHaveBeenCalled();
+  });
+
+  /** A window with the pieces the viewer measures with: the layout query, the height, resize and the card's own observer. */
+  function withWindow(sideLayout: boolean) {
+    const resize: Array<() => void> = [];
+    const observed: Array<() => void> = [];
+    vi.stubGlobal('window', {
+      innerHeight: 812,
+      matchMedia: () => ({ matches: sideLayout }),
+      addEventListener: (_type: string, fn: () => void) => resize.push(fn),
+      removeEventListener: (_type: string, fn: () => void) => resize.splice(resize.indexOf(fn), 1),
+    });
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(readonly callback: () => void) {
+          observed.push(callback);
+        }
+        observe(): void {}
+        disconnect(): void {
+          observed.length = 0;
+        }
+      },
+    );
+    return { resize, observed };
+  }
+
+  it('tells the page how much of a portrait window the revealed card covers: the bottom, never the machine above it', async () => {
+    withDom();
+    const win = withWindow(false);
+    const made = await createGiftLink(host(), 'music_box', 'for_you', {});
+    if (!made.ok) throw new Error('setup');
+    const root = new El('div');
+    const layouts: Array<unknown> = [];
+    const viewer = await mountGiftViewer(root as unknown as HTMLElement, hashOf(made.url), { ...options(), makeYourOwnHref: '/', onLayout: (i) => layouts.push(i) });
+    expect(layouts).toEqual([null]); // wrapped: no machine on show, so nothing to make room for
+    const shell = root.find('section')[0];
+    const card = shell.children[0] as El;
+    card.rect = { left: 20, top: 520, right: 355, bottom: 760 };
+    shell.find('button')[0].click(); // Unwrap
+    expect(layouts.at(-1)).toEqual({ top: 64, right: 16, bottom: 812 - 520 + 16, left: 16 });
+    card.rect = { left: 20, top: 480, right: 355, bottom: 760 }; // the card grew: the observer and a resize both re-measure
+    win.observed[0]();
+    expect(layouts.at(-1)).toMatchObject({ bottom: 812 - 480 + 16 });
+    card.rect = { left: 20, top: 540, right: 355, bottom: 760 };
+    win.resize[0]();
+    expect(layouts.at(-1)).toMatchObject({ bottom: 812 - 540 + 16 });
+    viewer.destroy();
+    expect(layouts.at(-1)).toBeNull();
+    expect(win.resize).toHaveLength(0);
+  });
+
+  it('covers only the left of a wide window: the card is a plate beside the machine', async () => {
+    withDom();
+    withWindow(true);
+    const made = await createGiftLink(host(), 'music_box', 'for_you', {});
+    if (!made.ok) throw new Error('setup');
+    const root = new El('div');
+    const layouts: Array<unknown> = [];
+    await mountGiftViewer(root as unknown as HTMLElement, hashOf(made.url), { ...options(), makeYourOwnHref: '/', onLayout: (i) => layouts.push(i) });
+    const shell = root.find('section')[0];
+    (shell.children[0] as El).rect = { left: 43, top: 300, right: 443, bottom: 600 };
+    shell.find('button')[0].click();
+    expect(layouts.at(-1)).toEqual({ top: 64, right: 16, bottom: 16, left: 443 + 16 });
+  });
+
+  it('reports nothing to make room for on an error card', async () => {
+    withDom();
+    withWindow(false);
+    const root = new El('div');
+    const layouts: Array<unknown> = [];
+    await mountGiftViewer(root as unknown as HTMLElement, '#nope', { ...options(), makeYourOwnHref: '/', onLayout: (i) => layouts.push(i) });
+    expect(layouts.at(-1)).toBeNull();
   });
 
   it('removes itself on destroy', async () => {
