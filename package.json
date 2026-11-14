@@ -18,10 +18,12 @@
     "assets:check": "node tools/validate-glb.mjs"
   },
   "dependencies": {
+    "@iwer/devui": "2.8.0",
     "@iwsdk/core": "1.1.0-rc.2",
     "@pmndrs/uikit": "^1.0.74",
     "@pmndrs/uikit-horizon": "^1.0.74",
     "@pmndrs/uikit-lucide": "^1.0.74",
+    "iwer": "2.8.0",
     "three": "npm:super-three@0.185.0"
   },
   "devDependencies": {
