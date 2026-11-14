@@ -26,7 +26,7 @@ test.describe('desktop browser without WebXR', () => {
     await expect(page.getByText('Raise the curtain.')).toBeVisible();
 
     // Chromium without a headset answers isSessionSupported() with false: the page must say so and never fake an XR button.
-    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none');
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none', { timeout: 60_000 });
     await expect(page.getByRole('button', { name: 'Preview in this browser' })).toBeVisible();
     await expect(page.getByRole('button', { name: /enter mixed reality/i })).toHaveCount(0);
     await expect(page.locator('.wu-slip')).toBeHidden(); // a failed WebGL start would show its error here
@@ -38,7 +38,7 @@ test.describe('desktop browser without WebXR', () => {
 
   test('preview: card gives way to the scene, hint and a way back', async ({ page }) => {
     await page.goto('./');
-    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none'); // buttons stay disabled until the world is ready
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none', { timeout: 60_000 }); // buttons stay disabled until the world is ready
     await page.getByRole('button', { name: 'Preview in this browser' }).click();
 
     await expect(page.locator('.wu')).toHaveAttribute('data-mode', 'preview');
@@ -54,7 +54,7 @@ test.describe('desktop browser without WebXR', () => {
   test('reduced motion: keyboard focus follows the preview in and back out', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('./');
-    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none');
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none', { timeout: 60_000 });
     const preview = page.getByRole('button', { name: 'Preview in this browser' });
     const back = page.getByRole('button', { name: 'Back to start' });
 

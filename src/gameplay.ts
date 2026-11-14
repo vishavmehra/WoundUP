@@ -14,7 +14,7 @@
  * most of the Windmill, `docs/PRODUCTION_AUDIT.md`), is filled by the game with its intended part, so the story is never stuck
  * on a socket nobody can reach. The wrong part of a repair on such a socket cannot be replaced yet (Letter 5).
  */
-import { createSystem, Grabbed, OneHandGrabbable, DistanceGrabbable, Quaternion, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, createSystem, DistanceGrabbable, Grabbed, Mesh, MeshBasicMaterial, OneHandGrabbable, PlaneGeometry, Quaternion, Vector3 } from '@iwsdk/core';
 import type { Entity, Object3D, World } from '@iwsdk/core';
 import type { AudioEngine } from './audio';
 import { getBlueprint, repairStart, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
@@ -32,7 +32,8 @@ import type { MachineInstance, PartInstance } from './parts';
 import { MAX_WIND_UNITS } from './sim';
 import type { SolveResult } from './sim';
 import { STAGE_NODE_ID, StageSystem } from './stage';
-import { BLUEPRINT_SOCKET_IDS, buildMachine, loadModel, makeCarriable, TownRuntime } from './town';
+import { BLUEPRINT_SOCKET_IDS, buildMachine, loadModel, makeCarriable, PLOTS, TownRuntime } from './town';
+import { PAD_TOP_M } from './town/layout';
 import type { MachineRig } from './town';
 import type { LidHinge } from './town/motion';
 import type { FlowEvent, FlowUi } from './ui';
@@ -103,6 +104,9 @@ export class Gameplay {
   private seating: Entity[] | null = null;
   private lid: LidHinge | null = null;
   private readonly unsubscribe: () => void;
+  /** The warm patch on the plot a carried machine belongs on ("Carry it to the glowing plot"), made on first use. */
+  private glow: Mesh | null = null;
+  private clock = 0;
 
   constructor(
     private readonly world: World,
@@ -208,6 +212,7 @@ export class Gameplay {
     }
     const carried = this.carried;
     if (carried?.pending && this.session.mode === 'place') this.commitPlacement(carried, carried.pending.machine, carried.pending.plot);
+    this.updateGlow(dt);
     for (let i = this.runs.length - 1; i >= 0; i--) {
       const run = this.runs[i];
       run.left -= dt;
@@ -215,6 +220,30 @@ export class Gameplay {
       run.rig.running = false;
       this.runs.splice(i, 1);
     }
+  }
+
+  /** The plot of the machine in the hand breathes in lamp light until the machine is put down on it. */
+  private updateGlow(dt: number): void {
+    const plot = this.carried ? PLOTS[MACHINE_PLOT[this.carried.rig.machineId]] : null;
+    if (!plot) {
+      if (this.glow) this.glow.visible = false;
+      return;
+    }
+    if (!this.glow) {
+      this.glow = new Mesh(
+        new PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+        new MeshBasicMaterial({ color: 0xffc66d, transparent: true, opacity: 0.35, depthWrite: false, blending: AdditiveBlending }),
+      );
+      this.glow.name = 'PlotGlow';
+      this.glow.renderOrder = 2;
+      this.town.town.group.add(this.glow);
+    }
+    this.clock += dt;
+    this.glow.visible = true;
+    this.glow.position.set(plot.x, PAD_TOP_M + 0.0008, plot.z);
+    this.glow.scale.set(plot.halfW * 2, 1, plot.halfD * 2);
+    (this.glow.material as MeshBasicMaterial).opacity = 0.22 + 0.16 * (0.5 + 0.5 * Math.sin(this.clock * 3));
+    this.opt.keepAwake();
   }
 
   // ---- Building -----------------------------------------------------------------------------------------------------
@@ -312,6 +341,9 @@ export class Gameplay {
     const assembly = this.assembly();
     if (!build.blueprint.sockets.every((s) => !s.required || assembly[s.id] !== undefined)) return;
     if (this.session.assemblyComplete()) {
+      // No key a hand can reach (the Windmill has none, the Carousel's is not placeable yet): the machine comes wound.
+      const keyByHand = build.blueprint.sockets.some((s) => s.family === 'winding_key' && !(s.id in build.fixed));
+      if (!keyByHand) this.windUnits = MAX_WIND_UNITS;
       this.ui.setWind(this.windUnits, MAX_WIND_UNITS);
       this.ui.onModeChange();
     }
@@ -553,9 +585,15 @@ export class Gameplay {
         const build = this.build;
         if (!build) return 0;
         const loose = build.parts.filter((p) => !p.entity.hasComponent(SnappedTo));
-        const plan = Object.entries(build.repair ? repairStart(build.repair)?.assembly ?? {} : build.blueprint.intended).filter(([id, partId]) => !(id in build.fixed) && build.machine.sockets.has(id) && !build.machine.assembly()[id] && loose.some((p) => p.partId === partId));
+        const plan = Object.entries(build.blueprint.intended).filter(([id, partId]) => !(id in build.fixed) && build.machine.sockets.has(id) && !build.machine.assembly()[id] && loose.some((p) => p.partId === partId));
         this.seat(build, loose, plan);
         return plan.length;
+      },
+      /** A hand pulls the seated part `partId` out of its socket. */
+      pull: (partId: string): boolean => {
+        const part = this.build?.parts.find((p) => p.partId === partId && p.entity.hasComponent(SnappedTo));
+        part?.entity.removeComponent(SnappedTo);
+        return Boolean(part);
       },
       /** The key is wound to `units`, as if by hand. */
       wind: (units: number): void => {

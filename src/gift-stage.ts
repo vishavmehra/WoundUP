@@ -13,6 +13,9 @@ import type { MachineRig, TownRuntime } from './town';
 
 /** Where a machine's base stands on the velvet stand, stage-local metres. */
 const STAND_TOP_M = 0.002;
+/** The gift machine is shown larger than life and towards the back of the stand, clear of the card that covers the lower part of the page. */
+const GIFT_SCALE = 1.5;
+const GIFT_BACK_M = -0.07;
 const shown = new WeakMap<TownRuntime, MachineRig>();
 
 /** Puts the gift's machine on the stand and starts it, fully wound; "Show it again" replaces it. */
@@ -30,7 +33,8 @@ export async function showGiftMachine(world: World, town: TownRuntime, materials
   const outcome = solveAssembly(blueprint, Object.fromEntries(gift.placements.map((p) => [p.socketId, p.partId])), MAX_WIND_UNITS);
   rig.result = outcome.ok ? outcome.result : null;
   rig.running = true;
-  rig.root.position.set(0, STAND_TOP_M, 0);
+  rig.root.position.set(0, STAND_TOP_M, GIFT_BACK_M);
+  rig.root.scale.setScalar(GIFT_SCALE); // the card covers the lower part of the page: bigger, and towards the back of the stand
   stage.add(rig.root);
   town.addRig(rig);
   shown.set(town, rig);

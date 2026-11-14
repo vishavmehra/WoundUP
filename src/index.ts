@@ -60,6 +60,7 @@ async function installGame(
   materials: MaterialRegistry,
   texturesReady: Promise<void>,
   budget: RenderBudget,
+  progress: (fraction: number) => void,
 ): Promise<ReturnType<Gameplay['debug']>> {
   const session = new GameSession();
   // Easy Snap from the save reaches the snap system before the flow UI reads it.
@@ -68,8 +69,10 @@ async function installGame(
   audio.installGestureUnlock();
   bindInteractionAudio(audio);
   const play = new Gameplay(gameWorld, { session, materials, audio, texturesReady, keepAwake: () => budget.wake() });
+  progress(0.3);
   play.town = await installTown(gameWorld, { registry: materials, audio, events: play.townEvents, keepAwake: () => budget.wake() });
   play.loader = new PartLoader(gameWorld, materials);
+  progress(0.7);
   play.ui = await installFlowUi(gameWorld, {
     session,
     townScale: () => gameWorld.getSystem(StageSystem)?.townScale ?? 1,
@@ -83,6 +86,7 @@ async function installGame(
     },
     share: browserShareEnv(),
   });
+  progress(0.95);
   installGameplay(gameWorld, play);
   await play.start();
   return play.debug();
@@ -145,7 +149,7 @@ try {
   let debugHandle: ReturnType<Gameplay['debug']> | undefined;
   try {
     if (hasGiftHash(location.hash)) await installGiftPage(world, materials, texturesReady, landing, budget);
-    else debugHandle = await installGame(world, materials, texturesReady, budget);
+    else debugHandle = await installGame(world, materials, texturesReady, budget, (fraction) => landing.setLoading(fraction));
   } catch (error) {
     console.error('[wound-up] Could not start the game:', error);
     landing.showError('The town could not be unpacked. Reload the page to try again.');
