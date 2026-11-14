@@ -2088,8 +2088,8 @@
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Required by PRODUCT_SPEC section 6.1 but absent from the 12-row Music Box boards; it appears on the Parts Catalogue (row R) and the Gear Train Guide (governor at the output). Type is unspecified; Stage 1 chooses one from the Parts Catalogue. The folder name governor is a proposal because PartFamily has no governor value (A-01). ADR-042 (2026-11-14): size set to the approved [0.0306, 0.024, 0.0342] m of TOCKTON_DIMENSIONS section 11; the earlier [0.024, 0.024, 0.03] m (basis proposal) is superseded.0342 m (tolerance 1 % or 0.5 mm) (and 1 more); rework required.",
-      "validationEvidence": "node tools/validate-glb.mjs --only governor_standard, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt to the approved size (ADR-042) with the assembly-check fit fixes of docs/evidence/ASSEMBLY_CHECK_2026-11-14.md.",
-      "glbSha256": "0a942540efee57fd12c1701fdcbed207f20fba09fc020de2303a50c714ae4e6e"
+      "validationEvidence": "node tools/validate-glb.mjs --only governor_standard, 2026-11-14 18:40: 0 FAIL, 0 WARN. Rebuilt to the approved size (ADR-042) with the assembly-check fit fixes of docs/evidence/ASSEMBLY_CHECK_2026-11-14.md. Arm shortened to clear the Seat_Governor pad and forked around its locating peg (re-check failure 6 fixed, 0.21 mm gap).",
+      "glbSha256": "bf5c8c70b9bc927312f937b90d208214233c32317ee2e8be2e609f9facaf93d6"
     },
     {
       "id": "winding_key",
@@ -2816,8 +2816,8 @@
       "requiredNodes": [
         "PIV_Lid"
       ],
-      "glbSha256": "ae2b03a9b54f1f63630ec511bedc1eed97795e55d55f327f5d4e80367b0f56de",
-      "validationEvidence": "node tools/validate-glb.mjs --only music_box_case, 2026-11-14: 0 FAIL, 0 WARN. Static meshes merged per material to cut draw calls; helpers unchanged except the five sockets moved for the +1.0 mm gear clearance (stage 1 38.5 mm, stage 2 36.0 mm) and the opened key bore (assembly check 2026-11-14). Key bore widened to 4.6 mm for the spring arbor boss (BVH: 0 overlaps, 0.161 mm min clearance to the spring, 1.308 mm to the key)."
+      "glbSha256": "e9012922d9d47f463ba9d64426a5ed6d9b0f9652da630d7fa58fccb7bbf228cf",
+      "validationEvidence": "node tools/validate-glb.mjs --only music_box_case, 2026-11-14 18:40: 0 FAIL, 0 WARN. Static meshes merged per material to cut draw calls; helpers unchanged except the five sockets moved for the +1.0 mm gear clearance (stage 1 38.5 mm, stage 2 36.0 mm) and the opened key bore (assembly check 2026-11-14). Key bore widened to 4.6 mm for the spring arbor boss (BVH: 0 overlaps, 0.161 mm min clearance to the spring, 1.308 mm to the key). Bracket floor marks are frames around the feet (assembly re-check failure 4 fixed, 0.0 mm3 overlap)."
     },
     {
       "id": "cylinder_music_box",

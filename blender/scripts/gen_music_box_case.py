@@ -154,13 +154,21 @@ TRAY = [
 PANEL_Z = dict(w=10.2, h=3.7, r=0.35, cy=3.45)
 
 
+# Bracket floor mark: a flush-footed brass frame round the foot, not a pad under it. The bracket's foot stands on the floor (y 6.0 mm, ASSEMBLY_CHECK
+# failure 4: a 1.2 mm raised pad sat inside the foot), so nothing may rise inside the foot's 4.0 x 22.0 mm outline; the frame's window clears it by 0.3 mm.
+MARK_WIN = (0.46, 2.26, 0.04)                                  # window w (x), d (z), corner radius, cm: the foot is x +-2.0, z +-11.0 mm
+MARK_PROF = [(0.0, 0.0), (0.22, 0.0), (0.22, 0.09), (0.19, 0.12), (0.03, 0.12), (0.0, 0.09)]   # (offset from the window, height): 2.2 mm wide, 1.2 mm high
+
+
 def bracket_seat(b, x):
-    """Floor mark of a support bracket: a low brass pad, two guide tabs the 6 mm bracket foot slots between, two screws."""
-    b.box((x, Y_FLOOR + 0.06, ARB_Z), (0.9, 0.12, 2.6), ABR, bev=0.03, seg=1)
+    """Floor mark of a support bracket: a low brass frame the 4 mm bracket foot stands inside (window 0.3 mm over the foot), two guide tabs on its
+    long rails, and two screws on its end bars."""
+    b.band("xz", *MARK_WIN, Y_FLOOR, MARK_PROF, ABR, cu=x, cv=ARB_Z, nx=1, nz=2, nc=2)
     for dx in (-0.40, 0.40):
         b.box((x + dx, Y_FLOOR + 0.20, ARB_Z), (0.10, 0.40, 2.4), ABR, bev=0.025, seg=1)
-    for dz in (-0.9, 0.9):
-        b.lathe([(0.0, -0.02), (0.14, -0.02), (0.14, 0.0), (0.12, 0.04), (0.05, 0.06), (0.0, 0.06)], PBR, axis="y", c=(x, Y_FLOOR + 0.12, ARB_Z + dz), segs=8)
+    zs = MARK_WIN[1] / 2 + MARK_PROF[1][0] / 2                   # the middle of an end bar
+    for dz in (-zs, zs):
+        b.lathe([(0.0, -0.02), (0.10, -0.02), (0.10, 0.0), (0.085, 0.035), (0.04, 0.05), (0.0, 0.05)], PBR, axis="y", c=(x, Y_FLOOR + 0.12, ARB_Z + dz), segs=8)
 
 
 def wall_pad(b, x_face, sgn, y, z, r=0.55, mat=ABR, bore=0.0, phase=0.0):
