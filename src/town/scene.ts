@@ -9,6 +9,8 @@ import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
 import { TOWN_NODE_ID } from '../stage';
 import type { PlotId } from '../game/content';
+import { buildAmbience } from './ambience';
+import type { Ambience } from './ambience';
 import { buildDressing, loadDressingModels } from './dressing';
 import type { Dressing, DressingModels } from './dressing';
 import { BAKER_SOCKET, BAKERY_AT, MIRA_AT, PLOTS, THEATRE_AT } from './layout';
@@ -44,6 +46,8 @@ export interface Town {
   readonly knead: { readonly mixer: AnimationMixer; readonly action: AnimationAction } | null;
   /** The houses, props and lamp posts. Null when their files did not load (the town is then bare but plays). */
   readonly dressing: Dressing | null;
+  /** Chimney smoke, the oven glow and the pennants (ambience.ts): three draw calls, all off while the plots they belong to are frozen. */
+  readonly ambience: Ambience;
 }
 
 /** The app's loader: IWSDK's AssetManager caches the file and hands out a clone (shared geometry and materials) per call. */
@@ -108,6 +112,8 @@ export function buildTown(
   group.add(ground, bakery, theatre, mira);
   const dressing = models.dressing ? buildDressing(models.dressing, registry) : null;
   if (dressing) group.add(dressing.group);
+  const ambience = buildAmbience({ bakery, withHouses: dressing !== null });
+  group.add(ambience.group);
 
   const clip = models.otto.animations.find((c) => c.name === KNEAD_CLIP);
   let knead: Town['knead'] = null;
@@ -119,7 +125,7 @@ export function buildTown(
     mixer.update(0); // applies that first frame
     knead = { mixer, action };
   }
-  return { group, ground, bakery, theatre, otto, mira, knead, dressing };
+  return { group, ground, bakery, theatre, otto, mira, knead, dressing, ambience };
 }
 
 /** The `SOCKET_Plot...` empty of a plot in the town ground: where a machine's base origin lands. Null when the GLB lacks it. */
