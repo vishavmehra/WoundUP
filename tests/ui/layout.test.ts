@@ -38,12 +38,12 @@ describe('flow UI layout against INTERACTION_SPEC §3', () => {
     }
   });
 
-  it('keeps the lens and its hint reachable, beside the bench and clear of the town', () => {
+  it('keeps the lens and its hint reachable, beside the bench (on the side away from the parts tray) and clear of the town', () => {
     for (const eye of EYES) {
       expect(reachFromChest(eye, LENS_SPOT), `reach, eyes ${eye.y}/${eye.z}`).toBeLessThanOrEqual(COMFORT_REACH_M);
     }
     expect(targetAngleDeg(eyeAt(0.38, 0.55), LENS_SPOT)).toBeLessThanOrEqual(COMFORT_ANGLE_DEG + 10); // not essential: the palm gesture is the first way
-    expect(LENS_SPOT.x).toBeLessThan(-0.225 - 0.025); // the bench is 45 cm wide: the 5 cm medallion sits beside it
+    expect(LENS_SPOT.x).toBeGreaterThan(0.225 + 0.025); // the bench is 45 cm wide: the 5 cm medallion sits beside it, on the right, away from the parts tray (tests/ui/hot-zones.test.ts)
     expect(LENS_SPOT.z).toBeGreaterThan(0.15 + 0.025); // and in front of the town's front edge (z = +15 cm)
     expect(LENS_HINT_SPOT.x).toBe(LENS_SPOT.x);
     expect(LENS_HINT_SPOT.y).toBeGreaterThan(LENS_SPOT.y);
