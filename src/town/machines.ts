@@ -124,6 +124,7 @@ export async function buildWindmill(source: ModelSource, registry: MaterialRegis
   const rig = createRig('windmill', base);
   if (sails) rig.rotors.push(createRotor(sails, ids.sails, { axis: axisOfGlb(sails) }));
   if (stone) rig.rotors.push(createRotor(stone, ids.millstone, { axis: axisOfGlb(stone) }));
+  rig.bakeable = true; // everything that moves is a rotor: the rest is baked when the machine stands in the town (bake.ts)
   return rig;
 }
 
@@ -164,6 +165,7 @@ export async function buildCarousel(source: ModelSource, registry: MaterialRegis
     const lamp = await a.seatAt(canopy, `Lamp${i}`, `${MODELS}carousel/carousel_lamp.glb`);
     if (lamp) rig.pulsers.push({ node: lamp, phase: i * 1.7, amplitude: 0.18, speed: 5.5, baseScale: 1 });
   }
+  rig.bakeable = true; // the platform carries all that moves; the base is baked when the machine stands in the town (bake.ts)
   return rig;
 }
 
@@ -203,6 +205,7 @@ export async function buildMusicBox(source: ModelSource, registry: MaterialRegis
     const openDeg = (pivot.userData.wu as { openDeg?: number } | undefined)?.openDeg ?? 100;
     rig.lid = { pivot, rest: new Quaternion().copy(pivot.quaternion), openRad: (openDeg * Math.PI) / 180, angle: 0 };
   }
+  rig.bakeable = true; // the rotors and the lid are all that moves; the case and the brackets are baked when the machine stands in the town (bake.ts)
   return rig;
 }
 

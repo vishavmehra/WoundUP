@@ -172,6 +172,40 @@ describe('SocketSnapSystem', () => {
     expect(intents[2]).toMatchObject({ type: 'rejected', reason: 'occupied' });
   });
 
+  it('takes a part from 9 cm (11 cm with Easy Snap) at a socket that asks for a capture radius, and 4 cm (7 cm) at one that does not (ADR-048)', () => {
+    const { world, scene } = boot();
+    world.registerSystem(SocketSnapSystem, { priority: 10 });
+    const { glb } = housing(world, scene, ['gear_spur'], { captureRadius: 0.09, captureRadiusEasy: 0.11 });
+    expect(glb.warnings).toEqual([]);
+    expect(glb.sockets[0].getValue(Socket, 'captureRadius')).toBeCloseTo(0.09, 6);
+    expect(glb.sockets[0].getValue(Socket, 'captureRadiusEasy')).toBeCloseTo(0.11, 6);
+
+    const far = part(world, scene, 'g1', 'gear_spur', 0.1);
+    grab(far);
+    tick(world);
+    letGo(far);
+    expect(types()).toEqual([]); // 10 cm: out of its 9 cm, and nothing happens
+    far.object3D!.position.x = 0.085;
+    grab(far);
+    tick(world);
+    letGo(far);
+    expect(types()).toEqual(['snapped']);
+    for (let i = 0; i < 12; i++) tick(world);
+    expect(far.object3D!.position.length()).toBeLessThan(1e-6); // and it settles onto the socket
+    glb.dispose();
+
+    // The same part at a socket with no capture radius of its own needs to be within 4 cm.
+    const plain = boot();
+    plain.world.registerSystem(SocketSnapSystem, { priority: 10 });
+    housing(plain.world, plain.scene, ['gear_spur']);
+    const p = part(plain.world, plain.scene, 'g2', 'gear_spur', 0.085);
+    intents.length = 0;
+    grab(p);
+    tick(plain.world);
+    letGo(p);
+    expect(types()).toEqual([]);
+  });
+
   it('seats with the socket orientation, or only the +Z axis when the socket asks for it', () => {
     const tilt = new Euler(Math.PI / 2, 0, 0);
     const a = boot();

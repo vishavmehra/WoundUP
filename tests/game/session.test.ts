@@ -164,6 +164,20 @@ describe('GameSession: the core loop', () => {
     expect(game.letter).toBeNull();
   });
 
+  it('offers Letter 7 to a player whose save from an older build ended on the closing card after Letter 6 (ADR-048)', () => {
+    const first = new GameSession({ storage: new FakeStorage() });
+    playUntil(first, 6);
+    const data = JSON.parse(JSON.stringify(first.save)) as { letters: Record<string, string>; machines: unknown[] };
+    delete data.letters.letter_7;
+    delete data.letters.letter_8;
+    const storage = new FakeStorage({ [SAVE_KEY]: JSON.stringify(data) });
+    const returning = new GameSession({ storage });
+    expect(returning.loadStatus).toBe('loaded');
+    expect(returning.save.letters.letter_7).toBe('available'); // settle unlocks it on load, as it did for Letter 6
+    expect(returning.letter?.id).toBe('letter_7');
+    expect(returning.closing).toBeNull();
+  });
+
   it('keeps the Belfry out of the story when it is cut: Letter 7 is then the last (ADR-048 cut order)', () => {
     const game = new GameSession({ storage: null, progression: { clockTower: true, belfry: false } });
     playUntil(game, 7);

@@ -4,10 +4,12 @@ import {
   BELFRY_BELL_PROFILE,
   filledDependents,
   getBlueprint,
+  giftCatalogue,
   repairStart,
   solveAssembly,
   unmetDependencies,
   validateMachineBlueprint,
+  verifyGift,
   WELL,
   WELL_PROFILE,
   WELL_STROKE_M,
@@ -15,6 +17,8 @@ import {
 import type { Assembly, MachineBlueprint } from '../../src/content/blueprints';
 import { requirePart } from '../../src/content/parts';
 import { REPAIRS } from '../../src/game/content';
+import { decodeGift, encodeGift } from '../../src/game/gift';
+import type { Gift } from '../../src/game/gift';
 import { MAX_WIND_UNITS } from '../../src/sim';
 import type { SolveResult } from '../../src/sim';
 
@@ -27,7 +31,6 @@ const run = (bp: MachineBlueprint, assembly: Assembly, windUnits: number = MAX_W
 };
 const swapped = (bp: MachineBlueprint, socketId: string, partId: string): Assembly => ({ ...bp.intended, [socketId]: partId });
 const gear = (teeth: number): string => `gear_spur_${teeth}_m1_brass`;
-const ROUND = 1e-9;
 
 describe('both machines', () => {
   it.each([WELL, BELFRY])('$id: passes blueprint validation, is registered, and has 11 required sockets, each with a pose', (bp) => {
@@ -56,6 +59,27 @@ describe('both machines', () => {
     expect(REPAIRS.silent_bell.blueprintId).toBe('belfry');
     expect(WELL.housing.assetId).toBe('well_base');
     expect(BELFRY.housing.assetId).toBe('belfry_base');
+  });
+});
+
+describe('gifts of the two machines (PRODUCT_SPEC §13)', () => {
+  it.each([WELL, BELFRY])('$id: rebuilds from its link, runs for the solver, and is refused with a wrong gear', async (bp) => {
+    const gift: Gift = {
+      blueprintId: bp.id,
+      blueprintVersion: bp.version,
+      placements: Object.entries(bp.intended).map(([socketId, partId]) => ({ socketId, partId })),
+      engraving: 'with_love',
+    };
+    const options = { catalogue: giftCatalogue, verify: verifyGift };
+    const encoded = await encodeGift(gift, options);
+    expect(encoded.ok).toBe(true);
+    if (!encoded.ok) return;
+    expect(encoded.hash.length).toBeLessThan(1500); // a link a person can paste (GIFT_URL_TARGET_CHARS)
+    const decoded = await decodeGift(encoded.hash, options);
+    expect(decoded).toMatchObject({ ok: true, gift: { blueprintId: bp.id, engraving: 'with_love' } });
+    const wrong = { ...gift, placements: gift.placements.map((p) => (p.socketId === 'drive_gear' ? { ...p, partId: gear(16) } : p)) };
+    const refused = await encodeGift(wrong, options);
+    expect(refused.ok).toBe(false); // a machine that does not run correctly is never gifted
   });
 });
 

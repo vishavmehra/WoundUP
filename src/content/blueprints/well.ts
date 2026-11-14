@@ -131,8 +131,8 @@ export const WELL: MachineBlueprint = {
 };
 
 /**
- * Nodes of `well_base.glb` that cover the works from above and at the corners (BLUEPRINT §8.1): the generic X-ray fade lifts them while
- * the palm is over the machine. The plate behind, the slab, the basin, the pool and the chute are not shell: the front is open, and the
- * water is what the machine is for.
+ * What of `well_base.glb` covers the works, for the generic X-ray fade (INTERACTION_SPEC §11). The file has one body mesh, `Well_Plate`, with one
+ * primitive per library material and no node per piece, so the roof is named by its material: the teal primitive. The posts, the plate behind,
+ * the slab, the basin, the pool and the chute are not shell: the front is open, and the water is what the machine is for.
  */
-export const WELL_SHELL_NODES: readonly string[] = ['Well_Roof', 'Well_Posts'];
+export const WELL_SHELL = { node: 'Well_Plate', materials: ['Mat_TealPaint'] } as const;

@@ -1,6 +1,7 @@
 /**
  * Desktop demo view (debug only): `/?debug&demo=music_box` (or `carousel`, `windmill`, `well`, `belfry`) skips the flow and shows that finished
- * machine running, so the way its parts work together can be watched in a plain browser window.
+ * machine running, so the way its parts work together can be watched in a plain browser window. `demo=town` puts all six machines on their
+ * plots, awake and running, which is how the awake town's draw calls are measured (`window.__world.renderer.info`).
  *
  * It is not an animation of its own. The machine is the one the game builds (`buildMachine`), the speeds are the solver's
  * (`solveAssembly` at eight wind units), and the rig is stepped by the town runtime exactly as in play (`stepRig`). All this file
@@ -15,7 +16,8 @@ import { Box3, createSystem, Vector3 } from '@iwsdk/core';
 import type { Object3D, World } from '@iwsdk/core';
 import { AudioEngine } from '../audio';
 import { getBlueprint, solveAssembly } from '../content/blueprints';
-import { MACHINE_PLOT } from '../game/content';
+import { MACHINE_IDS, MACHINE_PLOT, PLOT_IDS } from '../game/content';
+import type { MachineId } from '../game/content';
 import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
 import type { RenderBudget } from '../render-budget';
@@ -31,16 +33,19 @@ import { BENCH, benchPoint, benchZ } from '../ui/layout';
 /** The finished machines `buildMachine` makes. */
 export const DEMO_MACHINES = ['music_box', 'carousel', 'windmill', 'well', 'belfry'] as const;
 export type DemoMachine = (typeof DEMO_MACHINES)[number];
+/** `?debug&demo=town`: every machine of the game on its own plot. */
+export const DEMO_TOWN = 'town';
+export type DemoRequest = DemoMachine | typeof DEMO_TOWN;
 
 export const DEMO_HINT = 'Debug demo: the real solver is turning this machine. Drag to look around, scroll to zoom.';
 
 /** The machine `?debug&demo=<machine>` asks for, or null. Without `debug` the demo does not exist. */
-export function demoRequest(search: string): DemoMachine | null {
+export function demoRequest(search: string): DemoRequest | null {
   const params = new URLSearchParams(search);
   const wanted = params.get('demo');
   if (!params.has('debug') || wanted === null) return null;
-  if ((DEMO_MACHINES as readonly string[]).includes(wanted)) return wanted as DemoMachine;
-  console.warn(`[wound-up] demo "${wanted}" has no finished machine in this build (try ${DEMO_MACHINES.join(', ')}); starting the game.`);
+  if (wanted === DEMO_TOWN || (DEMO_MACHINES as readonly string[]).includes(wanted)) return wanted as DemoRequest;
+  console.warn(`[wound-up] demo "${wanted}" has no finished machine in this build (try ${DEMO_MACHINES.join(', ')}, ${DEMO_TOWN}); starting the game.`);
   return null;
 }
 
@@ -169,29 +174,33 @@ interface DemoLook {
   /** How much of the field of view the machine fills; below 1 is closer. */
   closeness: number;
 }
-const LOOKS: Readonly<Record<DemoMachine, DemoLook>> = {
+const LOOKS: Readonly<Record<DemoRequest, DemoLook>> = {
+  town: { elevationDeg: 30, closeness: 0.8 },
   music_box: { elevationDeg: 38, closeness: 0.8 },
   carousel: { elevationDeg: 18, closeness: 0.95 },
   windmill: { elevationDeg: 14, closeness: 0.95 },
-  well: { elevationDeg: 12, closeness: 0.95 },
-  belfry: { elevationDeg: 10, closeness: 0.95 },
+  well: { elevationDeg: 22, closeness: 0.62 }, // tall and narrow: close, and high enough to look into the basin
+  belfry: { elevationDeg: 16, closeness: 0.7 },
 };
 
 class Demo {
   private hudClock = HUD_PERIOD_S;
 
   constructor(
-    readonly machine: DemoMachine,
+    readonly machine: DemoRequest,
     readonly rig: MachineRig,
     readonly winding: Winding,
     private readonly view: OrbitView,
     private readonly hud: HTMLElement,
     private readonly budget: RenderBudget,
+    /** The other machines of the town demo, wound with the first. */
+    private readonly others: readonly Winding[] = [],
   ) {}
 
   update(rawDt: number): void {
     const dt = rawDt < MAX_FRAME_S ? rawDt : MAX_FRAME_S;
     this.winding.update(dt);
+    for (const w of this.others) w.update(dt);
     this.view.update(dt);
     this.budget.wake(); // the camera moves every frame, so the 2D page draws every frame
     this.hudClock += dt;
@@ -250,10 +259,10 @@ function makeHud(): HTMLElement {
 }
 
 /** Sits the finished machine where the game would, and returns the point the camera looks at and how big the machine is. */
-async function place(world: World, town: TownRuntime, materials: MaterialRegistry, rig: MachineRig, machine: DemoMachine): Promise<Object3D> {
+async function place(world: World, town: TownRuntime, materials: MaterialRegistry, rig: MachineRig, machine: MachineId, onBench: boolean): Promise<Object3D> {
   const stage = world.getSceneObject(STAGE_NODE_ID);
   if (!stage) throw new Error(`Scene node "${STAGE_NODE_ID}" is missing.`);
-  if (machine === 'music_box') {
+  if (onBench) {
     const bench = (await loadModel('tockton/workshop/workbench.glb')).scene;
     applyLibraryMaterials(bench, materials);
     bench.position.set(0, 0, benchZ(town.townScale));
@@ -275,27 +284,35 @@ async function place(world: World, town: TownRuntime, materials: MaterialRegistr
  * Builds the finished machine, puts it where the game does, winds it with the real solver's result and starts the camera.
  * The caller (src/index.ts) switches the page to its preview mode.
  */
-export async function installDemo(world: World, materials: MaterialRegistry, texturesReady: Promise<void>, budget: RenderBudget, machine: DemoMachine): Promise<void> {
+export async function installDemo(world: World, materials: MaterialRegistry, texturesReady: Promise<void>, budget: RenderBudget, request: DemoRequest): Promise<void> {
   const audio = new AudioEngine();
   audio.installGestureUnlock(); // the melody sounds after the first click or key press
   const town = await installTown(world, { registry: materials, audio, keepAwake: () => budget.wake() });
   await texturesReady;
-  const blueprint = getBlueprint(machine);
-  const rig = await buildMachine(machine, loadModel, materials, BLUEPRINT_SOCKET_IDS);
-  if (!blueprint || !rig) throw new Error(`There is no finished ${machine} to show.`);
-  const outcome = solveAssembly(blueprint, blueprint.intended, MAX_WIND_UNITS);
-  if (!outcome.ok) throw new Error(`The solver rejected the ${machine}: ${JSON.stringify(outcome.errors)}`);
-
-  const root = await place(world, town, materials, rig, machine);
-  const winding = new Winding(rig, outcome.result);
-  if (rig.lid) rig.lid.angle = rig.lid.openRad; // open from the first frame: the mechanism is what there is to see
-  stepRig(rig, 0, 0); // poses the open lid before the machine is measured and drawn
+  // One machine, or the whole town: every machine of the game, each on its own plot.
+  const ids: readonly MachineId[] = request === DEMO_TOWN ? MACHINE_IDS : [request];
+  const windings: Winding[] = [];
+  const rigs: MachineRig[] = [];
+  for (const id of ids) {
+    const blueprint = getBlueprint(id);
+    const rig = await buildMachine(id, loadModel, materials, BLUEPRINT_SOCKET_IDS);
+    if (!blueprint || !rig) throw new Error(`There is no finished ${id} to show.`);
+    const outcome = solveAssembly(blueprint, blueprint.intended, MAX_WIND_UNITS);
+    if (!outcome.ok) throw new Error(`The solver rejected the ${id}: ${JSON.stringify(outcome.errors)}`);
+    await place(world, town, materials, rig, id, request === 'music_box');
+    windings.push(new Winding(rig, outcome.result));
+    if (rig.lid) rig.lid.angle = rig.lid.openRad; // open from the first frame: the mechanism is what there is to see
+    stepRig(rig, 0, 0); // poses the open lid before the machine is measured and drawn
+    rigs.push(rig);
+  }
+  if (request === DEMO_TOWN) town.restore(PLOT_IDS);
+  const rig = rigs[0];
   world.scene.updateMatrixWorld(true);
-  const box = new Box3().setFromObject(root);
-  const look = LOOKS[machine];
+  const box = new Box3().setFromObject(request === DEMO_TOWN ? town.town.group : rig.root);
+  const look = LOOKS[request];
   const view = new OrbitView(world, box.getCenter(new Vector3()), (box.getSize(new Vector3()).length() / 2) * look.closeness, (look.elevationDeg * Math.PI) / 180);
 
-  const demo = new Demo(machine, rig, winding, view, makeHud(), budget);
+  const demo = new Demo(request, rig, windings[0], view, makeHud(), budget, windings.slice(1));
   running.set(world, demo);
   world.registerSystem(DemoSystem, { priority: 12 });
   Object.assign(window, { __wuDemo: demo });

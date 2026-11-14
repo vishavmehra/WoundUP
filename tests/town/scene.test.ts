@@ -1,7 +1,8 @@
 import { Mesh } from '@iwsdk/core';
 import { describe, expect, it, vi } from 'vitest';
 import { TOWN_NODE_ID } from '../../src/stage';
-import { BAKERY_AT, MIRA_AT, PLOTS, THEATRE_AT } from '../../src/town/layout';
+import { readInteractionNodes } from '../../src/interaction/glb-reader';
+import { BAKERY_AT, MACHINE_SNAP_PART, MIRA_AT, PLOT_CAPTURE_M, PLOTS, THEATRE_AT } from '../../src/town/layout';
 import { buildTown, KNEAD_CLIP, plotSocket } from '../../src/town/scene';
 import { libraryRegistry, syntheticTown, townModels } from './helpers';
 
@@ -63,6 +64,39 @@ describe('buildTown', () => {
     });
     expect(seen.size).toBe(1); // every synthetic mesh is brass: one instance for all of them
     expect(libraryRegistry().owns(registry.get('Mat_AgedBrass'))).toBe(false);
+  });
+
+  it("gives the Well's and the Belfry's plot sockets their 9 cm and 11 cm capture radii, and no other plot one (ADR-048)", () => {
+    const { town } = syntheticTown();
+    const sockets = readInteractionNodes(town.ground).sockets;
+    expect(sockets).toHaveLength(Object.keys(PLOTS).length);
+    for (const plot of Object.values(PLOTS)) {
+      const def = sockets.find((s) => s.node === plotSocket(town, plot.id))!;
+      const capture = PLOT_CAPTURE_M[plot.id];
+      expect(def.captureRadius, plot.id).toBe(capture?.radius ?? 0);
+      expect(def.captureRadiusEasy, plot.id).toBe(capture?.easyRadius ?? 0);
+    }
+    expect(sockets.filter((s) => s.captureRadius > 0).map((s) => s.id).sort()).toEqual(['PlotBelfry', 'PlotWell']);
+  });
+
+  it("makes a plot's socket from the layout when the ground has none (an older town_ground.glb), says so, and makes no pad", () => {
+    const models = townModels();
+    for (const name of ['PlotWell', 'PlotBelfry']) models.ground.scene.getObjectByName(`SOCKET_${name}`)?.removeFromParent();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const town = buildTown(models, libraryRegistry());
+    expect(warn.mock.calls.map(([m]) => /SOCKET_\w+/.exec(String(m))?.[0])).toEqual(['SOCKET_PlotWell', 'SOCKET_PlotBelfry']);
+    warn.mockRestore();
+    const sockets = readInteractionNodes(town.ground).sockets;
+    for (const [id, part] of [['plot_well', 'well_base'], ['plot_belfry', 'belfry_base']] as const) {
+      const node = plotSocket(town, id)!;
+      expect(node.position.toArray(), id).toEqual([PLOTS[id].x, 0.006, PLOTS[id].z]);
+      expect(sockets.find((s) => s.node === node)?.accepts, id).toEqual([part]);
+      expect(sockets.find((s) => s.node === node)?.captureRadius, id).toBe(0.09);
+    }
+    expect(MACHINE_SNAP_PART.well).toBe('well_base');
+    let meshes = 0;
+    town.ground.traverse((o) => void ((o as Mesh).isMesh && meshes++));
+    expect(meshes).toBe(1); // only the synthetic slab: no pad was invented
   });
 
   it('finds the socket of every plot in the ground, at the pad centre', () => {

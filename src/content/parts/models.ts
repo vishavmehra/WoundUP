@@ -54,27 +54,15 @@ export const MODEL_PATHS: Readonly<Record<string, string>> = {
   escapement_anchor: 'shared/escapement/escapement_anchor.glb',
   cam_hourly_chime: 'shared/cam/cam_hourly_chime.glb',
   spring_barrel: 'shared/spring/spring_barrel.glb',
-  // The Well's housing (ADR-048, `blender/scripts/gen_well.py`)
+  // The Well and the Belfry (ADR-048, `blender/scripts/gen_well.py`, `gen_belfry.py`): their housings and the Belfry's weathervane
   well_base: 'tockton/well/well_base.glb',
-};
-
-/**
- * The GLBs of the Belfry (ADR-048) that the asset agents have not delivered into `public/assets/models/` yet: where each
- * will live (WELL_FOUNTAIN_BLUEPRINT §8, BELFRY_BLUEPRINT §8, §12). Until a file is there the machine that needs it cannot be
- * started, so the loader says "no model" instead of fetching a 404. When a file lands, move its line into `MODEL_PATHS` (the manifest
- * agrees with that table, tests/content/parts.test.ts); tests/content/pending-models.test.ts fails while a listed file already exists.
- */
-export const PENDING_MODEL_PATHS: Readonly<Record<string, string>> = {
   belfry_base: 'tockton/belfry/belfry_base.glb',
   belfry_vane: 'tockton/belfry/belfry_vane.glb',
 };
 
-const has = (table: Readonly<Record<string, string>>, assetId: string): boolean => Object.prototype.hasOwnProperty.call(table, assetId);
-
-/** The path of an asset's GLB under `assets/models/`, delivered or pending; undefined for an unknown asset id. */
+/** The path of an asset's GLB under `assets/models/`, or undefined for an unknown asset id. */
 export function modelPath(assetId: string): string | undefined {
-  if (has(MODEL_PATHS, assetId)) return MODEL_PATHS[assetId];
-  return has(PENDING_MODEL_PATHS, assetId) ? PENDING_MODEL_PATHS[assetId] : undefined;
+  return Object.prototype.hasOwnProperty.call(MODEL_PATHS, assetId) ? MODEL_PATHS[assetId] : undefined;
 }
 
 /** URL of an asset's GLB under the app's base path, or undefined for an unknown asset id. */

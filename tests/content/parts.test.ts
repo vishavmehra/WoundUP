@@ -6,7 +6,6 @@ import {
   MODEL_PATHS,
   modelPath,
   modelUrl,
-  PENDING_MODEL_PATHS,
   PART_DEFINITIONS,
   partIdsForAsset,
   partIdsOfFamily,
@@ -36,6 +35,13 @@ interface ManifestAsset {
 }
 const manifest = readJson('assets/manifest/glb-manifest.json') as { assets: ManifestAsset[] };
 const library = readJson('public/assets/materials/library.json') as { materials: Record<string, unknown> };
+
+/**
+ * The GLBs the asset branch delivered for the Well and the Belfry (ADR-048) are in MODEL_PATHS and public/; the lead brings their manifest entries
+ * in line when the branches merge (WELL_FOUNTAIN_BLUEPRINT §12 items 1 and 2, BELFRY_BLUEPRINT §12 items 1 and 2: path, classification, the new
+ * `well_base`, `belfry_base` and `belfry_vane` entries), so they are not held to it here.
+ */
+const manifestToUpdate = new Set(['ratchet_wheel', 'pawl_standard', 'flywheel_standard', 'well_base', 'belfry_base', 'belfry_vane']);
 
 describe('part catalogue', () => {
   it('has unique ids of the form <asset id>_<finish word> that the gift codec accepts', () => {
@@ -68,10 +74,7 @@ describe('part catalogue', () => {
 
   it('names a GLB file for every part and for each machine housing, and the manifest agrees where the file is', () => {
     const byId = new Map(manifest.assets.map((a) => [a.id, a] as const));
-    for (const p of PART_DEFINITIONS) expect(modelPath(p.visual.assetId), p.id).toBeDefined(); // delivered, or pending (ADR-048)
-    // The GLBs the asset branch delivered for the Well (ADR-048) are in MODEL_PATHS and public/; the lead brings their manifest entries in line
-    // when the branches merge (WELL_FOUNTAIN_BLUEPRINT §12 items 1 and 2: path, classification, the new `well_base` entry), so they are not held to it here.
-    const manifestToUpdate = new Set(['ratchet_wheel', 'pawl_standard', 'flywheel_standard', 'well_base']);
+    for (const p of PART_DEFINITIONS) expect(MODEL_PATHS[p.visual.assetId], p.id).toBeDefined();
     const lagging: string[] = [];
     for (const [assetId, path] of Object.entries(MODEL_PATHS)) {
       const entry = byId.get(assetId);
@@ -83,6 +86,7 @@ describe('part catalogue', () => {
       expect(entry?.glbPath).toBe(`public/assets/models/${path}`);
     }
     if (lagging.length > 0) console.warn(`[parts] manifest entries still to update by the lead (ADR-048 §12): ${lagging.join(', ')}`);
+    expect(modelPath('well_base')).toBe('tockton/well/well_base.glb');
     expect(modelUrl('gear_spur_20_m1')).toBe('/assets/models/shared/spur_gear/gear_spur_20_m1.glb');
     expect(modelUrl('constructor')).toBeUndefined();
     expect(modelUrl('nope')).toBeUndefined();
@@ -93,7 +97,7 @@ describe('part catalogue', () => {
     for (const p of PART_DEFINITIONS) {
       expect(Object.keys(library.materials), p.id).toContain(p.visual.finish);
       const entry = byId.get(p.visual.assetId);
-      if (entry === undefined && Object.prototype.hasOwnProperty.call(PENDING_MODEL_PATHS, p.visual.assetId)) continue; // a GLB not yet in the manifest (the Belfry's vane): the finish is the blueprint's
+      if (entry === undefined && manifestToUpdate.has(p.visual.assetId)) continue; // a GLB the lead has not entered into the manifest yet (the Belfry's vane)
       expect(entry?.materials[0], p.id).toBe(p.visual.finish);
     }
   });

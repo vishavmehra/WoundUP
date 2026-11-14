@@ -107,6 +107,33 @@ describe('pickSocket', () => {
     expect(out.status).toBe('family');
   });
 
+  it('lets a socket with its own capture radius take a part from further away, and never from nearer than the global radius (ADR-048)', () => {
+    const wide = (x: number, radius = 0.09, easy = 0.11): SocketSample => ({ ...socket(x), captureRadius: radius, captureRadiusEasy: easy });
+    expect(pickSocket(part(0.085), [wide(0)], SNAP_RADIUS_M, out)).toBe(true); // 8.5 cm: inside its 9 cm
+    expect(pickSocket(part(0.095), [wide(0)], SNAP_RADIUS_M, out)).toBe(false); // 9.5 cm: outside it
+    expect(pickSocket(part(0.105), [wide(0)], EASY_SNAP_RADIUS_M, out, true)).toBe(true); // with Easy Snap it reaches 11 cm
+    expect(pickSocket(part(0.115), [wide(0)], EASY_SNAP_RADIUS_M, out, true)).toBe(false);
+    // The flag chooses between its two radii: 10 cm is beyond 9 cm, so without Easy Snap it does not take it.
+    expect(pickSocket(part(0.1), [wide(0)], EASY_SNAP_RADIUS_M, out, false)).toBe(false);
+    // A radius below the global one is ignored: a socket is never harder to reach than the rest.
+    expect(pickSocket(part(0.035), [wide(0, 0.01, 0.02)], SNAP_RADIUS_M, out)).toBe(true);
+    // Zero and absent mean "use the global radius".
+    expect(pickSocket(part(0.05), [{ ...socket(0), captureRadius: 0, captureRadiusEasy: 0 }], SNAP_RADIUS_M, out)).toBe(false);
+    expect(pickSocket(part(0.05), [socket(0)], SNAP_RADIUS_M, out)).toBe(false);
+  });
+
+  it('keeps the nearest-valid rule across sockets of different radii: a wide socket does not win from afar over a near one that takes the part', () => {
+    const near = socket(0.01);
+    const wide: SocketSample = { ...socket(-0.08), captureRadius: 0.09, captureRadiusEasy: 0.11 };
+    expect(pickSocket(part(0), [wide, near], SNAP_RADIUS_M, out)).toBe(true);
+    expect(out.index).toBe(1);
+    // The wide socket alone takes a part the near one would reject by family.
+    const nearWrong = socket(0.01, ['shaft']);
+    expect(pickSocket(part(0), [wide, nearWrong], SNAP_RADIUS_M, out)).toBe(true);
+    expect(out.index).toBe(0);
+    expect(out.status).toBe('valid');
+  });
+
   it('reuses its output and handles an empty socket list', () => {
     expect(pickSocket(part(0), [], SNAP_RADIUS_M, out)).toBe(false);
     expect(out.index).toBe(-1);

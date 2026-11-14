@@ -113,8 +113,9 @@ export const BELFRY: MachineBlueprint = {
 };
 
 /**
- * Nodes of `belfry_base.glb` that cover the works (BLUEPRINT §8.1): the cap, the arcade and the corner posts. The generic X-ray fade lifts
- * them while the palm is over the machine. The plinth, the plate and the beam are not shell: the plinth carries the machine, the beam
- * carries the bell.
+ * What of `belfry_base.glb` covers the works, for the generic X-ray fade (INTERACTION_SPEC §11). The file has one body mesh, `Belfry_Plinth`,
+ * with one primitive per library material and no node per piece, so the cap and the arcade are named by their materials: the teal primitive
+ * (cap) and the painted-wood one (arcade). The stone plinth, the plate, the corner posts and the beam are not shell: the plinth carries the
+ * machine and the beam the bell.
  */
-export const BELFRY_SHELL_NODES: readonly string[] = ['Belfry_Cap', 'Belfry_Arcade', 'Belfry_Posts'];
+export const BELFRY_SHELL = { node: 'Belfry_Plinth', materials: ['Mat_TealPaint', 'Mat_PaintedWood'] } as const;

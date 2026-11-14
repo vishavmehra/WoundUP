@@ -95,6 +95,43 @@ describe('loading', () => {
   });
 });
 
+describe('the Well and the Belfry in a save (ADR-048)', () => {
+  /** A save written before they existed: six letters, four machines, version 1 (what a player who finished the story in an earlier build has). */
+  const sixLetters = (): Record<string, unknown> => {
+    const data = valid();
+    const letters = data.letters as Record<string, string>;
+    delete letters.letter_7;
+    delete letters.letter_8;
+    data.machines = (data.machines as Array<{ blueprintId: string }>).filter((m) => m.blueprintId !== 'well' && m.blueprintId !== 'belfry');
+    return data;
+  };
+
+  it('still loads an older version 1 save: Letters 7 and 8 are simply locked, and the four machines are as they were', () => {
+    const r = parseSave(JSON.stringify(sixLetters()));
+    expect(r.status).toBe('loaded');
+    expect(r.save.version).toBe(1);
+    expect(r.save.letters).toMatchObject({ letter_5: 'completed', letter_6: 'completed', letter_7: 'locked', letter_8: 'locked' });
+    expect(r.save.machines.map((m) => m.blueprintId).sort()).toEqual(['carousel', 'clock_tower', 'music_box', 'windmill']);
+    expect(Object.keys(r.save.letters)).toEqual([...LETTER_IDS]); // the map is whole again
+  });
+
+  it('round-trips both machines on their own plots and rejects each on the other plot', () => {
+    const r = parseSave(serializeSave(playStory()));
+    expect(r.status).toBe('loaded');
+    expect(r.save.machines.find((m) => m.blueprintId === 'well')).toEqual({ blueprintId: 'well', built: true, placed: true, plotId: 'plot_well' });
+    expect(r.save.machines.find((m) => m.blueprintId === 'belfry')).toEqual({ blueprintId: 'belfry', built: true, placed: true, plotId: 'plot_belfry' });
+    const swap = (machine: string, plot: string) => ({ ...valid(), machines: (valid().machines as Array<Record<string, unknown>>).map((m) => (m.blueprintId === machine ? { ...m, plotId: plot } : m)) });
+    reject(swap('well', 'plot_belfry'));
+    reject(swap('belfry', 'plot_well'));
+  });
+
+  it('does not accept Letter 8 before Letter 7, nor a Letter 9', () => {
+    const letters = { ...(valid().letters as Record<string, string>), letter_7: 'accepted', letter_8: 'available' };
+    reject({ ...valid(), letters });
+    reject({ ...valid(), letters: { ...(valid().letters as Record<string, string>), letter_9: 'locked' } });
+  });
+});
+
 describe('rejecting corrupt or foreign data (SAVE §9)', () => {
   it.each([
     ['empty string', ''],
