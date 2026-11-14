@@ -50,7 +50,7 @@ test.describe('emulated Quest 3 (emulator evidence, not hardware evidence)', () 
 
   test('APP-02/04/06: Enter starts an immersive-ar session with optional hand tracking, exiting restores the landing', async ({ page }) => {
     await page.goto(DEV_URL);
-    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'ar');
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'ar', { timeout: 60_000 }); // the buttons wait for the town to unpack: a cold dev server takes a while
     const enter = page.getByRole('button', { name: 'Enter mixed reality' });
     await expect(enter).toBeVisible();
     await enter.click();
@@ -77,7 +77,7 @@ test.describe('emulated Quest 3 (emulator evidence, not hardware evidence)', () 
     test.setTimeout(240_000); // software rendering runs the emulated Quest at about one frame per second
     await page.setViewportSize({ width: 640, height: 360 });
     await page.goto(DEV_URL);
-    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'ar');
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'ar', { timeout: 60_000 }); // the buttons wait for the town to unpack: a cold dev server takes a while
     await page.getByRole('button', { name: 'Enter mixed reality' }).click();
     await expect(page.locator('.wu')).toHaveAttribute('data-mode', 'xr', { timeout: 60_000 });
 
@@ -131,7 +131,7 @@ test.describe('emulated Quest 3 (emulator evidence, not hardware evidence)', () 
       if (r.url().includes('generic-hand')) handRequests.push(r.url());
     });
     await page.goto(DEV_URL);
-    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'ar');
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'ar', { timeout: 60_000 }); // the buttons wait for the town to unpack: a cold dev server takes a while
     await page.getByRole('button', { name: 'Enter mixed reality' }).click();
     await expect(page.locator('.wu')).toHaveAttribute('data-mode', 'xr', { timeout: 15_000 });
 

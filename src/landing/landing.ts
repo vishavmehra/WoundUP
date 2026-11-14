@@ -41,8 +41,8 @@ const COPY: Record<XrSupport, { msg: string; go: string }> = {
 const LOADING = 'Winding up the town…';
 const PREVIEW = 'Preview in this browser';
 const COPY_LINK = 'Copy link to open on Quest';
-const HINT_POINTER = 'Click and drag the brass gear to pick it up. The mouse stands in for your hand.';
-const HINT_TOUCH = 'Touch and drag the brass gear to pick it up. Your finger stands in for your hand.';
+const HINT_POINTER = 'Click the trunk latch to open it, then follow the letters. The mouse stands in for your hand.';
+const HINT_TOUCH = 'Tap the trunk latch to open it, then follow the letters. Your finger stands in for your hand.';
 /** Faces the first paint needs; the page is revealed once they are in (or after a short grace). */
 const FACES = ['900 1em "Elsie Swash Caps"', '400 1em "Elsie"', '400 1em "Cabin"', '700 1em "Cabin"'];
 const FONT_GRACE_MS = 1400;

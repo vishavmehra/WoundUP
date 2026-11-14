@@ -54,6 +54,7 @@
           "id": "stand",
           "name": "Tockton velvet stand",
           "content": { "type": "asset", "asset": "tockton-base-round" },
+          "transform": { "position": [0, -0.045, 0] },
           "children": [
             {
               "id": "stand-contact-shadow",
@@ -70,18 +71,6 @@
               }
             }
           ]
-        },
-        {
-          "id": "gear-16",
-          "name": "Brass gear 16T",
-          "content": { "type": "asset", "asset": "gear_spur_16_m1" },
-          "transform": {
-            "position": [0, 0.0486, 0.02],
-            "rotationDeg": [-90, 0, 0]
-          },
-          "components": {
-            "ReturnsToRest": {}
-          }
         }
       ]
     }
