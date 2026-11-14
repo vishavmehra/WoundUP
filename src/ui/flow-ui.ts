@@ -94,6 +94,8 @@ const TRAY_RISE = 0.02;
 const SETTING_ROW_Y = 0.075;
 const SETTING_ROW_STEP = 0.056;
 const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
+/** The gift panel's machine selector (centre, metres from the panel's centre): under the two message lines (they end about 9 cm above the centre) and over the first engraving row (its top edge is at 4.3 cm). */
+const GIFT_MACHINE_ROW_Y = 0.066;
 
 /**
  * The hands-first flow of Wound Up inside the headset: trunk and latch, the letter, parcel and workbench, the run sign, the
@@ -535,6 +537,9 @@ export class FlowUi {
       p.mesh.position.z = 0.003;
       this.panelGroup.add(p.mesh);
     }
+    // The machine selector sits in the band between the message lines and the first engraving row (it used to be left at the panel's
+    // centre, behind the chips, a dim stray plaque).
+    this.machineBtn.mesh.position.y = GIFT_MACHINE_ROW_Y;
     this.hotButton(this.btnL, panelEntity, () => this.panelLeft());
     this.hotButton(this.btnR, panelEntity, () => this.panelRight());
     this.hotButton(this.machineBtn, panelEntity, () => this.cycleMachine());
@@ -906,7 +911,8 @@ export class FlowUi {
     }
     for (const t of this.toggles) t.mesh.visible = kind === 'pause';
     for (const c of this.chips) c.mesh.visible = gift;
-    this.machineBtn.mesh.visible = gift;
+    // One machine to gift is the usual case and needs no selector; none (a note) or several (a choice) do.
+    this.machineBtn.mesh.visible = gift && this.giftState.machines.length !== 1;
     const row = kind === 'pause' ? -0.11 : kind === 'restart' ? -0.06 : -0.122;
     this.btnL.mesh.position.set(-0.067, row, 0.003);
     this.btnR.mesh.position.set(0.067, row, 0.003);
