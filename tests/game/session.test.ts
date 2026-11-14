@@ -13,8 +13,8 @@ function ok(accepted: boolean, what: string): void {
 }
 
 /** Letter 1 to Letter n done through the real commands. */
-function playUntil(game: GameSession, lastLetter: 1 | 2 | 3 | 4 | 5): void {
-  const build = (n: number, machine: 'music_box' | 'carousel' | 'windmill', plot: 'plot_music_box' | 'plot_carousel' | 'plot_windmill') => {
+function playUntil(game: GameSession, lastLetter: 1 | 2 | 3 | 4 | 5 | 6): void {
+  const build = (n: number, machine: 'music_box' | 'carousel' | 'windmill' | 'clock_tower', plot: 'plot_music_box' | 'plot_carousel' | 'plot_windmill' | 'plot_clock_tower') => {
     ok(game.acceptLetter(`letter_${n}` as 'letter_1'), `accept ${n}`);
     ok(game.assemblyComplete(), `assembled ${n}`);
     ok(game.machineRanCorrectly(machine), `ran ${n}`);
@@ -33,6 +33,7 @@ function playUntil(game: GameSession, lastLetter: 1 | 2 | 3 | 4 | 5): void {
   if (lastLetter >= 3) build(3, 'carousel', 'plot_carousel');
   if (lastLetter >= 4) build(4, 'windmill', 'plot_windmill');
   if (lastLetter >= 5) repair(5, 'wrong_gear', 'windmill', 'plot_windmill');
+  if (lastLetter >= 6) build(6, 'clock_tower', 'plot_clock_tower');
 }
 
 describe('GameSession: the core loop', () => {
@@ -93,7 +94,7 @@ describe('GameSession: the core loop', () => {
     ok(game.assemblyComplete(), 'assembled');
     const writes = storage.writes;
     expect(game.machineRanCorrectly('carousel')).toBe(false); // its letter is still locked
-    expect(game.machineRanCorrectly('clock_tower')).toBe(false); // not in this build
+    expect(game.machineRanCorrectly('clock_tower')).toBe(false); // its letter is still locked
     expect(game.mode).toBe('wind');
     expect(game.save.machines).toEqual([]);
     expect(storage.writes).toBe(writes);
@@ -114,15 +115,23 @@ describe('GameSession: the core loop', () => {
 
   it('plays the whole story to the closing card without the daily repair (DAILY-05)', () => {
     const game = new GameSession({ storage: null });
-    playUntil(game, 5);
+    playUntil(game, 6);
     expect(game.save.dailyDone).toBeNull();
     expect(game.closing).toBe(CLOSING_CARD);
     expect(game.letter).toBeNull();
     expect(game.mode).toBe('town');
   });
 
-  it('shows Letter 6 and moves the closing card behind it when the Clock Tower is on', () => {
-    const game = new GameSession({ storage: null, progression: { clockTower: true } });
+  it('ends the story after Letter 5 when the Clock Tower is cut', () => {
+    const game = new GameSession({ storage: null, progression: { clockTower: false } });
+    playUntil(game, 5);
+    expect(game.closing).toBe(CLOSING_CARD);
+    expect(game.letter).toBeNull();
+    expect(game.save.letters.letter_6).toBe('locked');
+  });
+
+  it('shows Letter 6 and moves the closing card behind it: the Clock Tower is on by default (ADR-047)', () => {
+    const game = new GameSession({ storage: null });
     playUntil(game, 5);
     expect(game.closing).toBeNull();
     expect(game.letter?.id).toBe('letter_6');

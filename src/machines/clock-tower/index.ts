@@ -1,8 +1,8 @@
-// The playable Clock Tower (PRODUCT_SPEC §6.4, MACHINE_SLOT_MAPPINGS §5). See INTEGRATION.md.
+// The playable Clock Tower (PRODUCT_SPEC §6.4, MACHINE_SLOT_MAPPINGS §5). See INTEGRATION.md. The blueprint is in src/content/blueprints/clock-tower.ts.
 import type { World } from '@iwsdk/core';
 import { ClockTowerSystem } from './system.js';
 
-export * from './blueprint.js';
+export * from './build.js';
 export * from './constants.js';
 export * from './rig.js';
 export * from './runtime.js';

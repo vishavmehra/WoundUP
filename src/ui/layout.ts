@@ -37,6 +37,8 @@ export const PANEL_SPOT: V3 = v(0, 0.2, 0.15);
 /** Small brass buttons beside the bench, floating just above the surface: pause on the left, the gift ribbon on the right. */
 export const PAUSE_SPOT: V3 = v(-0.27, 0.09, 0.2);
 export const GIFT_SPOT: V3 = v(0.27, 0.09, 0.2);
+/** The daily repair medallion (ADR-027), above the pause one: the same distance from the town, one medallion higher. */
+export const DAILY_SPOT: V3 = v(-0.27, 0.15, 0.2);
 /** The trunk latch (trunk_main.glb `COL_Latch`) scaled with the town. */
 export const latchSpot = (s: number): V3 => v(0, 0.14 * s, 0.125 * s);
 

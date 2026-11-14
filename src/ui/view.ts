@@ -18,6 +18,8 @@ export interface ViewContext {
   letter: LetterDef | null;
   closing: string | null;
   giftAvailable: boolean;
+  /** Today's daily repair can be started now (`GameSession.dailyRepair`): the "Repair" medallion shows in the town. */
+  dailyAvailable?: boolean;
 }
 
 export interface View {
@@ -37,6 +39,8 @@ export interface View {
   placeHint: boolean;
   pauseButton: boolean;
   giftButton: boolean;
+  /** The daily repair medallion (ADR-027): the town, when today's repair is on offer. */
+  dailyButton: boolean;
   panel: 'none' | 'pause' | 'restart' | 'gift';
 }
 
@@ -66,6 +70,7 @@ export function viewFor(state: ModeState, local: LocalFlow, ctx: ViewContext): V
     placeHint: mode === 'place' && local.result === null,
     pauseButton: !paused && mode !== 'gift',
     giftButton: inTown && ctx.giftAvailable && !paused,
+    dailyButton: inTown && ctx.dailyAvailable === true && !paused,
     panel: paused ? (state.restartArmed ? 'restart' : 'pause') : mode === 'gift' ? 'gift' : 'none',
   };
 }

@@ -10,6 +10,7 @@
 import { Quaternion } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
 import type { MachineId } from '../game/content';
+import { buildClockTower } from '../machines/clock-tower/build';
 import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
 import { axisOfGlb, createRig, createRotor, horsePhase, wuField, type MachineRig, type Rotor } from './motion';
@@ -182,7 +183,7 @@ export async function buildMusicBox(source: ModelSource, registry: MaterialRegis
   return rig;
 }
 
-/** Builds the finished machine of `id`, or null for a machine this build does not have (the Clock Tower is cut first). */
+/** Builds the finished machine of `id`, or null for an id this build has no machine for. */
 export function buildMachine(id: MachineId, source: ModelSource, registry: MaterialRegistry, ids?: SocketIds): Promise<MachineRig | null> {
   switch (id) {
     case 'windmill':
@@ -191,6 +192,8 @@ export function buildMachine(id: MachineId, source: ModelSource, registry: Mater
       return buildCarousel(source, registry, ids);
     case 'music_box':
       return buildMusicBox(source, registry);
+    case 'clock_tower':
+      return buildClockTower(source, registry); // ADR-047: its nodes are driven by src/machines/clock-tower, not by solver rotors
     default:
       return Promise.resolve(null);
   }

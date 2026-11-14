@@ -2,7 +2,8 @@ import { AssetManager, PokeInteractable, RayInteractable } from '@iwsdk/core';
 import type { Entity, World } from '@iwsdk/core';
 import { CylinderGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from 'three';
 import type { Object3D } from 'three';
-import { ENGRAVINGS, type EngravingId, type LetterDef, type MachineId } from '../game/content.js';
+import { ENGRAVINGS, type EngravingId, type LetterDef, type MachineId, type RepairDef } from '../game/content.js';
+import { dateKey } from '../game/date.js';
 import type { GameSession } from '../game/session.js';
 import type { Mode } from '../game/modes.js';
 import { giftableMachines } from '../game/progression.js';
@@ -12,7 +13,7 @@ import { applyLibraryMaterials, type MaterialRegistry } from '../materials/index
 import type { SolveResult } from '../sim/index.js';
 import { findHinge, applyHinge, Progress } from './anim.js';
 import { MACHINE_NAMES, SETTING_ROWS, HINTS, describeResult, giftMakeErrorText, windLabel, type ResultHints } from './copy.js';
-import { BENCH, GIFT_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
+import { BENCH, DAILY_SPOT, GIFT_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
 import { createGiftLink, shortLink, showLinkInPage, type GiftHost, type ShareEnv } from './gift-flow.js';
 import { paintBlueprint, paintClosing, paintLetter, paintMedallion, paintPanel, paintSlip, resultSlip, type BlueprintSlot } from './paint.js';
 import { PALETTE, ensureFonts } from './palette.js';
@@ -27,7 +28,9 @@ export type FlowEvent =
   /** The lid is opening: start the town's unfolding. */
   | { type: 'trunk-opened' }
   | { type: 'letter-accepted'; letter: LetterDef }
-  /** The parcel is open: put the machine's housing and parts out (`traySlots`, `revealParts`), then `showBlueprint`. `letter` is null for a build that has no letter (the daily repair). */
+  /** The player pressed the "Repair" medallion: the session is in Build for today's daily repair (`repair`, started on local date `date`). The parcel opens as for a letter, with `letter` of its `parcel-opened` to be ignored. */
+  | { type: 'daily-repair'; repair: RepairDef; date: string }
+  /** The parcel is open: put the machine's housing and parts out (`traySlots`, `revealParts`), then `showBlueprint`. `letter` is the session's active letter: after a `daily-repair` event the build is the daily repair's, not that letter's. */
   | { type: 'parcel-opened'; letter: LetterDef | null }
   /** Run was pressed: solve the machine and call `showResult`. */
   | { type: 'run' }
@@ -105,8 +108,8 @@ const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
  *
  * Start-up order: `installInteraction` before `installFlowUi`, so Easy Snap from the save reaches `SocketSnapSystem` at once. Gaze mode
  * and the X-ray hint are the integrator's to apply, from `session.save.settings` at start and from the `setting` events afterwards.
- * `cue` events are sound cues at the moment of the action (latch, paper, button); `parcel-opened` carries `letter: null` for a build
- * that has no letter (the daily repair), which the UI does not start: the integrator calls `session.beginDailyRepair` and then `onModeChange`.
+ * `cue` events are sound cues at the moment of the action (latch, paper, button). The daily repair starts from a brass "Repair" medallion in the
+ * town, shown only while `session.dailyRepair(today)` is on offer: pressing it calls `session.beginDailyRepair` and emits `daily-repair`.
  */
 export class FlowUi {
   private readonly session: GameSession;
@@ -155,6 +158,7 @@ export class FlowUi {
   private adjustPlaque!: Plaque;
   private pauseMed!: Surface;
   private giftMed!: Surface;
+  private dailyMed!: Surface;
   private panelGroup!: Group;
   private panelBase!: Surface;
   private panelGiftBase!: Surface;
@@ -166,6 +170,7 @@ export class FlowUi {
   private acceptHot!: Hot;
   private pauseHot!: Hot;
   private giftHot!: Hot;
+  private dailyHot!: Hot;
   private runHot!: Hot;
   private adjustHot!: Hot;
   /** The panel's buttons: live only while the panel shows them. */
@@ -441,13 +446,19 @@ export class FlowUi {
     this.giftMed.mesh.name = 'UI_Gift';
     const pauseEntity = place(this.pauseMed, PAUSE_SPOT);
     const giftEntity = place(this.giftMed, GIFT_SPOT);
-    const medHover = (s: Surface, glyph: 'pause' | 'gift', label: string) => (on: boolean) => s.paint(`${glyph}|${on}`, (c, w) => paintMedallion(c, w, glyph, label, on));
+    const medHover = (s: Surface, glyph: 'pause' | 'gift' | 'repair', label: string) => (on: boolean) => s.paint(`${glyph}|${on}`, (c, w) => paintMedallion(c, w, glyph, label, on));
     const pauseHover = medHover(this.pauseMed, 'pause', 'Pause');
     const giftHover = medHover(this.giftMed, 'gift', 'Gift');
     pauseHover(false);
     giftHover(false);
     this.pauseHot = this.hot(pauseEntity, () => this.pauseGame(), pauseHover);
     this.giftHot = this.hot(giftEntity, () => this.openGift(), giftHover);
+    this.dailyMed = new Surface(f, 0.05, 0.05);
+    this.dailyMed.mesh.name = 'UI_Daily';
+    const dailyEntity = place(this.dailyMed, DAILY_SPOT);
+    const dailyHover = medHover(this.dailyMed, 'repair', 'Repair');
+    dailyHover(false);
+    this.dailyHot = this.hot(dailyEntity, () => this.startDaily(), dailyHover);
 
     // The run sign: a post, the Run plaque, an Adjust plaque after a failed run, and one slip for the counter or the result.
     this.signGroup = new Group();
@@ -507,7 +518,7 @@ export class FlowUi {
       this.hotButton(p, panelEntity, () => this.pickEngraving(e.id));
       return p;
     });
-    this.surfaces.push(this.sheet.overlay, this.cardPaper, this.accept, this.closingCard, this.hint, this.pauseMed, this.giftMed, this.signSlip, this.runPlaque, this.adjustPlaque);
+    this.surfaces.push(this.sheet.overlay, this.cardPaper, this.accept, this.closingCard, this.hint, this.pauseMed, this.giftMed, this.dailyMed, this.signSlip, this.runPlaque, this.adjustPlaque);
     this.surfaces.push(this.panelBase, this.panelGiftBase, this.btnL, this.btnR, this.machineBtn, ...this.toggles, ...this.chips);
   }
 
@@ -522,7 +533,12 @@ export class FlowUi {
   private sync(): void {
     if (!this.ready) return;
     const letter = this.session.letter;
-    const view = viewFor(this.session.modeState, this.local, { letter, closing: this.session.closing, giftAvailable: this.session.giftAvailable });
+    const view = viewFor(this.session.modeState, this.local, {
+      letter,
+      closing: this.session.closing,
+      giftAvailable: this.session.giftAvailable,
+      dailyAvailable: this.session.dailyRepair(dateKey(new Date())) !== null,
+    });
     const before = this.view;
     this.view = view;
 
@@ -574,10 +590,13 @@ export class FlowUi {
     // Medallions and the hint slip
     this.pauseMed.mesh.visible = view.pauseButton;
     this.giftMed.mesh.visible = view.giftButton;
+    this.dailyMed.mesh.visible = view.dailyButton;
     this.faceIfShown(this.pauseMed.mesh, view.pauseButton);
     this.faceIfShown(this.giftMed.mesh, view.giftButton);
+    this.faceIfShown(this.dailyMed.mesh, view.dailyButton);
     this.setHot(this.pauseHot, free && view.pauseButton);
     this.setHot(this.giftHot, free && view.giftButton);
+    this.setHot(this.dailyHot, free && view.dailyButton);
     this.showHint(view);
 
     // Panels
@@ -593,6 +612,7 @@ export class FlowUi {
     if (this.hint.mesh.visible) this.faceHead(this.hint.mesh);
     if (this.pauseMed.mesh.visible) this.faceHead(this.pauseMed.mesh);
     if (this.giftMed.mesh.visible) this.faceHead(this.giftMed.mesh);
+    if (this.dailyMed.mesh.visible) this.faceHead(this.dailyMed.mesh);
     if (this.signGroup.visible) this.faceHead(this.signGroup, true);
     if (this.panelGroup.visible) this.faceHead(this.panelGroup);
   }
@@ -759,6 +779,16 @@ export class FlowUi {
       this.cue('button');
       this.sync();
     }
+  }
+
+  /** The daily repair (ADR-027): the session goes to Build for today's repair, and the integrator sets the machine out when the parcel opens. */
+  private startDaily(): void {
+    const today = dateKey(new Date());
+    const repair = this.session.dailyRepair(today);
+    if (!repair || !this.session.beginDailyRepair(today)) return;
+    this.cue('button');
+    this.opt.onEvent?.({ type: 'daily-repair', repair, date: today });
+    this.sync(); // the bench appears with its parcel closed (`resetBench`)
   }
 
   private openGift(): void {

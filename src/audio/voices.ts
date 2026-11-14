@@ -125,6 +125,31 @@ export function chimeVoice(ctx: AudioContext, out: AudioNode, notes: readonly nu
   });
 }
 
+/** Partials of the tower bell as multiples of its prime: hum, prime, minor third, fifth, nominal, then two upper ones (a cast bell is not harmonic). */
+const BELL_PARTIALS: ReadonlyArray<readonly [ratio: number, peak: number, seconds: number]> = [
+  [0.5, 0.1, 3.8],
+  [1, 0.16, 3.4],
+  [1.2, 0.08, 2.4],
+  [1.5, 0.06, 2.0],
+  [2, 0.06, 1.6],
+  [2.5, 0.03, 1.0],
+  [3, 0.02, 0.7],
+];
+const BELL_PRIME_HZ = 196; // G3
+
+/** One strike of the Clock Tower bell: a clapper tick over the partials, ringing a little longer on the last strike of the hour. */
+export function bellVoice(ctx: AudioContext, out: AudioNode, noise: AudioBuffer, last: boolean): void {
+  const t = ctx.currentTime + 0.02;
+  noiseClick(ctx, out, noise, t, 1800, 3, 0.25, 0.03);
+  const ring = last ? 1.3 : 1;
+  for (const [ratio, peak, seconds] of BELL_PARTIALS) toneVoice(ctx, out, t, BELL_PRIME_HZ * ratio, BELL_PRIME_HZ * ratio, peak, seconds * ring);
+}
+
+/** The pendulum's tick and tock: one dry click, a little lower and softer on the tock. */
+export function tickVoice(ctx: AudioContext, out: AudioNode, noise: AudioBuffer, parity: 0 | 1): void {
+  noiseClick(ctx, out, noise, ctx.currentTime, parity === 0 ? 2600 : 2000, 8, parity === 0 ? 0.1 : 0.07, 0.014);
+}
+
 /** Mono white noise from a seeded generator, so every run sounds the same. */
 export function makeNoise(ctx: AudioContext, seconds = 0.06): AudioBuffer {
   const buffer = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * seconds)), ctx.sampleRate);

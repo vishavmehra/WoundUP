@@ -13,19 +13,28 @@
  * Not a hand-made machine: a socket that has no GLB empty yet, or whose intended part has no grab collider (the Carousel and
  * most of the Windmill, `docs/PRODUCTION_AUDIT.md`), is filled by the game with its intended part, so the story is never stuck
  * on a socket nobody can reach. The wrong part of a repair on such a socket cannot be replaced yet (Letter 5).
+ *
+ * The Clock Tower (Letter 6, ADR-047) is such a machine: no GLB carries a mount for its movement, so the game seats it and the solver
+ * judges it. Finished, it is driven by `ClockTowerSystem` (pendulum, escapement, real-time hands, the hourly strikes), which this
+ * loop powers while it runs and for good once it stands on its plot; placing it rings the hour at once and opens the theatre doors.
+ *
+ * The daily repair (ADR-027) is a build that starts from the town's "Repair" medallion: the same housing, tray and run as a story repair,
+ * and `session.dailyRepairVerified` instead of a letter when it runs correctly.
  */
 import { AdditiveBlending, createSystem, DistanceGrabbable, Grabbed, Mesh, MeshBasicMaterial, OneHandGrabbable, PlaneGeometry, Quaternion, Vector3 } from '@iwsdk/core';
 import type { Entity, Object3D, World } from '@iwsdk/core';
+import { bindClockTowerAudio } from './audio';
 import type { AudioEngine } from './audio';
 import { getBlueprint, repairStart, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
 import type { Assembly, MachineBlueprint } from './content/blueprints';
 import { requirePart } from './content/parts';
-import { REPAIRS, MACHINE_PLOT } from './game/content';
+import { MACHINE_PLOT, REPAIRS } from './game/content';
 import type { EngravingId, LetterDef, MachineId, PlotId, RepairDef } from './game/content';
 import type { Gift } from './game/gift';
 import type { GameSession } from './game/session';
 import { interactionIntents, Socket, SnappedTo, WindKey } from './interaction';
 import type { InteractionIntent } from './interaction';
+import { CLOCK_TOWER_MODEL_PATHS, ClockTowerRigComponent, ClockTowerSystem, clockTowerEvents, installClockTower, TheatreDoors } from './machines/clock-tower';
 import type { MaterialRegistry } from './materials';
 import { machineAssetIds, PartLoader } from './parts';
 import type { MachineInstance, PartInstance } from './parts';
@@ -56,6 +65,8 @@ interface Build {
   /** Parts the game seats itself (no reachable socket, or nothing to pinch). */
   readonly fixed: Assembly;
   readonly repair: RepairDef | null;
+  /** The local date this build is the daily repair of (`session.dailyRepairVerified` takes it), or null for a letter's build. */
+  readonly daily: string | null;
   key: Entity | null;
 }
 
@@ -85,6 +96,18 @@ function planOf(letter: LetterDef | null): { blueprint: MachineBlueprint; repair
   return blueprint ? { blueprint, repair } : null;
 }
 
+/** The machine of a repair that has no letter of its own (the daily repair). */
+function planOfRepair(repair: RepairDef): { blueprint: MachineBlueprint; repair: RepairDef } | null {
+  const blueprint = getBlueprint(repair.blueprintId);
+  return blueprint ? { blueprint, repair } : null;
+}
+
+/**
+ * A machine that does not run down once it stands in the town: the wind-driven one (it is the wind's), and the Clock Tower, whose
+ * hourly bell could not ring if it stopped with its spring (ADR-047). The others play out their spring (`PLACED_RUN_CAP_S`).
+ */
+const keepsRunning = (machine: MachineId, result: Pick<SolveResult, 'continuous'>): boolean => result.continuous || machine === 'clock_tower';
+
 export class Gameplay {
   /** Set by `index.ts` once the town and the UI exist (they need this object's callbacks first). */
   town!: TownRuntime;
@@ -104,9 +127,19 @@ export class Gameplay {
   private seating: Entity[] | null = null;
   private lid: LidHinge | null = null;
   private readonly unsubscribe: () => void;
+  private readonly unbindTowerAudio: () => void;
   /** The warm patch on the plot a carried machine belongs on ("Carry it to the glowing plot"), made on first use. */
   private glow: Mesh | null = null;
   private clock = 0;
+  /** Today's daily repair, from the moment its medallion was pressed until it is placed (or the story is restarted). */
+  private daily: { repair: RepairDef; date: string } | null = null;
+  /** The finished Clock Tower, if one exists (carried, or standing on its plot): the entity that holds its `ClockTowerRig`. */
+  private tower: { rig: MachineRig; entity: Entity } | null = null;
+  private towerPowered = false;
+  private towerWarm = false;
+  /** The theatre facade's doors (PIV_DoorL, PIV_DoorR), opened by the tower's hour; `doorsWereOpen` shuts them once it stops. */
+  private readonly doors = new TheatreDoors();
+  private doorsWereOpen = false;
 
   constructor(
     private readonly world: World,
@@ -116,6 +149,7 @@ export class Gameplay {
     if (!stage) throw new Error(`Scene node "${STAGE_NODE_ID}" is missing.`);
     this.stage = stage;
     this.unsubscribe = interactionIntents.subscribe((intent) => this.onIntent(intent));
+    this.unbindTowerAudio = bindClockTowerAudio(opt.audio, clockTowerEvents);
   }
 
   private get session(): GameSession {
@@ -131,6 +165,8 @@ export class Gameplay {
   /** A returning player's town: the plots that were awake, the machines that stood on them, and the next letter's models. */
   async start(): Promise<void> {
     this.town.town.group.visible = this.session.mode !== 'intro';
+    const missing = this.doors.resolve(this.town.town.theatre);
+    if (missing.length > 0) console.warn(`[wound-up] the theatre facade has no ${missing.join(', ')}: its doors will not open.`);
     this.preload(this.session.letter);
     const standing = this.session.save.machines.filter((m) => m.placed && m.plotId);
     this.town.restore(standing.map((m) => m.plotId as PlotId));
@@ -142,8 +178,10 @@ export class Gameplay {
       if (!rig || !blueprint) continue;
       const result = this.solve(blueprint, blueprint.intended, MAX_WIND_UNITS);
       rig.result = result;
-      rig.running = result?.continuous === true; // a saved Windmill turns again, a saved Music Box waits for its next letter
-      if (this.town.placeRig(rig)) this.placed.set(record.blueprintId, { rig, entity: null });
+      rig.running = result !== null && keepsRunning(record.blueprintId, result); // a saved Windmill or Clock Tower runs again, a saved Music Box waits for its next letter
+      if (!this.town.placeRig(rig)) continue;
+      // Nothing carries a restored machine, so the town holds it; the Clock Tower still needs an entity for its rig component.
+      this.placed.set(record.blueprintId, { rig, entity: record.blueprintId === 'clock_tower' ? this.attachTower(rig, null) : null });
     }
   }
 
@@ -167,6 +205,12 @@ export class Gameplay {
       case 'letter-accepted':
         this.preload(event.letter);
         break;
+      case 'daily-repair': {
+        this.daily = { repair: event.repair, date: event.date };
+        const plan = planOfRepair(event.repair);
+        if (plan) this.loader.preload(machineAssetIds(plan.blueprint, [event.repair.faultyPartId]));
+        break;
+      }
       case 'parcel-opened':
         this.startBuild(event.letter).catch((e: unknown) => console.error('[wound-up] could not set the workbench:', e));
         break;
@@ -195,7 +239,13 @@ export class Gameplay {
 
   private preload(letter: LetterDef | null): void {
     const plan = planOf(letter);
-    if (plan) this.loader.preload(machineAssetIds(plan.blueprint, plan.repair ? [plan.repair.faultyPartId] : []));
+    if (!plan) return;
+    this.loader.preload(machineAssetIds(plan.blueprint, plan.repair ? [plan.repair.faultyPartId] : []));
+    if (plan.blueprint.id === 'clock_tower' && !this.towerWarm) {
+      // The finished tower is made from a dozen files by the town's loader (its own cache): have them parsed before Run is pressed.
+      this.towerWarm = true;
+      for (const path of CLOCK_TOWER_MODEL_PATHS) loadModel(path).catch((e: unknown) => console.warn(`[wound-up] could not preload "${path}":`, e));
+    }
   }
 
   // ---- Per frame ----------------------------------------------------------------------------------------------------
@@ -220,6 +270,45 @@ export class Gameplay {
       run.rig.running = false;
       this.runs.splice(i, 1);
     }
+    this.syncTower();
+    this.updateDoors();
+  }
+
+  // ---- The Clock Tower (ADR-047) ------------------------------------------------------------------------------------
+
+  /** Puts the `ClockTowerRig` component on the tower's entity (the carry entity, or a plain one for a tower restored from a save). */
+  private attachTower(rig: MachineRig, carry: Entity | null): Entity {
+    let entity = carry;
+    if (!entity) {
+      entity = this.world.createEntity();
+      entity.object3D = rig.root;
+    }
+    entity.addComponent(ClockTowerRigComponent, { powered: false });
+    this.tower = { rig, entity };
+    this.towerPowered = false;
+    return entity;
+  }
+
+  /** The tower's clock runs exactly while its rig does: the spring's seconds on the bench, for good once it stands on its plot. */
+  private syncTower(): void {
+    const tower = this.tower;
+    if (!tower || tower.rig.running === this.towerPowered) return;
+    this.towerPowered = tower.rig.running;
+    tower.entity.setValue(ClockTowerRigComponent, 'powered', this.towerPowered);
+  }
+
+  /** The theatre doors follow the tower's hour: open for 30 seconds, then shut again (also when the tower is taken away mid-hour). */
+  private updateDoors(): void {
+    const runtime = this.world.getSystem(ClockTowerSystem)?.runtime ?? null;
+    const open = runtime?.doorsOpen === true;
+    if (open || this.doorsWereOpen) this.doors.apply(open && runtime ? runtime.doorsAmount : 0);
+    this.doorsWereOpen = open;
+  }
+
+  /** The tower is on its plot: its clock runs, and the hour rings at once so the town sees the payoff (the real hour rings on the hour). */
+  private towerPlaced(): void {
+    this.syncTower();
+    this.world.getSystem(ClockTowerSystem)?.runtime?.triggerStrikes();
   }
 
   /** The plot of the machine in the hand breathes in lamp light until the machine is put down on it. */
@@ -249,7 +338,8 @@ export class Gameplay {
   // ---- Building -----------------------------------------------------------------------------------------------------
 
   private async startBuild(letter: LetterDef | null): Promise<void> {
-    const plan = planOf(letter);
+    const daily = this.daily; // set by the `daily-repair` event: the parcel then holds today's repair, whatever letter is waiting
+    const plan = daily ? planOfRepair(daily.repair) : planOf(letter);
     if (!plan) return;
     const { blueprint, repair } = plan;
     this.disposeBuild();
@@ -273,7 +363,7 @@ export class Gameplay {
     for (const [socketId, partId] of Object.entries(start ? start.assembly : blueprint.intended)) {
       if (!handPlaced(socketId, partId)) fixed[socketId] = partId;
     }
-    const build: Build = { blueprint, machine, parts: [], fixed, repair, key: null };
+    const build: Build = { blueprint, machine, parts: [], fixed, repair, daily: daily?.date ?? null, key: null };
     const seatNow: Array<[string, string]> = Object.entries(target).filter(([socketId]) => !(socketId in fixed));
     const spawnIds = [...trayIds.filter((id) => requirePart(id).grab.enabled), ...seatNow.map(([, partId]) => partId)];
     // Nothing to place by hand (a machine whose sockets no GLB carries yet): there is no tray to show.
@@ -455,8 +545,10 @@ export class Gameplay {
     this.runs.push({ rig, left: result.continuous ? PLACED_RUN_CAP_S : Math.min(result.runSeconds, PLACED_RUN_CAP_S) });
     this.town.addRig(rig);
     this.carried = { rig, entity: makeCarriable(this.world, rig), pending: null };
+    if (id === 'clock_tower') this.attachTower(rig, this.carried.entity);
 
-    if (build.repair) this.session.repairVerified(build.repair.id);
+    if (build.daily !== null) this.session.dailyRepairVerified(build.daily);
+    else if (build.repair) this.session.repairVerified(build.repair.id);
     this.session.machineRanCorrectly(id);
     this.ui.onModeChange();
     this.opt.keepAwake();
@@ -486,8 +578,10 @@ export class Gameplay {
       carried.rig.result = full;
       carried.rig.running = true; // it plays as the town wakes
       this.runs = this.runs.filter((r) => r.rig !== carried.rig);
-      this.runs.push({ rig: carried.rig, left: full.continuous ? Infinity : Math.min(full.runSeconds, PLACED_RUN_CAP_S) });
+      this.runs.push({ rig: carried.rig, left: keepsRunning(machine, full) ? Infinity : Math.min(full.runSeconds, PLACED_RUN_CAP_S) });
     }
+    if (machine === 'clock_tower') this.towerPlaced();
+    this.daily = null;
     this.ui.onModeChange();
     this.preload(this.session.letter);
   }
@@ -501,6 +595,10 @@ export class Gameplay {
 
   /** Takes a machine off the town. Destroying its entity frees the plot socket it was seated in. */
   private retire(rig: MachineRig, entity: Entity | null): void {
+    if (this.tower?.rig === rig) {
+      this.tower = null;
+      this.towerPowered = false;
+    }
     entity?.destroy();
     this.town.removeRig(rig);
     this.runs = this.runs.filter((r) => r.rig !== rig);
@@ -533,6 +631,7 @@ export class Gameplay {
     this.built.clear();
     this.runs = [];
     this.windUnits = 0;
+    this.daily = null;
     this.town.reset();
     this.town.town.group.visible = false;
   }
@@ -552,6 +651,7 @@ export class Gameplay {
 
   dispose(): void {
     this.unsubscribe();
+    this.unbindTowerAudio();
     this.disposeBuild();
   }
 
@@ -570,6 +670,7 @@ export class Gameplay {
         carried: Boolean(this.carried),
         placed: [...this.placed.keys()],
         letter: this.session.letter?.id ?? null,
+        daily: this.daily?.repair.id ?? null,
       }),
       /** A click on the UI target named `name` (a ray or poke), as pointer events deliver it; `hit` names the child that was hit (the trunk's `COL_Latch`). */
       press: (name: string, hit?: string): boolean => {
@@ -669,4 +770,5 @@ export class GameplaySystem extends createSystem({}) {
 export function installGameplay(world: World, gameplay: Gameplay): void {
   running.set(world, gameplay);
   world.registerSystem(GameplaySystem, { priority: 12 });
+  installClockTower(world); // after the interaction systems (10), the town (11) and this loop: see src/machines/clock-tower/INTEGRATION.md
 }
