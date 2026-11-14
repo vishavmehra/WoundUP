@@ -1,7 +1,8 @@
 /**
  * The town's per-frame state and its events, with no ECS: `TownSystem` calls `update` once a frame, and Node tests drive it
  * directly. It owns the wake field and the shader uniforms, steps every registered machine from its solver result, plays the
- * Music Box melody from the cylinder's angle, runs Otto's kneading, and turns "a machine snapped onto its plot" into a wake.
+ * Music Box melody from the cylinder's angle, runs Otto's kneading and the town's ambience (smoke, oven glow, pennants), and turns
+ * "a machine snapped onto its plot" into a wake.
  * Nothing here allocates per frame.
  */
 import { Vector3 } from '@iwsdk/core';
@@ -63,6 +64,8 @@ export class TownRuntime {
   private nightAmount = 0;
   private nightTarget = 0;
   private lightsMoving = false;
+  /** The smoke, the oven glow or a pennant is showing (ambience.ts): it moves for as long as it does, so the town is busy. */
+  private ambienceShowing = false;
   private melodyLevel = 1;
   private readonly playNote = (note: MelodyNote): void => this.audio?.pluck(note.midi, note.velocity, this.melodyLevel);
 
@@ -106,7 +109,7 @@ export class TownRuntime {
 
   /** True while anything the town shows is changing: a ripple, a machine running or easing, a scale ease, the night, Otto. */
   get busy(): boolean {
-    if (this.wake.active || this.scalers.length > 0 || this.nightAmount !== this.nightTarget || this.lightsMoving) return true;
+    if (this.wake.active || this.scalers.length > 0 || this.nightAmount !== this.nightTarget || this.lightsMoving || this.ambienceShowing) return true;
     const knead = this.town.knead;
     if (knead && knead.action.timeScale > 0) return true;
     for (let i = 0; i < this.rigs.length; i++) if (this.rigs[i].running || this.rigs[i].speed > 0) return true;
@@ -248,6 +251,13 @@ export class TownRuntime {
       refreshColliderFloor(scaler.node); // the grab colliders keep their 1.2 cm minimum at the new size
     }
     this.knead(dt);
+    this.ambienceShowing = this.town.ambience.update(dt, time, this.wake, this.nightAmount, this.windmillSpeed());
+  }
+
+  /** The eased run factor of the Windmill in the town, 0 when it is not there. A loop, not `rigOf`, so a frame allocates nothing. */
+  private windmillSpeed(): number {
+    for (let i = 0; i < this.rigs.length; i++) if (this.rigs[i].machineId === 'windmill') return this.rigs[i].speed;
+    return 0;
   }
 
   /**

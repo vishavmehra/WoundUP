@@ -24,6 +24,7 @@ import {
   DEFAULT_PROGRESSION,
   machineBuilt,
   machinePlaced,
+  optionalLetter,
   repairVerified,
   settle,
   trunkOpened,
@@ -73,9 +74,9 @@ export class GameSession {
   get persisted(): boolean {
     return this.lastPersisted;
   }
-  /** The letter the player should work on now, or null. */
+  /** The letter the player should work on now, or null: the story's, and once the story has none to show, an optional one (progression.ts). */
   get letter(): LetterDef | null {
-    return activeLetter(this.currentSave, this.options);
+    return activeLetter(this.currentSave, this.options) ?? optionalLetter(this.currentSave, this.options);
   }
   /** The closing card text once the story is complete, else null. */
   get closing(): string | null {
