@@ -6,6 +6,7 @@ import { LETTERS } from '../../src/game/content';
 import { SAVE_KEY, parseSave } from '../../src/game/save';
 import { GameSession } from '../../src/game/session';
 import { Socket } from '../../src/interaction/components';
+import { installFlowUi } from '../../src/ui';
 import { FlowUi, type FlowEvent } from '../../src/ui/flow-ui';
 import type { GiftHost } from '../../src/ui/gift-flow';
 import { FakeStorage } from '../game/helpers';
@@ -48,6 +49,8 @@ function props(): Record<string, Object3D> {
   return { trunk, envelope, parcel, tray, sheet, bench };
 }
 
+const propKey = (path: string): string => (path.includes('trunk') ? 'trunk' : path.includes('envelope') ? 'envelope' : path.includes('parcel') ? 'parcel' : path.includes('tray') ? 'tray' : path.includes('sheet') ? 'sheet' : 'bench');
+
 interface Rig {
   world: World;
   ui: FlowUi;
@@ -84,10 +87,7 @@ async function rig(prepare?: (game: GameSession) => void, gift: GiftHost = GIFT_
     session: game,
     stage,
     townScale: () => 1,
-    loadGlb: async (path) => {
-      const key = path.includes('trunk') ? 'trunk' : path.includes('envelope') ? 'envelope' : path.includes('parcel') ? 'parcel' : path.includes('tray') ? 'tray' : path.includes('sheet') ? 'sheet' : 'bench';
-      return files[key];
-    },
+    loadGlb: async (path) => files[propKey(path)],
     onEvent: (e) => events.push(e),
     gift,
     share: { writeText: async (t) => void link.delivered.push(t) },
@@ -426,6 +426,30 @@ describe('FlowUi: the gift panel', () => {
     expect(r.link.delivered).toHaveLength(0);
     expect(r.events.map((e) => e.type)).not.toContain('gift-link');
     expect(r.canvases.made.flatMap((c) => c.calls.map((t) => t.text)).join(' ')).toContain('not on the table');
+  });
+});
+
+describe('installFlowUi', () => {
+  it('registers a system that steps the UI every frame', async () => {
+    const world = new World();
+    for (const component of [RayInteractable, PokeInteractable, Socket]) world.registerComponent(component);
+    const scene = new Scene();
+    Object.assign(world, { scene });
+    const stage = world.createTransformEntity(new Group());
+    scene.add(stage.object3D as Object3D);
+    const game = new GameSession({ storage: new FakeStorage() });
+    const files = props();
+    const ui = await installFlowUi(world, {
+      session: game,
+      stage,
+      loadGlb: async (path) => files[propKey(path)],
+      createCanvas: canvasFactory().make,
+      head: (out) => out.set(0, 0.4, 0.55),
+    });
+    const trunk = ui.pressables().find((p) => p.name === 'trunk_main')!;
+    trunk.object.dispatchEvent({ type: 'click', object: scene.getObjectByName('COL_Latch_proxy') } as never);
+    for (let t = 0; t < 0.8; t += FRAME) world.update(FRAME, t); // no ui.update call: only the system can open the lid
+    expect(game.mode).toBe('town');
   });
 });
 
