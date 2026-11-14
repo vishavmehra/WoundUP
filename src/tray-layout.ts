@@ -52,7 +52,7 @@ export const TRAY_POSE: Readonly<Record<string, TrayPose>> = {
   spring_standard: { yawDeg: 0, offset: [-0.0004952, 0.0212, -0.0002364] },
   spring_worn: { yawDeg: 0, offset: [-0.0002154, 0.0212, -0.0009425] },
   gear_spur_10_m1: { yawDeg: 0, offset: [0, 0.0076, 0] },
-  governor_standard: { yawDeg: 90, offset: [0, 0.0222, -0.0024218] },
+  governor_standard: { yawDeg: 90, offset: [0, 0.0222, -0.0001756] },
   gear_spur_12_m1: { yawDeg: 0, offset: [0, 0.0076, 0] },
   winding_key: { yawDeg: 0, offset: [0, 0.004, 0] },
   // no compartment: the Windmill's designated gear (Letter 5) lies on the dividers
