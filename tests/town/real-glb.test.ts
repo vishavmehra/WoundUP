@@ -30,8 +30,7 @@ describe.skipIf(!present)('Tockton from the real GLBs', () => {
   it('assembles the town without a warning: every plot socket takes its own machine base, Otto has his socket and his clip', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const town = await loadTown(source, libraryRegistry());
-    // An older town_ground.glb has no pads for the Well and the Belfry (ADR-048): the town makes their sockets from the layout and says so.
-    expect(warn.mock.calls.filter(([m]) => !/has no SOCKET_Plot(Well|Belfry);/.test(String(m)))).toEqual([]);
+    expect(warn).not.toHaveBeenCalled(); // town_ground.glb carries the pads and sockets of all six plots (ADR-048), so the town makes none of its own
     expect(town.knead).not.toBeNull();
     const sockets = readInteractionNodes(town.ground).sockets;
     for (const plot of Object.values(PLOTS)) {

@@ -77,6 +77,7 @@ export const TRAY_POSE: Readonly<Record<string, TrayPose>> = {
   gear_bevel_12: { yawDeg: 0, offset: [0, 0.006, 0], size: [32.2, 32.2] },
   bearing_pillow_block: { yawDeg: 0, offset: [0, 0.01, 0], size: [30, 12] }, // stands as authored, base plate down
   belfry_vane: { yawDeg: 90, offset: [0, 0.004, 0], size: [16.1, 63.8] }, // finial up; turned a quarter so its 6.4 cm arrow runs along the tray
+  clock_bell: { yawDeg: 0, offset: [0, 0.028, 0], size: [30, 30] }, // the Belfry's bell, as authored: its origin is the top of the yoke, the body 28 mm below it
   shaft_long: { yawDeg: 0, offset: [0, 0.004, 0], size: [8, 180] }, // 18 cm, along the tray's 20 cm length, down the middle
 };
 /** An asset that is not in the table: its origin is taken to be 1 cm over the underside (a disc or a flat part). */

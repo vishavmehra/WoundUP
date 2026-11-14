@@ -101,7 +101,7 @@ export const PART_DEFINITIONS: readonly PartDefinition[] = Object.freeze([
   part('escapement_anchor', 'Mat_AgedBrass', 'escapement', 'Escapement anchor', 0.012),
   part('pendulum_clock', 'Mat_AgedBrass', 'pendulum', 'Pendulum', 0.012), // rod and bob are one file, one swinging group
   part('cam_hourly_chime', 'Mat_AgedBrass', 'cam', 'Hourly chime cam', 0.0125),
-  part('clock_bell', 'Mat_PolishedBrass', 'structural', 'Clock bell', null),
+  part('clock_bell', 'Mat_PolishedBrass', 'structural', 'Clock bell', 0.015), // COL_Grab added for the Belfry (ADR-048): the player hangs the bell in its hooks by hand
   part('clock_face', 'Mat_CreamEnamel', 'structural', 'Clock face', null),
   part('clock_hands', 'Mat_Walnut', 'structural', 'Clock hands', null),
   // Well and Belfry pieces (ADR-048). The cam, the follower and the pulley were library parts before; the ratchet, the pawl and the
