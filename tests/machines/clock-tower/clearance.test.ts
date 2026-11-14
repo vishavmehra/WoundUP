@@ -143,6 +143,21 @@ describe.skipIf(!present)('the Clock Tower movement against the real GLBs', () =
     expect(Math.abs(ratios.inter_gear_2 / ratios.inter_gear_3)).toBeCloseTo(24 / 10, 12);
   });
 
+  it('can see a bad mesh: a pinion turned half a tooth out of phase puts a tooth through its gear, and turned back it is clear again', () => {
+    for (const [driver, driven, teeth] of [['inter_gear_3', 'inter_gear_2', 10], ['large_gear', 'inter_gear_1', 10]] as const) {
+      pose(0, 0);
+      const pinion = node(movementNodeName(driven));
+      const wheel = tris(movementNodeName(driver));
+      expect(surfaceCrossings(tris(movementNodeName(driven)), wheel), `${driven} in phase`).toBe(0);
+      pinion.rotateZ(Math.PI / teeth); // half the pitch of the pinion
+      root.updateMatrixWorld(true);
+      expect(surfaceCrossings(tris(movementNodeName(driven)), wheel), `${driven} out of phase`).toBeGreaterThan(0);
+      pinion.rotateZ(-Math.PI / teeth);
+      root.updateMatrixWorld(true);
+      expect(surfaceCrossings(tris(movementNodeName(driven)), wheel), `${driven} back in phase`).toBe(0);
+    }
+  });
+
   it('lies where the plan says: in the tower, and the gears on the plan\'s centres', () => {
     pose(0, 0);
     const tower = boundsOf(statics);
