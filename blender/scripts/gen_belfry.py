@@ -11,11 +11,11 @@ belfry_base   76 x 276 x 58 mm on the 8.0 x 6.0 cm pad `plot_belfry`. One mesh n
               fascia and the shaft bush, and the brass hardware the parts seat on: Boss_S, Stud_C, Mount_Foot (the bearing's bracket), Seat_BevelB (a hanger and
               a shelf under the lower bevel), Seat_Flywheel (an arm and a horseshoe under the flywheel's rim). The front and the bell's side stay open: the
               works are the show, and the bell and the vane are lifted in from the front. 11 SOCKET_ empties (BELFRY_BLUEPRINT section 7.1) plus SOCKET_BaseHandle,
-              COL_Case; no pivots (nothing in the housing moves).
+              COL_Case; PIV_BellSwing (the pins' axis) and PIV_ShaftAxis (the vertical line the shaft group turns about) mark axes for the runtime, nothing in the housing moves.
 belfry_vane   64 x 16 x 31 mm. A hub (8 mm bore, blind) with a turned collar and neck, a cross with four ball ends, a pierced-free flat brass arrow (head +X,
               swallow tail -X, a small horizontal tail fin) and a ball finial. Modelled finial-DOWN: the finial is at local -Z (z -27 to +4), because the part's +Z
               points down the tower by the sign rule (socket rotation Rx(+90)), so seated it stands up. Origin on the hub's bore axis, mid-height of the hub;
-              turns about local +Z at +0.48 rad/s. COL_Grab sphere r 16 mm at the arrow's centre.
+              turns about local +Z at +0.48 rad/s. COL_Grab sphere r 16 mm at the arrow's centre; PIV_Axis on the bore axis.
 
 Model space (glTF Y-up, millimetres): origin at the centre of the floor-contact face, +Y up, +Z towards the player. The works: spring arbor S (-5, 59), second
 axle C (-5, 100), the vertical shaft on x -5, z 11.7 from y 104 to 284 (the bevel cones meet at (-5, 100, 11.7)). Parts seat along -Z (or -Y for the shaft
@@ -152,6 +152,13 @@ def build_base(entry, p):
                                     Seat_Flywheel="arm and horseshoe y 160-167.4", Bush_Cap="y 273.4-275.9 on the cap, ri 5.1", BellHooks="cheeks z +-(11.8-14.6) round the gudgeon pins, x 15.4-24.6"),
                       note="proposal: docs/blueprints/BELFRY_BLUEPRINT.md; sockets of section 7.1")
     helpers = [empties.add_collider(root, "Case", "box", (0.038, 0.138, 0.029), (0.0, 0.138, 0.0))]
+    swing = empties.add_pivot(root, "BellSwing", m((20.0, 268.5, 0.0)), (0, 0, 1), "rotation_axis", "+Z")
+    swing["wu"] = dict(type="pivot", kind="rotation_axis", axis="+Z", role="bell_swing", swingRad=0.12, partPivot="PIV_Swing",
+                       note="the bell's gudgeon pins (z 10 to 15 each side) hang in the brass hooks on this axis; the part swings about its own PIV_Swing, which lands here when the bell is seated at SOCKET_Bell")
+    shaft = empties.add_pivot(root, "ShaftAxis", m((SHAFT_X, 194.0, SHAFT_Z)), (0, -1, 0), "rotation_axis", "-Y")
+    shaft["wu"] = dict(type="pivot", kind="rotation_axis", axis="-Y", role="vertical_shaft", yFromM=0.104, yToM=0.284,
+                       note="bevel B, the shaft, the flywheel and the vane turn about this line, about their own local +Z, which points down (sign rule, BELFRY_BLUEPRINT section 1)")
+    helpers += [swing, shaft]
     prop = dict(proposal=True, basis="docs/blueprints/BELFRY_BLUEPRINT.md section 7.1")
     I, RX = dict(axis=(0, 0, 1), euler=[0, 0, 0], quat=[0.0, 0.0, 0.0, 1.0], seats=(0, 0, -1)), dict(axis=(0, -1, 0), euler=[90, 0, 0], quat=[0.7071068, 0.0, 0.0, 0.7071068], seats=(0, -1, 0))
     # (node, slot id, no., position mm, family, accepts, intended, rotation, seats along, depends on)
@@ -219,7 +226,9 @@ def build_vane(entry, p):
     root["wu"] = dict(id=entry["id"], family=FAMILY, rotationAxis="+Z", finial="local -Z (finial-down: seated with Rx(+90) it stands up)",
                       hubMm=dict(boreRadius=4.0, bottomZ=4.0, topZ=-5.2), arrowCentreZMm=ARROW_C, note="turns about local +Z at +0.48 rad/s; blind bore, the shaft ends 0.1 mm under the ceiling")
     col = empties.add_collider(root, "Grab", "sphere", 0.016, (0.0, 0.0, ARROW_C * 1e-3))
-    return [root, col], dict(closed=True, thin_axis_z=False)
+    axis = empties.add_pivot(root, "Axis", (0.0, 0.0, 0.0), (0, 0, 1), "rotation_axis", "+Z")
+    axis["wu"] = dict(type="pivot", kind="rotation_axis", axis="+Z", role="vane_axis", note="the hub's bore axis through the origin; the vane sweeps about it at +0.48 rad/s")
+    return [root, col, axis], dict(closed=True, thin_axis_z=False)
 
 
 BUILDERS = {"belfry_base": build_base, "belfry_vane": build_vane}
