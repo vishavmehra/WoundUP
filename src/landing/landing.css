@@ -404,10 +404,15 @@ html[data-wu-moved] #scene-container {
 .wu-go:active {
   transform: translateY(1px);
 }
-.wu-alt {
+.wu-alt,
+.wu-emu {
   min-height: max(2.75rem, 2.7em);
 }
+.wu-emu[hidden] {
+  display: none; /* the plaque's display would otherwise beat the attribute */
+}
 .wu-alt:hover,
+.wu-emu:hover,
 .wu-back:hover {
   filter: brightness(1.22);
 }
@@ -565,6 +570,10 @@ html[data-wu-moved] #scene-container {
   .wu-acts .wu-btn {
     min-height: max(2.75rem, 3em);
     font-size: 1.05em;
+  }
+  /* three actions: the preview and the emulated headset share the first row, the link takes the second */
+  .wu[data-emu="1"] .wu-alt {
+    grid-column: 1 / -1;
   }
 }
 /* the spare lines go only when the window truly has no room for them. Window sizes in px, not rem, so a reader who

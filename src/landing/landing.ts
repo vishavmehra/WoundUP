@@ -1,12 +1,20 @@
 import './landing.css';
 
-/** 'ar' = immersive-ar supported (primary, mixed reality); 'vr' = only immersive-vr; 'none' = no WebXR / not supported. */
-export type XrSupport = 'checking' | 'ar' | 'vr' | 'none';
+/**
+ * 'ar' = immersive-ar supported (primary, mixed reality); 'vr' = only immersive-vr; 'none' = no WebXR / not supported;
+ * 'emulated' = no WebXR, but the visitor started the emulated Quest 3 (src/emulator), which enters like 'ar'.
+ */
+export type XrSupport = 'checking' | 'ar' | 'vr' | 'none' | 'emulated';
 export type LandingMode = 'landing' | 'preview' | 'xr';
 
 export interface LandingOptions {
   /** Called synchronously inside the click handler (WebXR needs the user gesture). A throw or rejection becomes a dismissible message. */
   onEnterXR: (mode: 'immersive-ar' | 'immersive-vr') => Promise<void> | void;
+  /**
+   * Starts the emulated Quest 3 and resolves once the browser really answers WebXR (a throw or rejection becomes a dismissible message).
+   * The action is offered only when the browser has no WebXR; this module then enters the session through `onEnterXR`.
+   */
+  onPlayEmulated?: () => Promise<void>;
   /** The visitor chose the in-browser preview. This module switches to preview mode right after calling it. */
   onPreview: () => void;
   /** The visitor left the preview. This module switches back to the landing right after calling it. */
@@ -34,13 +42,19 @@ const COPY: Record<XrSupport, { msg: string; go: string }> = {
     go: 'Enter in VR (no passthrough)',
   },
   none: {
-    msg: 'This browser cannot enter mixed reality. Open this page on your headset to play.', // the imprint names the device
+    msg: 'This browser cannot enter mixed reality. Open this page on your headset to play, or try the emulated one.', // the imprint names the device
     go: 'Preview in this browser',
+  },
+  emulated: {
+    msg: 'Emulated Quest 3 ready: a headset simulated in this browser, not a real one.',
+    go: 'Enter mixed reality (emulated)',
   },
 };
 const LOADING = 'Winding up the town…';
 const PREVIEW = 'Preview in this browser';
 const COPY_LINK = 'Copy link to open on Quest';
+const PLAY_EMULATED = 'Play in your browser (emulated Quest 3)';
+const STARTING_EMULATED = 'Starting the emulated headset…';
 const HINT_POINTER = 'Click the trunk latch to open it, then follow the letters. The mouse stands in for your hand.';
 const HINT_TOUCH = 'Tap the trunk latch to open it, then follow the letters. Your finger stands in for your hand.';
 /** Faces the first paint needs; the page is revealed once they are in (or after a short grace). */
@@ -72,7 +86,7 @@ const CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fil
 
 // Every message lives in the same grid cell and only one shows, so the status line is always as tall as the
 // longest message at the current width: switching support state can never move anything below it.
-const MESSAGES = (['checking', 'ar', 'vr', 'none'] as const).map((k) => `<span data-k="${k}">${COPY[k].msg}</span>`).join('') + `<span data-k="load">${LOADING} <b class="wu-pct"></b></span>`;
+const MESSAGES = (['checking', 'ar', 'vr', 'none', 'emulated'] as const).map((k) => `<span data-k="${k}">${COPY[k].msg}</span>`).join('') + `<span data-k="load">${LOADING} <b class="wu-pct"></b></span>`;
 
 // The title page of a horology catalogue (DESIGN.md): frame, title, device, tagline, premise, status, actions, imprint.
 const TEMPLATE = `<div class="wu-frame" aria-hidden="true"></div>
@@ -86,6 +100,7 @@ const TEMPLATE = `<div class="wu-frame" aria-hidden="true"></div>
     <div class="wu-status"><p class="wu-msg" aria-hidden="true">${MESSAGES}</p><p class="wu-sr" role="status" aria-live="polite"></p></div>
     <div class="wu-acts">
       <button class="wu-btn wu-go" type="button"><span></span></button>
+      <button class="wu-btn wu-emu" type="button" hidden></button>
       <button class="wu-btn wu-alt" type="button"></button>
     </div>
   </div>
@@ -132,6 +147,7 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
   const pv = q('.wu-pv');
   const go = q<HTMLButtonElement>('.wu-go');
   const goText = q('.wu-go span');
+  const emu = q<HTMLButtonElement>('.wu-emu');
   const alt = q<HTMLButtonElement>('.wu-alt');
   const back = q<HTMLButtonElement>('.wu-back');
   const hint = q('.wu-hint');
@@ -146,6 +162,7 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
   let mode: LandingMode = 'landing';
   let progress: number | null = null;
   let busy = false;
+  let emuBusy = false;
   let copied = false;
   let alive = true;
   let spoken = '';
@@ -170,10 +187,17 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
     el.style.setProperty('--p', String(p ?? 1));
 
     const label = busy ? (support === 'vr' ? 'Opening VR…' : 'Opening mixed reality…') : copy.go; // progress is the status line's job
+    const locked = busy || emuBusy || p !== null || support === 'checking';
+    const offerEmu = support === 'none' && options.onPlayEmulated !== undefined; // never next to real WebXR, nor once the emulator runs
+    el.dataset.emu = offerEmu ? '1' : '0';
+    emu.hidden = !offerEmu;
     put(goText, label);
-    go.setAttribute('aria-disabled', String(busy || p !== null || support === 'checking'));
+    go.setAttribute('aria-disabled', String(locked));
     go.setAttribute('aria-busy', String(busy));
-    alt.setAttribute('aria-disabled', String(busy || p !== null || support === 'checking'));
+    put(emu, emuBusy ? STARTING_EMULATED : PLAY_EMULATED);
+    emu.setAttribute('aria-disabled', String(locked));
+    emu.setAttribute('aria-busy', String(emuBusy));
+    alt.setAttribute('aria-disabled', String(locked));
     put(alt, copied ? 'Link copied' : support === 'none' ? COPY_LINK : PREVIEW);
 
     const shown = p !== null ? 'load' : support;
@@ -188,7 +212,7 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
       }
     } else {
       quarter = -1;
-      say(busy ? label : copied ? 'Link copied.' : copy.msg);
+      say(emuBusy ? STARTING_EMULATED : busy ? label : copied ? 'Link copied.' : copy.msg);
     }
   }
 
@@ -275,10 +299,33 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
     }
   }
 
+  /** Starts the emulated Quest 3, then enters it the same way "Enter mixed reality" does; if entering fails the page stays on the emulated entry. */
+  async function playEmulated(): Promise<void> {
+    clearError();
+    emuBusy = true;
+    render();
+    try {
+      await options.onPlayEmulated?.();
+    } catch (err) {
+      console.warn('[wound-up] could not start the emulated headset', err);
+      emuBusy = false;
+      if (alive) render();
+      showError('The emulated headset could not start. Reload this page and try once more, or open this page on your Quest.');
+      return;
+    }
+    emuBusy = false;
+    support = 'emulated';
+    render();
+    await enter('immersive-ar');
+  }
+
   on(go, 'click', () => {
     if (go.getAttribute('aria-disabled') === 'true') return;
     if (support === 'none') startPreview(go);
     else void enter(support === 'vr' ? 'immersive-vr' : 'immersive-ar');
+  });
+  on(emu, 'click', () => {
+    if (emu.getAttribute('aria-disabled') !== 'true') void playEmulated();
   });
   on(alt, 'click', () => {
     if (alt.getAttribute('aria-disabled') === 'true') return;

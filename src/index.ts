@@ -33,6 +33,14 @@ let giftMachine: StageBox | null = null;
 let giftInsets: Insets | null = null;
 
 const landingOptions: LandingOptions = {
+  // "Play in your browser": offered only where the browser has no WebXR. Loads IWER's emulated Quest 3 on demand (its own chunk).
+  onPlayEmulated: async () => {
+    if (!world) throw new Error('The workshop is still unpacking. Try again in a moment.');
+    await (await import('./emulator/index.js')).startBrowserHeadset();
+    if ((await detectXrSupport()) === 'none') throw new Error('The emulated headset did not answer WebXR.');
+    world.getSystem(GrabModeSystem)?.useHands(); // the parts were given mouse-ray grabbing when the page had no WebXR (ADR-024)
+    landingOptions.previewHint = 'This preview is for looking. Enter mixed reality (emulated) to build the machines with the emulated hands.';
+  },
   // Called synchronously from the click handler: WebXR needs the user gesture.
   onEnterXR: (mode) => {
     if (!world) throw new Error('The workshop is still unpacking. Try again in a moment.');
