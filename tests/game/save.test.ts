@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LETTER_IDS } from '../../src/game/content';
+import { ALL_LETTER_IDS } from '../../src/game/content';
 import {
   DEFAULT_SETTINGS,
   freshSave,
@@ -36,7 +36,7 @@ describe('SaveV1 basics', () => {
     expect(a.townPlaced).toBe(false);
     expect(a.dailyDone).toBeNull();
     expect(a.machines).toEqual([]);
-    expect(Object.keys(a.letters)).toEqual([...LETTER_IDS]);
+    expect(Object.keys(a.letters)).toEqual([...ALL_LETTER_IDS]); // the story's letters, then the optional ones
     expect(a.settings).toEqual(DEFAULT_SETTINGS);
     expect(freshSave()).not.toBe(a);
     expect(freshSave().settings).not.toBe(a.settings);

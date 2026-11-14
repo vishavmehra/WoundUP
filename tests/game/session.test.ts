@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CLOSING_CARD } from '../../src/game/content';
+import { DAILY_POOL } from '../../src/game/daily';
 import { dateKey } from '../../src/game/date';
 import { GameSession } from '../../src/game/session';
 import { parseSave, SAVE_KEY } from '../../src/game/save';
@@ -118,7 +119,7 @@ describe('GameSession: the core loop', () => {
     playUntil(game, 6);
     expect(game.save.dailyDone).toBeNull();
     expect(game.closing).toBe(CLOSING_CARD);
-    expect(game.letter).toBeNull();
+    expect(game.letter?.optional).toBe(true); // the story has no letter left; only the optional ones come after it
     expect(game.mode).toBe('town');
   });
 
@@ -126,7 +127,7 @@ describe('GameSession: the core loop', () => {
     const game = new GameSession({ storage: null, progression: { clockTower: false } });
     playUntil(game, 5);
     expect(game.closing).toBe(CLOSING_CARD);
-    expect(game.letter).toBeNull();
+    expect(game.letter?.optional).toBe(true);
     expect(game.save.letters.letter_6).toBe('locked');
   });
 
@@ -387,12 +388,13 @@ describe('GameSession: the daily repair', () => {
     const storage = new FakeStorage();
     const game = new GameSession({ storage });
     playUntil(game, 5);
-    const days = ['2026-11-14', '2026-11-15', '2026-11-16', '2026-11-17'];
+    const n = DAILY_POOL.length;
+    const days = Array.from({ length: n + 1 }, (_, i) => `2026-11-${14 + i}`);
     const first = days.map((d) => game.dailyRepair(d)?.id);
     const reloaded = new GameSession({ storage });
     expect(days.map((d) => reloaded.dailyRepair(d)?.id)).toEqual(first); // the date alone decides, not the session
-    expect(new Set(first).size).toBe(2); // both repairs come up
-    expect(first[0]).toBe(first[2]);
+    expect(new Set(first).size).toBe(n); // every repair of the pool comes up
+    expect(first[0]).toBe(first[n]);
     expect(first[0]).not.toBe(first[1]);
     expect(reloaded.save.dailyDone).toBeNull(); // looking is free: nothing was written
   });

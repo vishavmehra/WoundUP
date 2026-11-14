@@ -16,14 +16,16 @@ import { GATES, letterReached } from './progression';
 import type { SaveV1 } from './save';
 
 /**
- * Which repairs the daily pool holds is still for the owner to define (ADR-027). Until then it is the two documented
- * story repairs, which gives the pool a fixed, deterministic order. To widen it, append ids to this list.
+ * Which repairs the daily pool holds is still for the owner to define (ADR-027). Until then it is every repair the game has: the two
+ * documented story repairs and the three optional ones (content.ts), which gives the pool a fixed, deterministic order. Every one of them
+ * is on a socket a hand can reach (tests/content/repairs-extra.test.ts), so no date can offer a repair that cannot be done. To widen it,
+ * append ids to `REPAIR_IDS`.
  */
 export const DAILY_POOL: readonly RepairId[] = REPAIR_IDS;
 
 /**
- * The repair for a local date. Consecutive days step through the pool in order, so with two repairs the player gets
- * each on alternate days and never the same one twice running. Null for anything that is not a real `YYYY-MM-DD` date.
+ * The repair for a local date. Consecutive days step through the pool in order, so the player gets each repair in turn and never the
+ * same one twice running. Null for anything that is not a real `YYYY-MM-DD` date.
  */
 export function dailyRepairFor(date: string): RepairDef | null {
   if (!isDateKey(date)) return null;

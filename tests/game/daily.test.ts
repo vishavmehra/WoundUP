@@ -69,7 +69,7 @@ describe('daily repair (ADR-027, ACCEPTANCE_TESTS §5.1)', () => {
     expect(completeDaily(completed, 'not a date')).toBe(completed);
   });
 
-  it('draws only from the two documented repairs, which already exist in the game', () => {
+  it('draws only from repairs the game already has (the two documented ones and the three optional ones)', () => {
     expect(DAILY_POOL).toEqual(REPAIR_IDS);
     for (let day = 1; day <= 31; day++) {
       const repair = dailyRepairFor(`2026-12-${String(day).padStart(2, '0')}`);
@@ -84,7 +84,7 @@ describe('daily repair (ADR-027, ACCEPTANCE_TESTS §5.1)', () => {
       const b = dailyRepairFor(`2027-02-${String(day + 1).padStart(2, '0')}`);
       expect(a).not.toBe(b);
     }
-    expect(dailyRepairFor('2027-02-01')).toBe(dailyRepairFor('2027-02-03'));
+    expect(dailyRepairFor('2027-02-01')).toBe(dailyRepairFor(`2027-02-${String(1 + DAILY_POOL.length).padStart(2, '0')}`)); // the loop is as long as the pool
   });
 
   it('steps correctly across month, year and leap-day boundaries and before 1970', () => {

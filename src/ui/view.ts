@@ -66,7 +66,8 @@ export function viewFor(state: ModeState, local: LocalFlow, ctx: ViewContext): V
   return {
     trunk: mode === 'intro' || local.trunk === 'opening' || local.trunk === 'withdrawing',
     envelope: inTown && ctx.letter !== null ? (local.envelope === 'open' ? 'open' : 'sealed') : 'hidden',
-    closingCard: inTown && !paused && ctx.letter === null && ctx.closing !== null,
+    // The card stays up beside the sealed envelope of an optional letter (they come after the story), and gives the reading spot to the open letter.
+    closingCard: inTown && !paused && ctx.closing !== null && (ctx.letter === null || (ctx.letter.optional === true && local.envelope !== 'open')),
     bench,
     parcel: !bench ? 'hidden' : parcelOpen ? 'open' : 'closed',
     tray: parcelOpen,

@@ -356,7 +356,7 @@ describe('Letter 6 through the session (theatre keeper, ADR-047)', () => {
     expect(game.save.letters.letter_6).toBe('completed');
     expect(game.save.machines.find((m) => m.blueprintId === 'clock_tower')).toEqual({ blueprintId: 'clock_tower', built: true, placed: true, plotId: 'plot_clock_tower' });
     expect(game.closing).not.toBeNull();
-    expect(game.letter).toBeNull();
+    expect(game.letter?.optional).toBe(true); // the story is done; only the optional letters are left
   });
 
   it('does not complete on a build the solver does not run: an unfinished tower is incomplete, not run', () => {
