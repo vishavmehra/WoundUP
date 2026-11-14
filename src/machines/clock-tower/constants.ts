@@ -37,6 +37,8 @@ export const STRIKE_INTERVAL_SECONDS = 2;
 export const DOORS_OPEN_SECONDS = 30;
 /** The doors take this long to swing open, and again to close. P. */
 export const DOORS_ANIMATION_SECONDS = 1.5;
+/** M `blender/scripts/gen_theatre.py`: the doors open inwards, `PIV_DoorL` by +100 degrees about +Y and `PIV_DoorR` by -100. */
+export const THEATRE_DOOR_OPEN_RAD = (100 * Math.PI) / 180;
 
 /** The striker swings out to the bell and back in this time. P. */
 export const STRIKER_SWING_SECONDS = 0.35;

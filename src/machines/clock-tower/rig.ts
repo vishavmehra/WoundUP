@@ -4,7 +4,8 @@
 
 import { Quaternion, Vector3 } from 'three';
 import type { Object3D } from 'three';
-import type { ClockTowerRuntime } from './runtime';
+import { THEATRE_DOOR_OPEN_RAD } from './constants.js';
+import type { ClockTowerRuntime } from './runtime.js';
 
 export const CLOCK_TOWER_NODE = {
   /** Root of `pendulum_clock` (the bob is its child). Origin is the suspension point, `PIV_Suspension`. */
@@ -103,5 +104,40 @@ export class ClockTowerNodes {
     turn(this.minuteHand, runtime.minuteHandZ);
     turn(this.bell, runtime.bellZ);
     turn(this.striker, runtime.strikerZ);
+  }
+}
+
+/** Hinge pivots of the theatre facade (`blender/scripts/gen_theatre.py`); the leaves are their children. */
+export const THEATRE_DOOR_NODE = { left: 'PIV_DoorL', right: 'PIV_DoorR' } as const;
+
+const Y_AXIS = new Vector3(0, 1, 0);
+
+/**
+ * The theatre doors, which belong to the town layer's facade GLB, not to the tower. The town layer calls `resolve(facadeRoot)` once
+ * and `apply(runtime.doorsAmount)` each frame (or only while `runtime.doorsOpen`, then once more with 0 after `doorsClose`).
+ */
+export class TheatreDoors {
+  private left: Object3D | null = null;
+  private right: Object3D | null = null;
+  private readonly leftRest = new Quaternion();
+  private readonly rightRest = new Quaternion();
+
+  /** Returns the pivot names it did not find, empty when both are there. */
+  resolve(root: Object3D): string[] {
+    const missing: string[] = [];
+    this.left = root.getObjectByName(THEATRE_DOOR_NODE.left) ?? null;
+    this.right = root.getObjectByName(THEATRE_DOOR_NODE.right) ?? null;
+    if (this.left) this.leftRest.copy(this.left.quaternion);
+    else missing.push(THEATRE_DOOR_NODE.left);
+    if (this.right) this.rightRest.copy(this.right.quaternion);
+    else missing.push(THEATRE_DOOR_NODE.right);
+    return missing;
+  }
+
+  /** `amount` is `ClockTowerRuntime.doorsAmount`: 0 shut, 1 fully open. No allocation. */
+  apply(amount: number): void {
+    const a = amount * THEATRE_DOOR_OPEN_RAD;
+    if (this.left) this.left.quaternion.copy(this.leftRest).multiply(_turn.setFromAxisAngle(Y_AXIS, a));
+    if (this.right) this.right.quaternion.copy(this.rightRest).multiply(_turn.setFromAxisAngle(Y_AXIS, -a));
   }
 }

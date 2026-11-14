@@ -2,11 +2,11 @@
 import type { World } from '@iwsdk/core';
 import { ClockTowerSystem } from './system.js';
 
-export * from './blueprint';
-export * from './constants';
-export * from './rig';
-export * from './runtime';
-export * from './time';
+export * from './blueprint.js';
+export * from './constants.js';
+export * from './rig.js';
+export * from './runtime.js';
+export * from './time.js';
 export { ClockTowerRig as ClockTowerRigComponent } from './components.js';
 export { ClockTowerSystem, clockTowerEvents, setClockTowerClock } from './system.js';
 

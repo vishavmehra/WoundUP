@@ -18,12 +18,20 @@ import type { ClockTowerListener } from '../../../src/machines/clock-tower';
 const TAU = Math.PI * 2;
 const local = (h: number, m = 0, s = 0, ms = 0): number => new Date(2026, 10, 13, h, m, s, ms).getTime();
 
+interface Logged {
+  type: string;
+  at: number;
+  args: number[];
+}
+const of = (log: Logged[], type: string): Logged[] => log.filter((e) => e.type === type);
+const last = <T>(a: readonly T[]): T | undefined => a[a.length - 1];
+
 /** A runtime on a clock the test winds by hand, and a log of every event with the time it fired. */
 function rig(start: number, powered = true) {
   let now = start;
   const rt = new ClockTowerRuntime(() => now);
   rt.powered = powered;
-  const log: { type: string; at: number; args: number[] }[] = [];
+  const log: Logged[] = [];
   const listener: ClockTowerListener = {
     tick: (p) => log.push({ type: 'tick', at: now, args: [p] }),
     hour: (n) => log.push({ type: 'hour', at: now, args: [n] }),
@@ -44,8 +52,6 @@ function rig(start: number, powered = true) {
   rt.update(); // the first frame
   return { rt, log, run, now: () => now, setNow: (t: number) => void (now = t) };
 }
-const of = (log: { type: string }[], type: string) => log.filter((e) => e.type === type);
-
 describe('pendulum and escapement', () => {
   it('beats once a second, tick then tock, and the wheel advances half a tooth on each beat, in step', () => {
     const { rt, log, run } = rig(local(10));
@@ -175,10 +181,10 @@ describe('hourly strike and the theatre doors', () => {
     run(1.2); // just past the hour
     expect(rt.doorsOpen).toBe(true);
     run(14, 0.5, () => amounts.push(rt.doorsAmount));
-    expect(amounts.at(-1)).toBe(1); // fully open in the middle of the 30 seconds
+    expect(last(amounts)).toBe(1); // fully open in the middle of the 30 seconds
     expect(amounts[0]).toBeGreaterThan(0);
-    run(13);
-    expect(rt.doorsOpen).toBe(true); // at about 28.2 s after the hour
+    run(14.5);
+    expect(rt.doorsOpen).toBe(true); // at about 28.7 s after the hour: the doors are closing
     expect(rt.doorsAmount).toBeLessThan(1);
     run(3);
     expect(rt.doorsOpen).toBe(false);
@@ -196,17 +202,17 @@ describe('hourly strike and the theatre doors', () => {
       run(35);
       expect(of(log, 'hour').map((e) => e.args[0]), `hour ${hour}`).toEqual([expected]);
       expect(of(log, 'strike')).toHaveLength(expected);
-      expect(of(log, 'strike').at(-1)?.args, `hour ${hour}`).toEqual([expected, expected]);
+      expect(last(of(log, 'strike'))?.args, `hour ${hour}`).toEqual([expected, expected]);
     }
   });
 
   it('twelve strikes still end before the doors close', () => {
     const { log, run } = rig(local(11, 59, 59, 500));
     run(35);
-    const last = of(log, 'strike').at(-1);
+    const lastStrike = last(of(log, 'strike'));
     const close = of(log, 'doorsClose')[0];
-    expect(last?.args).toEqual([12, 12]);
-    expect(last?.at).toBeLessThan(close.at);
+    expect(lastStrike?.args).toEqual([12, 12]);
+    expect(lastStrike?.at).toBeLessThan(close.at);
   });
 
   it('does not strike while the clock is stopped, and a clock started after the hour does not strike late', () => {
@@ -226,6 +232,18 @@ describe('hourly strike and the theatre doors', () => {
     rt.update();
     run(5);
     expect(of(log, 'hour')).toEqual([]);
+  });
+
+  it('does not ring the strikes it missed in a stall all at once', () => {
+    const { rt, log, setNow, run } = rig(local(11, 59, 59, 500));
+    run(1); // the hour has come and the first strike has rung
+    expect(of(log, 'strike')).toHaveLength(1);
+    setNow(local(12, 0, 11)); // an 11 s stall: strikes 2 to 6 fell due in it
+    rt.update();
+    expect(of(log, 'strike').map((e) => e.args[0])).toEqual([1, 6]); // only the one still on time rings
+    run(20);
+    expect(of(log, 'strike').map((e) => e.args[0])).toEqual([1, 6, 7, 8, 9, 10, 11, 12]);
+    expect(of(log, 'doorsClose')).toHaveLength(1);
   });
 
   it('strikes again an hour later', () => {
@@ -263,15 +281,17 @@ describe('hourly strike and the theatre doors', () => {
     expect(bell).toBeGreaterThan(0);
     expect(bell).toBeLessThanOrEqual(BELL_RECOIL_RAD);
     expect(rt.strikerZ).toBe(0); // 0.6 s after the strike, and the next is 2 s away
-    run(1.3);
-    expect(rt.bellZ).toBe(0); // by 3 s after the last strike it has settled; here the next strike has not yet come
+    // The third and last strike falls 4 s after the hour; 3.1 s later the bell has settled (it is 7.2 s after the hour).
+    run(6.6);
+    expect(rt.strikerZ).toBe(0);
+    expect(rt.bellZ).toBe(0);
   });
 
   it('stops delivering events to a listener that unsubscribed', () => {
     const { rt, log, run } = rig(local(10));
     const calls: number[] = [];
     const off = rt.events.subscribe({ tick: () => calls.push(1) });
-    run(3);
+    run(3.1); // beats at 1, 2 and 3 s
     expect(calls).toHaveLength(3);
     off();
     run(3);

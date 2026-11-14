@@ -13,7 +13,7 @@ import type {
   SolverBlueprint,
   SolverSocket,
 } from '../../sim';
-import { ESCAPE_WHEEL_RAD_PER_S } from './constants';
+import { ESCAPE_WHEEL_RAD_PER_S } from './constants.js';
 
 // ---- Slots (MACHINE_SLOT_MAPPINGS §5.4) ------------------------------------------------------------------------------
 

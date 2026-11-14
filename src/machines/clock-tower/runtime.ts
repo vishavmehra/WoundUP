@@ -22,8 +22,8 @@ import {
   STRIKER_SWING_RAD,
   STRIKER_SWING_SECONDS,
   STRIKE_INTERVAL_SECONDS,
-} from './constants';
-import { hourHandAngle, hourlyCamAngle, hourStartMs, minuteHandAngle, strikeCount } from './time';
+} from './constants.js';
+import { hourHandAngle, hourlyCamAngle, hourStartMs, minuteHandAngle, strikeCount } from './time.js';
 
 const TAU = Math.PI * 2;
 const STRIKE_INTERVAL_MS = STRIKE_INTERVAL_SECONDS * 1000;
@@ -208,8 +208,12 @@ export class ClockTowerRuntime {
     if (this.sequence) {
       const elapsed = now - this.sequenceStartMs;
       while (this.strikesDone < this.strikesTotal && elapsed >= this.strikesDone * STRIKE_INTERVAL_MS) {
-        this.lastStrikeMs = this.sequenceStartMs + this.strikesDone * STRIKE_INTERVAL_MS;
+        const dueMs = this.strikesDone * STRIKE_INTERVAL_MS;
         this.strikesDone++;
+        // A strike a whole interval or more overdue (the frame loop stalled, the headset slept) is dropped, not rung late and
+        // together with the others.
+        if (elapsed - dueMs >= STRIKE_INTERVAL_MS) continue;
+        this.lastStrikeMs = this.sequenceStartMs + dueMs;
         this.events.strike(this.strikesDone, this.strikesTotal);
       }
       if (elapsed >= DOORS_OPEN_MS) {
