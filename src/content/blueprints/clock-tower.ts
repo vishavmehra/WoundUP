@@ -179,7 +179,7 @@ const intended: Readonly<Record<string, string>> = Object.fromEntries(
 /**
  * The two decoys of Letter 6 (DATA §9.1). The worn spring (Letter 2's fault, so the player knows it) and a 12-tooth bevel gear. No
  * socket accepts either, so each goes back to the tray with the red outline and the soft bonk (PRODUCT_SPEC §9). Which parts the owner
- * wants is open (audit A-12). They only show once a socket can be reached by hand: the decoy parts are the second feature cut (ADR-047).
+ * wants is open (audit A-12). They lie in the tray although the game seats the movement itself (src/build-plan.ts): no socket takes them, so they stay loose. The decoy parts are the second feature cut (ADR-047).
  */
 export const CLOCK_TOWER_DECOYS: readonly string[] = [partId('spring_worn'), partId('gear_bevel_12')];
 

@@ -3,9 +3,20 @@
 // Set WU_MODELS_DIR to a models folder to run it against another checkout; it is skipped when the Clock Tower GLBs are not in the tree.
 
 import { Box3, Vector3 } from 'three';
+import type { Mesh, Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildClockTower, CLOCK_TOWER_BASE_HEIGHT_M, CLOCK_TOWER_MODEL, CLOCK_TOWER_MODEL_PATHS, ClockTowerNodes, ClockTowerRuntime, MOVEMENT, PENDULUM_AMPLITUDE_RAD } from '../../../src/machines/clock-tower';
+import {
+  buildClockTower,
+  CLOCK_TOWER_BASE_HEIGHT_M,
+  CLOCK_TOWER_MODEL,
+  CLOCK_TOWER_MODEL_PATHS,
+  CLOCK_TOWER_NODE_NAMES,
+  ClockTowerNodes,
+  ClockTowerRuntime,
+  MOVEMENT,
+  PENDULUM_AMPLITUDE_RAD,
+} from '../../../src/machines/clock-tower';
 import { buildMachine } from '../../../src/town/machines';
 import type { ModelSource } from '../../../src/town/scene';
 import { fs, libraryRegistry, repoUrl } from '../../town/helpers';
@@ -64,9 +75,9 @@ describe.skipIf(!present)('the finished Clock Tower from the real GLBs', () => {
     expect(Math.max(whole.max.x, -whole.min.x)).toBeLessThan(0.0476); // the footprint is the 9.5 cm base
   });
 
-  it('has every node ClockTowerNodes turns, except the hourly cam, which is solved but not drawn (no mount in any GLB)', async () => {
+  it('has every node ClockTowerNodes turns: the escapement, the hands, the bell, the going train, the shaft and the hourly cam', async () => {
     const rig = await buildClockTower(source, libraryRegistry());
-    expect(new ClockTowerNodes().resolve(rig.root)).toEqual(['Cam_HourlyChime']);
+    expect(new ClockTowerNodes().resolve(rig.root)).toEqual([]);
   });
 
   it('puts the movement inside the tower: the pendulum clears the floor and the arch through its whole swing, the wheel and anchor fit the openings above', async () => {
@@ -121,5 +132,54 @@ describe.skipIf(!present)('the finished Clock Tower from the real GLBs', () => {
   it('uses only files named once, in the order the loader knows (the base is the housing the blueprint names)', () => {
     expect(new Set(CLOCK_TOWER_MODEL_PATHS).size).toBe(CLOCK_TOWER_MODEL_PATHS.length);
     expect(CLOCK_TOWER_MODEL.base).toBe('tockton/clock_tower/clock_tower_base.glb');
+  });
+  it('names the groups the X-ray effect fades: the shell holds only shell, the dial and the bell stand beside it, the movement is its own group', async () => {
+    const rig = await buildClockTower(source, libraryRegistry());
+    const names = CLOCK_TOWER_NODE_NAMES;
+    const shell = rig.root.getObjectByName(names.shell) as Object3D;
+    const under = (name: string, ancestor: Object3D): boolean => ancestor.getObjectByName(name) !== undefined;
+    expect(rig.root.name).toBe(names.base);
+    expect(under('ClockTower_Pillar', shell)).toBe(true);
+    for (const other of [names.dial, names.bell, names.movement]) {
+      expect(rig.root.getObjectByName(other)?.parent, other).toBe(rig.root);
+      expect(under(other, shell), other).toBe(false);
+    }
+    expect(under('ClockHands_Hour', rig.root.getObjectByName(names.dial) as Object3D)).toBe(true);
+    expect(under('Movement_large_gear', rig.root.getObjectByName(names.movement) as Object3D)).toBe(true);
+  });
+
+  it('draws the still parts in a mesh per material, with no triangle lost and nothing moved: 32 draw calls for the whole tower, not 53', async () => {
+    const rig = await buildClockTower(source, libraryRegistry());
+    rig.root.updateMatrixWorld(true);
+    let drawn = 0;
+    rig.root.traverseVisible((node) => void ((node as Mesh).isMesh && drawn++));
+    expect(drawn).toBeLessThanOrEqual(33);
+    const triangles = (m: Mesh): number => (m.geometry.index ? m.geometry.index.count : m.geometry.getAttribute('position').count) / 3;
+    for (const [group, prefix, floor] of [[CLOCK_TOWER_NODE_NAMES.shell, `${CLOCK_TOWER_NODE_NAMES.shell}_`, 0], [CLOCK_TOWER_NODE_NAMES.base, `${CLOCK_TOWER_NODE_NAMES.baseWalls}_`, 0]] as const) {
+      let originals = 0;
+      let baked = 0;
+      const boxOriginals = new Box3();
+      const boxBaked = new Box3();
+      const root = group === CLOCK_TOWER_NODE_NAMES.base ? rig.root : (rig.root.getObjectByName(group) as Object3D);
+      root.traverse((node) => {
+        const mesh = node as Mesh;
+        if (!mesh.isMesh) return;
+        const under = (name: string): boolean => (rig.root.getObjectByName(name) as Object3D).getObjectById(mesh.id) !== undefined;
+        if (group === CLOCK_TOWER_NODE_NAMES.base && [CLOCK_TOWER_NODE_NAMES.shell, CLOCK_TOWER_NODE_NAMES.dial, CLOCK_TOWER_NODE_NAMES.bell, CLOCK_TOWER_NODE_NAMES.movement].some(under)) return;
+        if (mesh.name.startsWith(prefix)) {
+          baked += triangles(mesh);
+          boxBaked.union(new Box3().setFromObject(mesh, true));
+        } else if (!mesh.visible) {
+          originals += triangles(mesh);
+          boxOriginals.union(new Box3().setFromObject(mesh, true));
+        }
+      });
+      expect(baked, group).toBeGreaterThan(floor);
+      expect(baked, group).toBe(originals); // every triangle of the files is in a baked mesh, once
+      for (const [a, b] of [[boxBaked.min, boxOriginals.min], [boxBaked.max, boxOriginals.max]] as const) expect(a.distanceTo(b), group).toBeLessThan(1e-6);
+    }
+    // the base keeps its floor and its step as they are, so they can stay when the walls fade
+    expect((rig.root.getObjectByName('ClockTowerBase_Platform') as Mesh).visible).toBe(true);
+    expect((rig.root.getObjectByName('ClockTowerBase_Step') as Mesh).visible).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { createSystem } from '@iwsdk/core';
-import type { Entity } from '@iwsdk/core';
+import type { Entity, Object3D } from '@iwsdk/core';
 import { ClockTowerRig } from './components.js';
 import { ClockTowerNodes } from './rig.js';
 import { ClockTowerEvents, ClockTowerRuntime } from './runtime.js';
@@ -23,6 +23,8 @@ export class ClockTowerSystem extends createSystem({ towers: { required: [ClockT
   runtime: ClockTowerRuntime | null = null;
 
   private tower: Entity | null = null;
+  /** The object the runtime was made for. An entity is pooled: a new tower can be handed the entity of the one just destroyed, so the entity alone does not tell a new tower from the old. */
+  private towerObject: Object3D | null = null;
   private nodes = new ClockTowerNodes();
   private wasPowered = false;
   private first: Entity | null = null;
@@ -37,14 +39,17 @@ export class ClockTowerSystem extends createSystem({ towers: { required: [ClockT
     const object = entity?.object3D;
     if (!entity || !object) {
       this.tower = null;
+      this.towerObject = null;
       this.runtime = null;
       return;
     }
-    if (entity !== this.tower) {
+    if (entity !== this.tower || object !== this.towerObject) {
       this.tower = entity;
+      this.towerObject = object;
       this.runtime = new ClockTowerRuntime(() => clockSource(), clockTowerEvents);
       this.nodes = new ClockTowerNodes();
       this.wasPowered = false;
+      if (entity.getValue(ClockTowerRig, 'strikeOnStart') === true) this.runtime.triggerStrikes();
     }
     const runtime = this.runtime as ClockTowerRuntime;
     const powered = entity.getValue(ClockTowerRig, 'powered') === true;
