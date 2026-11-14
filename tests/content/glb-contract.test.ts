@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLUEPRINTS, MUSIC_BOX } from '../../src/content/blueprints';
+import { BLUEPRINTS, MUSIC_BOX, WINDMILL } from '../../src/content/blueprints';
 import { MODEL_PATHS, PART_DEFINITIONS, requirePart } from '../../src/content/parts';
 
 // The data in src/content against the GLB files it describes: collider radii, socket empties, material names.
@@ -17,6 +17,8 @@ const fileOf = (relative: string): string | URL => (env.WU_MODELS_DIR ? `${env.W
 
 interface GltfNode {
   name?: string;
+  translation?: number[];
+  rotation?: number[];
   scale?: number[];
   extras?: { wu?: Record<string, unknown> };
 }
@@ -92,6 +94,23 @@ describe.skipIf(missing.length > 0)('the GLBs the catalogue and blueprints descr
       expect(wu.slot, name).toBe(s?.id);
       expect(wu.dependsOn, name).toEqual(s?.dependencies ?? []);
     }
+  });
+
+  it('windmill base: the blueprint poses of its four housing sockets are the empties in the GLB, and the two gears are 46.0 mm apart', () => {
+    const nodes = readGlb(MODEL_PATHS.windmill_base).nodes ?? [];
+    const posed = WINDMILL.sockets.filter((s) => s.position !== undefined);
+    expect(posed.map((s) => s.id).sort()).toEqual(['gear_24', 'millstone', 'pinion', 'tower']);
+    for (const s of posed) {
+      const node = nodes.find((n) => n.name === `SOCKET_${s.node}`);
+      expect(node, `SOCKET_${s.node}`).toBeDefined();
+      s.position!.forEach((v, k) => expect(node!.translation![k], `${s.id} position ${k}`).toBeCloseTo(v, 6)); // 1 um: the GLB stores float32
+      const q = node!.rotation ?? [0, 0, 0, 1];
+      expect(Math.abs(q.reduce((sum, v, k) => sum + v * s.rotation![k], 0)), `${s.id} rotation`).toBeGreaterThan(1 - 1e-8);
+    }
+    const at = (id: string): number[] => posed.find((s) => s.id === id)!.position as unknown as number[];
+    expect(Math.hypot(at('gear_24')[0] - at('pinion')[0], at('gear_24')[2] - at('pinion')[2])).toBeCloseTo(0.046, 9); // 2.5 mm x (12 + 24) / 2 + 1.0 mm
+    expect(at('gear_24')[1]).toBe(at('pinion')[1]); // one plane, so the pair meshes
+    expect(at('gear_24')[2]).toBe(at('millstone')[2]); // the 24T and the millstone share a spindle
   });
 
   it('music box case: the X-ray zone is the case collider', () => {

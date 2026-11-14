@@ -8,7 +8,10 @@ Not run directly. The family runner builds it:
 Sizes are the owner-approved TOCKTON_DIMENSIONS.md section 11 values (ADR-042, 1:1 workbench scale): base 9.5 x 4.3 x 13.06 cm, tower 4.3 to
 23.0 cm above the table (18.7 cm tall), hub 19.0 cm high, sails diameter 16.0 cm, millstone diameter 5.0 cm. The base is the mill-room base of
 docs/blueprints/MACHINE_SLOT_MAPPINGS.md section 4.6: a stadium (two R 4.75 cm semicircles 3.56 cm apart), the tower on the back semicircle's
-centre, the 24T 4.5 cm in front of the tower axis (45.0 mm = the 12T/24T pair at module 2.5 mm), the millstone above it, a front arch to see both.
+centre, the 24T 4.6 cm in front of the tower axis (46.0 mm = 2.5 mm x (12 + 24) / 2 for the 12T/24T pair, plus the 1.0 mm that straight-flank
+teeth need, the same allowance as the Music Box pairs), the millstone above it, a front arch to see both. The base carries the sockets of the
+two gears a hand can reach through that arch: SOCKET_Pinion (12T, on the tower axis) and SOCKET_Gear24 (the designated 24T, on the millstone's
+spindle), both flat, mid-thickness at one height so the pair meshes. The main shaft, bearings and bevels sit inside the solid tower: no empties.
 
 Every mesh is built in glTF axes (x right, y up, z towards the player) at 100x (1 unit = 1 cm) so chamfers stay far above Blender's
 merge tolerances, then swizzled to Blender space (x, y, z) -> (x, -z, y) and scaled to metres, exactly like the gear family.
@@ -333,12 +336,15 @@ def finish(objs_acc, entry, extra_wu=None):
 # ======================================================================================
 R_BASE = 4.75
 SP = 1.78                       # half of the spine (cm): back and front semicircles are centred at z -SP and +SP
-RC = 4.46                       # centre line of the wall (wall 4.30 to 4.62 from the spine: interior radius 43.0 mm, the 24T at 45 mm needs 41.6 and at 46 mm 42.6)
+RC = 4.46                       # centre line of the wall (wall 4.30 to 4.62 from the spine: interior radius 43.0 mm; the 24T (R 32.1 mm) at 46 mm needs 42.5)
 LB, LS = math.pi * RC, 2.0 * SP
 LTOT = 2 * LB + 2 * LS
 TOWER_Z = -SP                   # the tower and the main shaft stand on the back semicircle's centre
-MILL_Z = -SP + 4.5              # the 24T and the millstone: 45.0 mm in front of the tower axis
+GEAR_PITCH = 2.5 * (12 + 24) / 2 + 1.0       # mm: module 2.5 x (z1 + z2) / 2 for the 12T/24T pair + 1.0 mm for straight-flank teeth = 46.0
+MILL_Z = TOWER_Z + GEAR_PITCH / 10.0         # the 24T and the millstone: 46.0 mm in front of the tower axis
 FLOOR_TOP, DECK_LO, DECK_HI, BASE_H = 0.60, 3.62, 4.15, 4.30
+GEAR_Y0, GEAR_Y1 = 0.70, 2.22   # the 24T and the pinion (15.2 mm thick with hub bosses): floor 6 + gap 1 = 7.0 up to 22.2
+GEAR_YC = 0.5 * (GEAR_Y0 + GEAR_Y1)             # 14.6 mm: mid-thickness, where a gear's origin sits (both gears at one height so they mesh)
 STONE_Y0, STONE_Y1 = 2.32, 3.52  # millstone: floor 6 + gap 1 + 24T 15.2 + gap 1 = 23.2 up to 35.2 (below the deck's underside 36.2)
 
 
@@ -482,7 +488,29 @@ def build_base(entry, p):
     s1 = empties.add_socket(root, "BaseHandle", (0.0, 0.0065, 0.0653), ["machine_base_handle"], axis_g=(0, 0, 1))   # on the brass band below the front arch
     s2 = empties.add_socket(root, "Tower", (0.0, BASE_H / 100.0, TOWER_Z / 100.0), ["windmill_tower"], axis_g=(0, 1, 0))
     s3 = empties.add_socket(root, "Millstone", (0.0, 0.5 * (STONE_Y0 + STONE_Y1) / 100.0, MILL_Z / 100.0), ["windmill_millstone"], axis_g=(0, 1, 0))
-    return objs + [col, s1, s2, s3], dict(origin=("centre", "min", "centre"), closed=True)
+    # the gear pair of the train (MACHINE_SLOT_MAPPINGS 4.5): flat gears, local +Z up, origin at mid-thickness, the pinion on the tower axis and the
+    # designated 24T on the millstone's spindle. `accepts` is the spur-gear family: a wrong tooth count has to be placeable so it can run wrong.
+    gear = dict(partFamily="spur_gear", seatsAlong=[0, -1, 0], rotationEulerDeg=[-90, 0, 0], rotationQuat=[-0.7071068, 0.0, 0.0, 0.7071068],
+                centreDistanceMm=GEAR_PITCH, note="12T/24T pair: 2.5 mm x (12 + 24) / 2 + 1.0 mm", proposal=True,
+                basis="docs/blueprints/MACHINE_SLOT_MAPPINGS.md sections 4.5 and 4.6")
+    s4 = empties.add_socket(root, "Pinion", (0.0, GEAR_YC / 100.0, TOWER_Z / 100.0), ["spur_gear"], axis_g=(0, 1, 0), slot="pinion",
+                            intended="gear_spur_12_m1", dependsOn=["main_shaft"], **gear)
+    s5 = empties.add_socket(root, "Gear24", (0.0, GEAR_YC / 100.0, MILL_Z / 100.0), ["spur_gear"], axis_g=(0, 1, 0), slot="gear_24",
+                            intended="gear_spur_24_m1", dependsOn=["pinion", "millstone"], **gear)
+
+    def check(g, objs):          # the mill room: both gears clear the wall and sit between floor and millstone, at the blueprint's centre distance
+        wall_in = 10.0 * (RC - 0.16)                                             # 43.0 mm: the wall's inner face from the spine
+        for nm, zc, rt in (("24T", MILL_Z, 32.13), ("12T", TOWER_Z, 17.13)):     # axis z (cm) and tip radius (mm) from the part GLBs
+            need = 10.0 * (abs(zc - SP) if zc > 0 else abs(zc + SP)) + rt        # offset from the nearer semicircle centre + tip radius
+            if need > wall_in - 0.3:
+                g.fail("Q13", f"the {nm} would come within 0.3 mm of the wall: needs {need:.2f} mm of {wall_in:.1f}")
+        if abs(10.0 * (MILL_Z - TOWER_Z) - GEAR_PITCH) > 1e-6:
+            g.fail("Q13", "pinion and 24T are not GEAR_PITCH apart")
+        if not (FLOOR_TOP < GEAR_Y0 and GEAR_Y1 < STONE_Y0):
+            g.fail("Q13", "the gear stack does not fit between the floor and the millstone")
+        g.info["sockets"] = [x.name for x in (s1, s2, s3, s4, s5)]
+
+    return objs + [col, s1, s2, s3, s4, s5], dict(origin=("centre", "min", "centre"), closed=True, checks=[check])
 
 
 # ======================================================================================

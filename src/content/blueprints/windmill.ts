@@ -7,10 +7,17 @@
 //
 // Only the sockets whose parts exist are here: 11 sockets for the document's slots W05 to W09, W21 (the sails GLB holds the hub,
 // the blades and the cap: W21, W23, W24) and W22. The tower is one pre-built GLB, so W10 to W20 (a K1 set of 15 piece kinds with no
-// GLB and no part id yet) have no socket (gap). No socket has a position: §8 defers them until after the Music Box milestone.
+// GLB and no part id yet) have no socket (gap).
+//
+// Where a hand can reach: the base GLB (the housing) carries SOCKET_Tower, SOCKET_Millstone and, in the mill room behind the front arch, the
+// two gears of the train, SOCKET_Pinion (12T, on the tower axis) and SOCKET_Gear24 (the designated 24T, on the millstone's spindle). The
+// sails' socket is the tower's own SOCKET_Rotor. The main shaft, the bearings and the bevels stand inside the solid tower and have no empty,
+// so the game seats them itself (`MachineInstance.unbound()` lists them). The four housing poses below are the GLB's, written out so a
+// test can hold the two together (tests/content/glb-contract.test.ts); the blueprint pose wins at runtime.
 
 import { MACHINE_TARGET_SPECS } from '../../sim';
 import type { MechanicalConnection } from '../../sim';
+import { GEAR_SPACING_EXTRA_M } from './music-box';
 import { partId, SPUR_GEAR_IDS, trayOf } from './shared';
 import type { MachineBlueprint, SocketDefinition } from './types';
 
@@ -20,22 +27,53 @@ export const WINDMILL_WIND_RAD_S = 1.2;
 const BEARING = partId('bearing_pillow_block');
 const BEVEL = partId('gear_bevel_12');
 
+type Vec3 = readonly [number, number, number];
+/** Base frame, metres (origin at the centre of the floor-contact face, +Y up, +Z towards the player). Mirrors gen_windmill.py. */
+const SPINE_HALF_M = 0.0178; // the stadium's spine is 3.56 cm long: the tower stands on the back semicircle's centre, 1.78 cm behind the base centre
+const GEAR_Y_M = 0.0146; // mid-thickness of the 15.2 mm gears, 7.0 mm above the 6 mm floor; pinion and 24T at one height so they mesh
+const STONE_Y_M = 0.0292; // the millstone's centre: 23.2 to 35.2 mm
+/** The 12T/24T pair's centre distance: module 2.5 mm x (12 + 24) / 2, plus the 1.0 mm that straight-flank teeth need (the Music Box's allowance). */
+const GEAR_MODULE_M = 0.0025;
+export const WINDMILL_GEAR_CENTRE_DISTANCE_M = (GEAR_MODULE_M * (12 + 24)) / 2 + GEAR_SPACING_EXTRA_M;
+const MILL_Z_M = -SPINE_HALF_M + WINDMILL_GEAR_CENTRE_DISTANCE_M;
+const round7 = (v: number): number => Math.round(v * 1e7) / 1e7;
+/** Turns a flat part's local +Z onto +Y (the Windmill's rotating parts stand on their axis); the GLB empties' rotation. */
+const FLAT = [-0.7071068, 0, 0, 0.7071068] as const;
+
+const POSE: Readonly<Record<string, readonly [Vec3, typeof FLAT]>> = {
+  tower: [[0, 0.043, -SPINE_HALF_M], FLAT],
+  millstone: [[0, STONE_Y_M, round7(MILL_Z_M)], FLAT],
+  pinion: [[0, GEAR_Y_M, -SPINE_HALF_M], FLAT],
+  gear_24: [[0, GEAR_Y_M, round7(MILL_Z_M)], FLAT],
+};
+
 const socket = (
   id: string,
   family: SocketDefinition['family'],
   accepts: readonly string[],
   dependencies: readonly string[] = [],
   node?: string,
-): SocketDefinition => ({ id, family, required: true, acceptedPartIds: accepts, dependencies, ...(node === undefined ? {} : { node }) });
+): SocketDefinition => {
+  const pose = POSE[id];
+  return {
+    id,
+    family,
+    required: true,
+    acceptedPartIds: accepts,
+    dependencies,
+    ...(node === undefined ? {} : { node }),
+    ...(pose === undefined ? {} : { position: pose[0], rotation: pose[1] }),
+  };
+};
 
 const sockets: readonly SocketDefinition[] = [
   socket('tower', 'structural', [partId('windmill_tower')], [], 'Tower'), // SOCKET_Tower of the base
   socket('bearing_floor', 'structural', [BEARING]), // W05
   socket('bearing_deck', 'structural', [BEARING]),
   socket('main_shaft', 'shaft', [partId('shaft_long')], ['bearing_floor', 'bearing_deck']), // W06
-  socket('pinion', 'spur_gear', SPUR_GEAR_IDS, ['main_shaft']), // W07, 12T intended
+  socket('pinion', 'spur_gear', SPUR_GEAR_IDS, ['main_shaft'], 'Pinion'), // W07, 12T intended: SOCKET_Pinion of the base
   socket('millstone', 'structural', [partId('windmill_millstone')], [], 'Millstone'), // W08
-  socket('gear_24', 'spur_gear', SPUR_GEAR_IDS, ['pinion', 'millstone']), // W09, the designated 24T position
+  socket('gear_24', 'spur_gear', SPUR_GEAR_IDS, ['pinion', 'millstone'], 'Gear24'), // W09, the designated 24T position: SOCKET_Gear24 of the base
   socket('bevel_shaft', 'bevel_gear', [BEVEL], ['main_shaft']), // W22, on top of the main shaft
   socket('rotor', 'structural', [partId('windmill_sails')], ['tower'], 'Rotor'), // W21: SOCKET_Rotor of the tower; the wind drives it
   socket('bevel_hub', 'bevel_gear', [BEVEL], ['rotor', 'bevel_shaft']), // W22, on the hub's axle
