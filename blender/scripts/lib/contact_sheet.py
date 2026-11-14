@@ -25,7 +25,7 @@ import wu_common as wu
 # than in Cycles, where 1.0 is the calibration of wu.build_studio.
 GRADES = {"draft": dict(engine="BLENDER_EEVEE", res=(1280, 960), samples=16, key=0.6),
           "final": dict(engine="CYCLES", res=(1920, 1080), samples=64, key=1.0)}
-VIEWS = (("front", (0.0, 0.0, 0.0)), ("3/4", (math.radians(-28), 0.0, math.radians(38))))
+VIEWS = (("front", (0.0, 0.0, 0.0)), ("3/4", (math.radians(28), 0.0, math.radians(38))))  # +28 tips the top towards the -Y camera
 
 
 def _world_box(objs):

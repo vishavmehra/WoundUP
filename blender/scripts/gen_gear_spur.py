@@ -9,8 +9,13 @@ forge.py reads the manifest entries, calls build(entry, PARAMS[id]) once per id 
 COLOR_0, runs the QA gate, exports with the library profile and renders the contact sheet (docs/BLENDER_PRODUCTION_GUIDELINES
 section 4). This file holds the geometry and PARAMS, the generator parameters keyed by asset id (section 4.4).
 
-Every gear shares ONE module, m1 = MODULE_REF = 3.6158 mm (owner decision 5 pending; the manifest default), so any two
-gears of the family mesh. Tip diameter = m * (teeth + 2 * 0.85): 12T 49.5 mm, 16T 64.0 mm, 24T 92.9 mm.
+Every gear shares ONE module, m1 = MODULE_REF = 2.5 mm (owner-approved, docs/TOCKTON_DIMENSIONS.md section 10; the id token
+`m1` stays, its value changed from 3.6158 mm), so any two gears of the family mesh. Tip diameter = m * (teeth + 2 * 0.85):
+10T 29.3 mm, 12T 34.2 mm, 16T 44.3 mm, 20T 54.3 mm, 24T 64.3 mm, 36T 94.3 mm. The bore stays 8 mm (4 mm radius) for every gear.
+
+Two web layouts. Gears with room (R_R - r_bore >= SOLID_WEB_BELOW, i.e. 16T and up at 2.5 mm) keep four filleted spokes, a flanged
+hub and open windows. Smaller gears (10T, 12T) cannot hold spokes beside an 8 mm bore, so they get a SOLID recessed web: a raised
+rim ring with the rivets, a recessed web disc (no spokes, no windows) and the proud hub boss, all machined and bevelled.
 
 Model space (what ends up in the GLB, glTF Y-up): rotation axis = local +Z, front face towards +Z, origin = centre of the
 bore at mid-thickness, tooth 0 points along +X. The mesh is built in this space at 100x (1 unit = 1 cm, so tiny bevels stay far
@@ -41,7 +46,8 @@ from lib import empties, materials, uvmetric
 
 S = 100.0                              # build scale (1 unit = 1 cm)
 ADDENDUM = 0.85                        # x module (short, chunky storybook teeth)
-MODULE_REF = 0.064 / (16 + 2 * ADDENDUM)   # 16T / 0.064 m tip diameter => one module for the whole gear family
+MODULE_REF = 0.0025                    # owner-approved main module m1 = 2.5 mm: tip = m (z + 1.7) => 10T 29.3 ... 24T 64.3 mm
+SOLID_WEB_BELOW = 0.0060               # R_R - r_bore under 6 mm (10T 0.5 mm, 12T 3.0 mm; 16T is 8.0 mm) => solid recessed web, no spokes
 
 
 # ======================================================================================
@@ -77,6 +83,11 @@ class GearParams:
     rivet_nseg: int = 8                  # sides of a rivet dome
     bolt_nseg: int = 8                   # sides of a bolt head
     ring_spacing: float = 1.0            # x the target edge length on the rim, flange and hub circles (more = fewer triangles)
+    web: str = "auto"                    # "auto" | "spokes" | "solid": auto picks solid when R_R - r_bore < solid_web_below
+    solid_web_below: float = SOLID_WEB_BELOW
+    solid_boss_wall: float = 0.0019      # solid web: hub boss wall (radial), at least this ...
+    solid_rim_width: float = 0.0026      # ... and rim ring width, at least this (both also scale with the root radius - bore radius)
+    solid_web_ratio: float = 0.80        # solid web half height / rim half height (spokes use spoke_thickness_ratio)
 
     def derive(self):
         z = self.teeth
@@ -87,17 +98,36 @@ class GearParams:
         self.Rr = self.Rp - self.dedendum * self.m
         self.R_R = self.Rr - self.rim_width                                  # rim inner radius
         self.r_bore = self.bore / 2.0
+        self.solid = self.web == "solid" or (self.web == "auto" and self.R_R - self.r_bore < self.solid_web_below)
+        self.h_rim = self.thickness / 2.0
+        self.h_boss = self.h_rim + self.hub_protrusion
+        self.rho_tip = self.tip_fillet * self.m
+        self.rho_root = self.root_fillet * self.m
+        self.rivet_r, self.bolt_r = self.rivet_radius, self.bolt_radius
+        if self.solid:
+            # radial budget Rr - r_bore split into hub boss wall | recessed web | rim ring; the web keeps >= 1 mm
+            span = self.Rr - self.r_bore
+            w_B = max(self.solid_boss_wall, 0.26 * span)
+            w_R = max(self.solid_rim_width, 0.34 * span)
+            self.R_R = self.Rr - w_R
+            self.r_B = self.r_bore + w_B
+            self.r_F = self.r_B                                              # no flange ring in a solid web
+            self.h_web = self.h_rim * self.solid_web_ratio
+            self.h_spoke = self.h_web
+            web_w = self.R_R - self.r_B
+            assert web_w >= 0.0010, f"solid web only {web_w * 1000:.2f} mm wide"
+            self.rivet_r = min(self.rivet_radius, 0.28 * w_R)                # rivets sit on the rim ring
+            self.bolt_r = min(self.bolt_radius, 0.20 * web_w)                # bolts sit in the web, only when it is wide enough
+            self.n_bolts = self.bolts_per_face if web_w >= 0.0024 else 0
+            return self
         self.r_F = min(max(0.0085, 0.20 * self.Ro), 0.62 * self.R_R)         # hub flange radius
         self.r_B = self.r_bore + 0.45 * (self.r_F - self.r_bore)             # hub boss radius
         k = float(np.clip((self.R_R - self.r_F) / 0.0110, 0.55, 1.25))
         self.hw_F = 0.0036 * k                                               # spoke half width at hub end
         self.hw_R = 0.0027 * k                                               # ... at rim end
         self.rho_f = min(0.0012, 0.18 * (self.R_R - self.r_F))               # spoke fillet radius
-        self.h_rim = self.thickness / 2.0
         self.h_spoke = self.h_rim * self.spoke_thickness_ratio
-        self.h_boss = self.h_rim + self.hub_protrusion
-        self.rho_tip = self.tip_fillet * self.m
-        self.rho_root = self.root_fillet * self.m
+        self.n_bolts = self.bolts_per_face
         return self
 
 
@@ -190,57 +220,9 @@ class Plan:
         return len(self.V) - 1
 
 
-def build_plan(p: GearParams) -> Plan:
-    pl = Plan()
+def rim_zipper(pl: "Plan", p: GearParams, out_idx, out_ang, CR, CR_ang):
+    """Rim strip between the toothed outline and the rim-inner circle: angle-ordered triangles at the full rim height."""
     two_pi = 2 * math.pi
-    ns = p.spokes
-    # ---- outline
-    outline = tooth_outline(p)
-    out_idx = [pl.add(*q) for q in outline]
-    out_ang = np.arctan2(outline[:, 1], outline[:, 0])
-    pl.loops["outline"] = outline
-    # ---- spoke fillets (local frame, spoke along +x, upper flank)
-    b_s = (p.hw_R - p.hw_F) / (p.R_R - p.r_F)
-    a_s = p.hw_F - b_s * p.r_F
-    o_r, tl_r, tc_r = fillet_line_circle(a_s, b_s, p.R_R, p.rho_f, inside=True, side=+1)
-    o_h, tl_h, tc_h = fillet_line_circle(a_s, b_s, p.r_F, p.rho_f, inside=False, side=+1)
-    rimfil = arc_pts(o_r, p.rho_f, tl_r, tc_r, p.spoke_fillet_segs)   # Tl_r ... Tc_r
-    hubfil = arc_pts(o_h, p.rho_f, tc_h, tl_h, p.spoke_fillet_segs)   # Tc_h ... Tl_h
-    d_R = math.atan2(tc_r[1], tc_r[0])
-    d_F = math.atan2(tc_h[1], tc_h[0])
-    span = two_pi / ns
-    n_att_R = max(2, int(math.ceil(2 * d_R * p.R_R / (0.0034 * p.ring_spacing))))
-    n_att_F = max(2, int(math.ceil(2 * d_F * p.r_F / (0.0026 * p.ring_spacing))))
-    n_win_R = max(5, int(math.ceil((span - 2 * d_R) * p.R_R / (0.0046 * p.ring_spacing))))
-    n_win_F = max(2, int(math.ceil((span - 2 * d_F) * p.r_F / (0.0026 * p.ring_spacing))))
-
-    def circle(radius, delta, n_att, n_win, with_att=True):
-        """Vertex loop on a circle: per spoke an attach arc [-delta,+delta] then window-arc interior points."""
-        idx, ang, att = [], [], []
-        for k in range(ns):
-            ak = span * k
-            at = [ak - delta + 2 * delta * i / n_att for i in range(n_att + 1)]
-            ids = [pl.add(radius * math.cos(t_), radius * math.sin(t_)) for t_ in at]
-            att.append(ids)
-            idx += ids
-            ang += at
-            lo, hi = ak + delta, ak + span - delta
-            for i in range(1, n_win):
-                t_ = lo + (hi - lo) * i / n_win
-                idx.append(pl.add(radius * math.cos(t_), radius * math.sin(t_)))
-                ang.append(t_)
-        return idx, np.array(ang), att
-
-    CR, CR_ang, attR = circle(p.R_R, d_R, n_att_R, n_win_R)
-    CF, CF_ang, attF = circle(p.r_F, d_F, n_att_F, n_win_F)
-    CB = [pl.add(p.r_B * math.cos(t_), p.r_B * math.sin(t_)) for t_ in CF_ang]
-    BO = [pl.add(p.r_bore * math.cos(t_), p.r_bore * math.sin(t_)) for t_ in CF_ang]
-    for name, r in (("rim_inner", p.R_R), ("flange", p.r_F), ("boss", p.r_B), ("bore", p.r_bore)):
-        pl.circles[name] = r
-    pl.circle_angles = {"rim_inner": np.sort(CR_ang % two_pi), "flange": np.sort(CF_ang % two_pi),
-                        "boss": np.sort(CF_ang % two_pi), "bore": np.sort(CF_ang % two_pi)}
-
-    # ---- rim: zipper strip between outline and rim-inner circle (angle-ordered triangles)
     theta0 = -math.pi / p.teeth - 0.02
 
     def ordered(idx, ang):
@@ -286,6 +268,79 @@ def build_plan(p: GearParams) -> Plan:
     pl.rim_check = dict(tris=len(rim_tris), folded=int((areas <= 1e-12).sum()), overridden=n_override,
                         area_error=float(areas.sum() - expect))
     assert pl.rim_check["folded"] == 0 and abs(pl.rim_check["area_error"]) < 1e-9, f"rim triangulation invalid: {pl.rim_check}"
+
+
+def solid_plan(pl: Plan, p: GearParams, out_idx, out_ang) -> Plan:
+    """Solid recessed web for gears too small for spokes: rim ring at full height, web disc at h_web, proud hub boss.
+    The three radial rings share one set of angles, so the web and boss strips are plain quads."""
+    two_pi = 2 * math.pi
+    n = max(4 * p.teeth, int(math.ceil(two_pi * p.R_R / (0.0034 * p.ring_spacing))))
+    ang = np.arange(n) * (two_pi / n)
+    ring = lambda r: [pl.add(r * math.cos(t), r * math.sin(t)) for t in ang]
+    CR, CB, BO = ring(p.R_R), ring(p.r_B), ring(p.r_bore)
+    rim_zipper(pl, p, out_idx, out_ang, CR, ang)
+    for i in range(n):
+        j = (i + 1) % n
+        pl.faces.append([CR[i], CR[j], CB[j], CB[i]]); pl.heights.append(p.h_spoke); pl.kinds.append("web")
+        pl.faces.append([CB[i], CB[j], BO[j], BO[i]]); pl.heights.append(p.h_boss); pl.kinds.append("boss")
+    for name, r in (("rim_inner", p.R_R), ("boss", p.r_B), ("bore", p.r_bore)):
+        pl.circles[name] = r
+    return pl
+
+
+def build_plan(p: GearParams) -> Plan:
+    pl = Plan()
+    two_pi = 2 * math.pi
+    ns = p.spokes
+    # ---- outline
+    outline = tooth_outline(p)
+    out_idx = [pl.add(*q) for q in outline]
+    out_ang = np.arctan2(outline[:, 1], outline[:, 0])
+    pl.loops["outline"] = outline
+    if p.solid:
+        return solid_plan(pl, p, out_idx, out_ang)
+    # ---- spoke fillets (local frame, spoke along +x, upper flank)
+    b_s = (p.hw_R - p.hw_F) / (p.R_R - p.r_F)
+    a_s = p.hw_F - b_s * p.r_F
+    o_r, tl_r, tc_r = fillet_line_circle(a_s, b_s, p.R_R, p.rho_f, inside=True, side=+1)
+    o_h, tl_h, tc_h = fillet_line_circle(a_s, b_s, p.r_F, p.rho_f, inside=False, side=+1)
+    rimfil = arc_pts(o_r, p.rho_f, tl_r, tc_r, p.spoke_fillet_segs)   # Tl_r ... Tc_r
+    hubfil = arc_pts(o_h, p.rho_f, tc_h, tl_h, p.spoke_fillet_segs)   # Tc_h ... Tl_h
+    d_R = math.atan2(tc_r[1], tc_r[0])
+    d_F = math.atan2(tc_h[1], tc_h[0])
+    span = two_pi / ns
+    n_att_R = max(2, int(math.ceil(2 * d_R * p.R_R / (0.0034 * p.ring_spacing))))
+    n_att_F = max(2, int(math.ceil(2 * d_F * p.r_F / (0.0026 * p.ring_spacing))))
+    n_win_R = max(5, int(math.ceil((span - 2 * d_R) * p.R_R / (0.0046 * p.ring_spacing))))
+    n_win_F = max(2, int(math.ceil((span - 2 * d_F) * p.r_F / (0.0026 * p.ring_spacing))))
+
+    def circle(radius, delta, n_att, n_win, with_att=True):
+        """Vertex loop on a circle: per spoke an attach arc [-delta,+delta] then window-arc interior points."""
+        idx, ang, att = [], [], []
+        for k in range(ns):
+            ak = span * k
+            at = [ak - delta + 2 * delta * i / n_att for i in range(n_att + 1)]
+            ids = [pl.add(radius * math.cos(t_), radius * math.sin(t_)) for t_ in at]
+            att.append(ids)
+            idx += ids
+            ang += at
+            lo, hi = ak + delta, ak + span - delta
+            for i in range(1, n_win):
+                t_ = lo + (hi - lo) * i / n_win
+                idx.append(pl.add(radius * math.cos(t_), radius * math.sin(t_)))
+                ang.append(t_)
+        return idx, np.array(ang), att
+
+    CR, CR_ang, attR = circle(p.R_R, d_R, n_att_R, n_win_R)
+    CF, CF_ang, attF = circle(p.r_F, d_F, n_att_F, n_win_F)
+    CB = [pl.add(p.r_B * math.cos(t_), p.r_B * math.sin(t_)) for t_ in CF_ang]
+    BO = [pl.add(p.r_bore * math.cos(t_), p.r_bore * math.sin(t_)) for t_ in CF_ang]
+    for name, r in (("rim_inner", p.R_R), ("flange", p.r_F), ("boss", p.r_B), ("bore", p.r_bore)):
+        pl.circles[name] = r
+    pl.circle_angles = {"rim_inner": np.sort(CR_ang % two_pi), "flange": np.sort(CF_ang % two_pi),
+                        "boss": np.sort(CF_ang % two_pi), "bore": np.sort(CF_ang % two_pi)}
+
+    rim_zipper(pl, p, out_idx, out_ang, CR, CR_ang)
     # ---- flange ring + boss ring (quads, radial)
     nf = len(CF)
     for i in range(nf):
@@ -458,17 +513,18 @@ def dome_shell(cx, cy, z0, sign, a, h, nseg=8, rings=2, skirt=0.00018, phase=0.0
 
 
 def rivet_positions(p: GearParams):
-    """[(cx, cy, z_surface, sign, radius, height, kind)] in metres."""
+    """[(cx, cy, z_surface, sign, radius, height, kind)] in metres. Rivets sit on the rim ring; bolts on the hub flange
+    (spoked gear) or in the recessed web (solid web, none when the web is too narrow)."""
     out = []
     r_riv = 0.5 * (p.Rr + p.R_R)
-    r_bolt = 0.5 * (p.r_F + p.r_B)
+    r_bolt, z_bolt = (0.5 * (p.r_B + p.R_R), p.h_spoke) if p.solid else (0.5 * (p.r_F + p.r_B), p.h_rim)
     for sign in (+1, -1):
         for i in range(p.rivets_per_face):
             t = 2 * math.pi * i / p.rivets_per_face
-            out.append((r_riv * math.cos(t), r_riv * math.sin(t), sign * p.h_rim, sign, p.rivet_radius, p.rivet_height, "rivet"))
-        for i in range(p.bolts_per_face):
-            t = math.pi / p.bolts_per_face + 2 * math.pi * i / p.bolts_per_face
-            out.append((r_bolt * math.cos(t), r_bolt * math.sin(t), sign * p.h_rim, sign, p.bolt_radius, p.bolt_height, "bolt"))
+            out.append((r_riv * math.cos(t), r_riv * math.sin(t), sign * p.h_rim, sign, p.rivet_r, p.rivet_height, "rivet"))
+        for i in range(p.n_bolts):
+            t = math.pi / p.n_bolts + 2 * math.pi * i / p.n_bolts
+            out.append((r_bolt * math.cos(t), r_bolt * math.sin(t), sign * z_bolt, sign, p.bolt_r, p.bolt_height, "bolt"))
     return out
 
 
@@ -601,20 +657,26 @@ def geometry_check(p: GearParams):
 FAMILY = "spur_gear"
 
 # Generator parameters keyed by asset id (BLENDER_PRODUCTION_GUIDELINES 4.4; the manifest has no field for them yet).
-# `grab_radius` is the COL_Grab sphere in metres: the gear's tip radius, so the invisible collider never reaches past the
+# `grab_radius` is the COL_Grab sphere in metres: the gear's tip radius at m1 = 2.5 mm (m (z + 1.7) / 2, rounded down to 0.1 mm), so the invisible collider never reaches past the
 # visible footprint (INTERACTION_SPEC 7.2: never enlarge the visible mesh; minimum 12 mm). It must equal
 # PartDefinition.grab.colliderRadius (Agent 2).
 # One shared detail tier keeps the family looking alike and every gear inside its 4,000-triangle ceiling (the 24-tooth gear was
 # 5,024 triangles at the shipped settings). One segment on a 0.8 mm tooth fillet and a coarser rim, flange and hub circle are below what
 # a Quest resolves; the 8 rivets and 4 bolts per face, the chamfers, the filleted spokes and the flanged hub are unchanged.
-# The 36-tooth gear (not built here) still needs a lighter tier: 4,768 triangles at these settings.
+# The 36-tooth gear is 4,768 triangles at these settings and its 288 outline edges alone cost 3,900 (ceiling 4,000), so it takes
+# the lighter tier DETAIL_36: three spokes, a coarser rim, flange and hub circle, and 3 rivets + 3 bolts per face with 5-sided heads.
+# The teeth, chamfers, recessed spokes and flanged hub are unchanged. At m1 = 2.5 mm the tooth pitch (7.9 mm) is below the old
+# ring spacing of 2.0 (6.8 mm between rim vertices): the rim zipper then folds triangles, so ring_spacing is 1.4 (3,816 triangles;
+# 1.2 would be 3,960 and 1.0 over the ceiling).
 DETAIL = dict(tip_fillet_segs=1, root_fillet_segs=1, ring_spacing=1.4, rivet_nseg=8, bolt_nseg=6)
+DETAIL_36 = dict(tip_fillet_segs=1, root_fillet_segs=1, ring_spacing=1.4, rivet_nseg=5, bolt_nseg=5, rivets_per_face=3, bolts_per_face=3, spokes=3)
 PARAMS = {
-    "gear_spur_10_m1": dict(teeth=10, **DETAIL, grab_radius=0.0212),
-    "gear_spur_12_m1": dict(teeth=12, **DETAIL, grab_radius=0.0248),
-    "gear_spur_20_m1": dict(teeth=20, **DETAIL, grab_radius=0.0392),
-    "gear_spur_16_m1": dict(teeth=16, **DETAIL, grab_radius=0.0320),
-    "gear_spur_24_m1": dict(teeth=24, **DETAIL, grab_radius=0.0465),
+    "gear_spur_10_m1": dict(teeth=10, **DETAIL, grab_radius=0.0146),
+    "gear_spur_12_m1": dict(teeth=12, **DETAIL, grab_radius=0.0171),
+    "gear_spur_20_m1": dict(teeth=20, **DETAIL, grab_radius=0.0271),
+    "gear_spur_16_m1": dict(teeth=16, **DETAIL, grab_radius=0.0221),
+    "gear_spur_24_m1": dict(teeth=24, **DETAIL, grab_radius=0.0321),
+    "gear_spur_36_m1": dict(teeth=36, **DETAIL_36, grab_radius=0.0471),
 }
 
 
