@@ -64,7 +64,9 @@ function expectSamePicture(before: ReturnType<typeof fingerprint>, after: Return
   for (const [key, a] of before.byMaterial) {
     const b = after.byMaterial.get(key) as Fingerprint;
     expect(b.triangles).toBe(a.triangles);
-    expect(Math.abs(b.area - a.area)).toBeLessThan(a.area * 1e-5); // the merged vertices are float32 in the frame of their node
+    // The merged vertices are float32 in the frame of their node. A material can have zero area (the ambience quads are
+    // collapsed until the town wakes), so the tolerance has a floor.
+    expect(Math.abs(b.area - a.area)).toBeLessThanOrEqual(Math.max(a.area * 1e-5, 1e-12));
     for (const corner of ['min', 'max'] as const) for (const axis of ['x', 'y', 'z'] as const) expect(b.box[corner][axis]).toBeCloseTo(a.box[corner][axis], 5);
   }
 }
