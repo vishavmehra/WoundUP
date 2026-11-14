@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { PlotId } from '../../src/game/content';
 import { MAX_WAKE_SOURCES, WAKE_SOURCES } from '../../src/town/layout';
-import { FROZEN_SATURATION, rippleGlow, rippleRadius, WAKE_RIPPLE_S, WakeField } from '../../src/town/wake';
+import { FROZEN_SATURATION, FROZEN_TINT, freezeColor, rippleGlow, rippleRadius, WAKE_RIPPLE_S, WakeField } from '../../src/town/wake';
+import { fs, repoUrl } from './helpers';
 
 const sourceIndex = (plot: PlotId): number => WAKE_SOURCES.findIndex((s) => s.plot === plot);
 const run = (field: WakeField, seconds: number, step = 1 / 72): void => {
@@ -31,8 +32,30 @@ describe('the ripple', () => {
     expect(rippleGlow(0.3)).toBeGreaterThan(0);
   });
 
-  it('freezes scenery to about 0.15 saturation (CLAUDE.md section 8)', () => {
+  it('freezes the shared library colours to about 0.15 displayed saturation, cool, without changing brightness (CLAUDE.md section 8)', () => {
+    const toLinear = (v: number): number => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const toSrgb = (v: number): number => (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
+    const luma = (c: readonly number[]): number => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    const saturation = (c: readonly number[]): number => (Math.max(...c) === 0 ? 0 : (Math.max(...c) - Math.min(...c)) / Math.max(...c));
+    const library = JSON.parse(new TextDecoder().decode(fs.readFileSync(repoUrl('public/assets/materials/library.json')))) as {
+      materials: Record<string, { color: string; proxy?: { baseColor: string } }>;
+    };
+    const lit = 0.8; // roughly how bright lit scenery is in the lamp-lit town
+    const sats: number[] = [];
+    for (const def of Object.values(library.materials)) {
+      const hex = def.proxy?.baseColor ?? def.color;
+      const linear = [1, 3, 5].map((i) => toLinear(parseInt(hex.slice(i, i + 2), 16) / 255) * lit) as [number, number, number];
+      const frozen = freezeColor(linear);
+      expect(Math.abs(luma(frozen) / luma(linear) - 1)).toBeLessThan(0.03); // brightness kept
+      expect(frozen[2]).toBeGreaterThanOrEqual(frozen[0]); // cool: blue at least as strong as red
+      sats.push(saturation(frozen.map((v) => toSrgb(Math.max(0, v)))));
+    }
+    expect(sats.reduce((a, b) => a + b, 0) / sats.length).toBeGreaterThan(0.12);
+    expect(sats.reduce((a, b) => a + b, 0) / sats.length).toBeLessThan(0.18);
+    expect(Math.min(...sats)).toBeGreaterThan(0.07);
+    expect(Math.max(...sats)).toBeLessThan(0.26);
     expect(FROZEN_SATURATION).toBeCloseTo(0.15, 2);
+    expect(luma(FROZEN_TINT)).toBeCloseTo(1, 6);
   });
 });
 

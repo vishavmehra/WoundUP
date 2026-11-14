@@ -12,7 +12,7 @@ import type { Object3D } from '@iwsdk/core';
 import type { MachineId } from '../game/content';
 import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
-import { axisOfGlb, createRig, createRotor, horsePhase, type MachineRig, type Rotor } from './motion';
+import { axisOfGlb, createRig, createRotor, horsePhase, wuField, type MachineRig, type Rotor } from './motion';
 import type { ModelSource } from './scene';
 
 /**
@@ -161,7 +161,10 @@ export async function buildMusicBox(source: ModelSource, registry: MaterialRegis
   await addHandle(a, box);
 
   for (const { node, slot } of turning) {
-    const rotor = createRotor(node, slot);
+    // A part that states `wu.movingNode` turns only that child (the governor's weights); its frame stays put.
+    const moving = wuField(node, 'movingNode');
+    const target = (typeof moving === 'string' ? node.getObjectByName(moving) : null) ?? node;
+    const rotor = createRotor(target, slot, { axis: axisOfGlb(target) });
     rig.rotors.push(rotor);
     if (slot === 'cylinder') rig.melody = rotor;
   }

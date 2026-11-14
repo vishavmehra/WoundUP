@@ -7,8 +7,24 @@ import { MAX_WAKE_SOURCES, WAKE_SOURCES, type WakeSource } from './layout';
 
 /** The wake ripple lasts about 1.5 seconds (CLAUDE.md §8). */
 export const WAKE_RIPPLE_S = 1.5;
-/** Saturation of frozen scenery (CLAUDE.md §8: "approximately 0.15"). */
+/**
+ * Saturation of frozen scenery as the player sees it (CLAUDE.md §8: "approximately 0.15"). Two constants reach it: a trace of
+ * each material's own colour (`FROZEN_RESIDUAL`, so brass and walnut still differ) and a cool tint that adds the rest. The
+ * tint is divided by its own luminance so freezing never changes brightness. The pair was tuned over the shared library's
+ * colours: displayed (sRGB) HSV saturation averages 0.15 and stays between 0.10 and 0.23 (tests/town/wake.test.ts).
+ */
 export const FROZEN_SATURATION = 0.15;
+export const FROZEN_RESIDUAL = 0.1;
+const RAW_TINT = [0.74, 0.9, 1.1] as const;
+const TINT_LUMA = 0.2126 * RAW_TINT[0] + 0.7152 * RAW_TINT[1] + 0.0722 * RAW_TINT[2];
+export const FROZEN_TINT: readonly [number, number, number] = [RAW_TINT[0] / TINT_LUMA, RAW_TINT[1] / TINT_LUMA, RAW_TINT[2] / TINT_LUMA];
+
+/** The shader's freeze on one linear RGB colour (`out` may be `rgb`). */
+export function freezeColor(rgb: readonly [number, number, number], out: [number, number, number] = [0, 0, 0]): [number, number, number] {
+  const lum = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+  for (let i = 0; i < 3; i++) out[i] = (lum + (rgb[i] - lum) * FROZEN_RESIDUAL) * FROZEN_TINT[i];
+  return out;
+}
 
 const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
 const clamp01 = (t: number): number => (t < 0 ? 0 : t > 1 ? 1 : t);

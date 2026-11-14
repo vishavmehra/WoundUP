@@ -13,6 +13,7 @@ import {
   stepRig,
   stepScaler,
   twinkle,
+  wuField,
 } from '../../src/town/motion';
 
 const FRAME = 1 / 72;
@@ -59,6 +60,18 @@ describe('motion maths', () => {
     expect(axisOfGlb(node('diagonal'))).toBe('z');
     expect(axisOfGlb(node(7))).toBe('z');
     expect(axisOfGlb(new Object3D())).toBe('z');
+  });
+
+  it('finds the axis on the root node of the file, one level under the scene group GLTFLoader returns (the carousel platform turns about +Y)', () => {
+    const scene = new Group();
+    const root = Object.assign(new Object3D(), { userData: { wu: { id: 'carousel_platform', rotationAxis: '+Y' } } });
+    scene.add(root);
+    expect(axisOfGlb(scene)).toBe('y');
+    expect(wuField(scene, 'id')).toBe('carousel_platform');
+    expect(wuField(scene, 'missing')).toBeUndefined();
+    const deeper = new Group();
+    deeper.add(new Group().add(root.clone()));
+    expect(axisOfGlb(deeper)).toBe('z'); // only the node and its direct children are read
   });
 });
 

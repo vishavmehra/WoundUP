@@ -25,6 +25,8 @@ export interface AudioEngineOptions {
 /** At most this many comb tines ring at once; further notes are dropped rather than stacking up. */
 export const MAX_PLUCK_VOICES = 12;
 const GESTURE_EVENTS = ['pointerdown', 'keydown', 'touchstart'] as const;
+/** The object form: a bare `true` is read as "not capture" by Node's EventTarget when removing, so it never matched. */
+const CAPTURE = { capture: true } as const;
 
 function browserContext(): AudioContext | null {
   const g = globalThis as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
@@ -78,11 +80,11 @@ export class AudioEngine implements TownAudio {
 
   /** Unlocks on the first gesture on `target`, then stops listening. Returns the function that removes the listeners early. */
   installGestureUnlock(target: EventTarget = window): () => void {
-    const off = (): void => GESTURE_EVENTS.forEach((e) => target.removeEventListener(e, onGesture, true));
+    const off = (): void => GESTURE_EVENTS.forEach((e) => target.removeEventListener(e, onGesture, CAPTURE));
     const onGesture = (): void => {
       if (this.unlock()) off();
     };
-    GESTURE_EVENTS.forEach((e) => target.addEventListener(e, onGesture, true));
+    GESTURE_EVENTS.forEach((e) => target.addEventListener(e, onGesture, CAPTURE));
     return off;
   }
 

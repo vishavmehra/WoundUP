@@ -2,7 +2,7 @@ import { MeshStandardMaterial, ShaderLib } from '@iwsdk/core';
 import type { WebGLProgramParametersWithUniforms } from '@iwsdk/core';
 import { describe, expect, it, vi } from 'vitest';
 import { MAX_SCENERY_BOXES, MAX_WAKE_SOURCES, SCENERY_BOXES, WAKE_SOURCES } from '../../src/town/layout';
-import { FROZEN_SATURATION } from '../../src/town/wake';
+import { FROZEN_RESIDUAL, FROZEN_TINT } from '../../src/town/wake';
 import { constants, createWakeUniforms, installWakeShading, patchMaterial, patchWakeShader, WAKE_PROGRAM_KEY } from '../../src/town/wake-shader';
 import { libraryRegistry } from './helpers';
 
@@ -28,8 +28,7 @@ describe('patchWakeShader', () => {
   });
 
   it('freezes to 0.15 saturation with a cool tint, and only inside scenery', () => {
-    expect(fragmentShader).toContain(`mix( vec3( wuLum ), outgoingLight, ${FROZEN_SATURATION.toFixed(5)} )`);
-    expect(fragmentShader).toContain('vec3( 0.86, 0.95, 1.08 )');
+    expect(fragmentShader).toContain(`mix( vec3( wuLum ), outgoingLight, ${FROZEN_RESIDUAL.toFixed(5)} ) * vec3( ${FROZEN_TINT.map((t) => t.toFixed(5)).join(', ')} )`);
     expect(fragmentShader).toContain('if ( wuScenery > 0.0 )');
   });
 
@@ -71,6 +70,16 @@ describe('patchMaterial and installWakeShading', () => {
     expect(sa.uniforms.uWuToTown).toBe(uniforms.uWuToTown);
     expect(sa.uniforms.uWuWake).toBe(sb.uniforms.uWuWake);
     expect(a.customProgramCacheKey()).toBe(WAKE_PROGRAM_KEY);
+  });
+
+  it('is not inherited by a clone: GrabFeedbackSystem clones the materials of a carried machine, which are never frozen', () => {
+    const patched = new MeshStandardMaterial();
+    patchMaterial(patched, createWakeUniforms());
+    const clone = patched.clone();
+    const shader = fakeShader();
+    clone.onBeforeCompile(shader, undefined as never);
+    expect(shader.fragmentShader).not.toContain('wuFrozen');
+    expect(clone.customProgramCacheKey()).not.toBe(WAKE_PROGRAM_KEY);
   });
 
   it('leaves a program it cannot patch as it was, and says so', () => {

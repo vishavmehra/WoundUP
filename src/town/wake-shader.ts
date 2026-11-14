@@ -14,7 +14,7 @@ import { Matrix4, Vector2 } from '@iwsdk/core';
 import type { Material, WebGLProgramParametersWithUniforms } from '@iwsdk/core';
 import type { MaterialRegistry } from '../materials';
 import { MAX_SCENERY_BOXES, MAX_WAKE_SOURCES, SCENERY_BOXES, WAKE_SOURCES, type Box, type WakeSource } from './layout';
-import { FROZEN_SATURATION } from './wake';
+import { FROZEN_RESIDUAL, FROZEN_TINT } from './wake';
 
 export interface WakeUniforms {
   uWuToTown: { value: Matrix4 };
@@ -83,7 +83,7 @@ const FRAGMENT_SCENERY = `
 const FRAGMENT_GRADE = `
 	if ( wuScenery > 0.0 ) {
 		float wuLum = dot( outgoingLight, vec3( 0.2126, 0.7152, 0.0722 ) );
-		vec3 wuCold = mix( vec3( wuLum ), outgoingLight, ${f(FROZEN_SATURATION)} ) * vec3( 0.86, 0.95, 1.08 );
+		vec3 wuCold = mix( vec3( wuLum ), outgoingLight, ${f(FROZEN_RESIDUAL)} ) * ${vec3(FROZEN_TINT)};
 		outgoingLight = mix( outgoingLight, wuCold, wuFrozen );
 		outgoingLight += vec3( 1.0, 0.78, 0.43 ) * ( wuRing * 0.32 );
 	}`;

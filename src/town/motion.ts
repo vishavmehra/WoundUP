@@ -112,8 +112,11 @@ export function stepScaler(scaler: Scaler, dt: number): boolean {
   return arrived;
 }
 
+/** Just before the cylinder's first pin (turn 0), so the very first pin sounds when the cylinder starts to move. */
+const MELODY_START = -1e-6;
+
 export function createRig(machineId: MachineId, root: Object3D): MachineRig {
-  return { machineId, root, rotors: [], bobbers: [], pulsers: [], lid: null, result: null, running: true, speed: 0, melody: null, melodyAt: 0 };
+  return { machineId, root, rotors: [], bobbers: [], pulsers: [], lid: null, result: null, running: true, speed: 0, melody: null, melodyAt: MELODY_START };
 }
 
 /** Time constant of the spin-up and spin-down, in seconds. */
@@ -178,9 +181,23 @@ export function stepRig(rig: MachineRig, dt: number, time: number): void {
   }
 }
 
-/** The axis a GLB states in `userData.wu.rotationAxis` ("+Z", "+Y"), default Z. */
+/**
+ * A field of the `wu` block a GLB carries. The block is on the file's root node, which GLTFLoader puts one level under the
+ * scene group it returns, so the node itself and its direct children are looked at (the first block that has the field wins).
+ */
+export function wuField(node: Object3D, key: string): unknown {
+  const own = (node.userData.wu as Record<string, unknown> | undefined)?.[key];
+  if (own !== undefined) return own;
+  for (const child of node.children) {
+    const value = (child.userData.wu as Record<string, unknown> | undefined)?.[key];
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
+/** The axis a GLB states in `wu.rotationAxis` ("+Z", "+Y"), default Z (ADR-020). */
 export function axisOfGlb(node: Object3D): Axis {
-  const raw = (node.userData.wu as { rotationAxis?: unknown } | undefined)?.rotationAxis;
+  const raw = wuField(node, 'rotationAxis');
   if (typeof raw !== 'string') return 'z';
   const letter = raw.replace(/^[+-]/, '').toLowerCase();
   return letter === 'x' || letter === 'y' || letter === 'z' ? letter : 'z';

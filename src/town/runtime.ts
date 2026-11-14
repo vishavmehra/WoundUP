@@ -4,6 +4,7 @@
  * Music Box melody from the cylinder's angle, runs Otto's kneading, and turns "a machine snapped onto its plot" into a wake.
  * Nothing here allocates per frame.
  */
+import { Vector3 } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
 import type { TownAudio } from '../audio/engine';
 import { notesBetween } from '../audio/notes';
@@ -30,6 +31,7 @@ export interface TownEvents {
 }
 
 const TAU = Math.PI * 2;
+const _at = new Vector3();
 /** Level of the Carousel's copy of the tune against the Music Box's own. */
 const CAROUSEL_MELODY_LEVEL = 0.5;
 /** Time constant of Otto starting to knead once the Bakery has woken, seconds. */
@@ -39,6 +41,9 @@ export class TownRuntime {
   readonly wake = new WakeField();
   private readonly rigs: MachineRig[] = [];
   private readonly scalers: Scaler[] = [];
+  /** Machines standing on a plot: they follow the town's scale when the stage changes it (stand to table, a new placement). */
+  private readonly seated: Object3D[] = [];
+  private seenScale = Number.NaN;
   private dirty = true;
   private melodyLevel = 1;
   private readonly playNote = (note: MelodyNote): void => this.audio?.pluck(note.midi, note.velocity, this.melodyLevel);
@@ -70,17 +75,27 @@ export class TownRuntime {
   }
 
   /**
-   * Puts a finished machine on its own plot as a child of the town group, which applies the town scale (a saved machine
-   * reappearing when the game loads). Returns false when the town ground has no socket for the plot. Does not wake the plot:
-   * `restore` does that.
+   * Puts a finished machine on its own plot (a saved machine reappearing when the game loads), the way a carried one stands
+   * there: a child of the stage root at the town scale, so it can be lifted and carried again. Returns false when the town
+   * ground has no socket for the plot. Does not wake the plot: `restore` does that.
    */
   placeRig(rig: MachineRig): boolean {
     const socket = plotSocket(this.town, MACHINE_PLOT[rig.machineId]);
     if (!socket) return false;
-    rig.root.position.copy(socket.position); // the ground GLB sits at the town origin
+    const home = this.town.group.parent;
     rig.root.quaternion.identity();
-    rig.root.scale.setScalar(1);
-    this.town.group.add(rig.root);
+    if (home) {
+      this.town.group.updateWorldMatrix(true, true);
+      home.add(rig.root);
+      home.worldToLocal(socket.getWorldPosition(_at));
+      rig.root.position.copy(_at);
+      rig.root.scale.setScalar(this.townScale);
+    } else {
+      this.town.group.add(rig.root); // no stage root (a test): the group's own scale applies
+      rig.root.position.copy(socket.position);
+      rig.root.scale.setScalar(1);
+    }
+    if (!this.seated.includes(rig.root)) this.seated.push(rig.root);
     this.addRig(rig);
     return true;
   }
@@ -115,10 +130,13 @@ export class TownRuntime {
     if (!plot || !node) return;
     const machine = machineOfPlot(plot);
     if (intent.type === 'snapped') {
+      if (!this.seated.includes(node)) this.seated.push(node);
       this.scaleTo(node, this.townScale);
       this.wakePlot(plot);
       this.events.placed?.(machine, plot, node);
     } else {
+      const i = this.seated.indexOf(node);
+      if (i >= 0) this.seated.splice(i, 1);
       this.scaleTo(node, 1);
       this.events.lifted?.(machine, plot, node);
     }
@@ -137,6 +155,11 @@ export class TownRuntime {
       const wakeUniforms = this.uniforms.uWuWake.value;
       for (let i = 0; i < MAX_WAKE_SOURCES; i++) wakeUniforms[i].set(this.wake.radius[i], this.wake.glow[i]);
       this.dirty = false;
+    }
+    const scale = this.townScale;
+    if (scale !== this.seenScale) {
+      this.seenScale = scale;
+      for (let i = 0; i < this.seated.length; i++) this.scaleTo(this.seated[i], scale);
     }
     this.town.group.updateWorldMatrix(true, false);
     this.uniforms.uWuToTown.value.copy(this.town.group.matrixWorld).invert();

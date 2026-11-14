@@ -8,7 +8,14 @@
  *   const town = await installTown(world, { registry: materials, audio, events: { placed, woke } });
  *   town.restore(save.machines.filter((m) => m.placed).map((m) => m.plotId));   // a saved game: awake, no ripple
  *   const rig = await buildMachine('windmill', loadModel, materials);            // a saved machine reappears
- *   if (rig) town.placeRig(rig);
+ *   if (rig) { rig.result = ...; town.placeRig(rig); makeCarriable(world, rig); }
+ *   // each frame after the solver: rig.result = solve(...); rig.running = machine is wound
+ *
+ * A machine finished on the workbench: `createRig(id, root)` + `createRotor(node, solverSocketId)` per turning node, then
+ * `town.addRig(rig)` and `makeCarriable(world, rig)`; the town does the rest (snap on its own plot, scale, wake, chime).
+ * `installTown` patches the shared library materials once (a material already drawn recompiles once); the registry's textures
+ * may still be loading. Note: GrabFeedbackSystem clones the materials of every `ReturnsToRest` entity, so a carriable machine
+ * has its own (unpatched, so never frozen) materials while the town's scenery keeps the shared, patched ones.
  */
 import type { World } from '@iwsdk/core';
 import type { TownAudio } from '../audio/engine';
