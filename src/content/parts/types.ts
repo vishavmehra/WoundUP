@@ -33,6 +33,8 @@ export const FINISH_SUFFIX = {
   Mat_PolishedBrass: 'polished_brass',
   Mat_Walnut: 'walnut',
   Mat_PaintedWood: 'painted_wood',
+  Mat_CreamEnamel: 'cream_enamel',
+  Mat_TealPaint: 'teal_paint',
   Mat_Stone: 'stone',
 } as const;
 export type FinishName = keyof typeof FINISH_SUFFIX;

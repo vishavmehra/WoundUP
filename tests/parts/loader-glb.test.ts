@@ -80,7 +80,7 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
 
   it('warns when a part that carries sockets is spawned without its machine, since nothing could ever be placed in them', async () => {
     const { scene, loader } = setup();
-    const canopy = await loader.spawnPart('carousel_canopy_painted_wood', { parent: scene });
+    const canopy = await loader.spawnPart('carousel_canopy_cream_enamel', { parent: scene });
     expect(canopy.warnings.some((w) => w.includes('without `machine`'))).toBe(true);
   });
 

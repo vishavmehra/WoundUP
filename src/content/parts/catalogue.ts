@@ -11,7 +11,7 @@ import type { FinishName, PartDefinition, PartFamily } from './types';
 
 /**
  * Gear module as a token, not millimetres: every `m1` gear has module 1, so two gears mesh when their tokens match and a
- * different token jams (SOLVER §8.2). The real module (2.5 mm, owner decision 5 still pending) is only the Blender generator's
+ * different token jams (SOLVER §8.2). The real module (2.5 mm, owner decision 5, ADR-042) is only the Blender generator's
  * business, so settling that decision changes no number here. Bevel gears take the same token: they only mesh with each other.
  */
 export const GEAR_MODULE_TOKEN = 1;
@@ -84,9 +84,9 @@ export const PART_DEFINITIONS: readonly PartDefinition[] = Object.freeze([
   // Carousel pieces. Platform, canopy, column and lamp have no COL_Grab in their GLBs yet (asset gap): placed by the game.
   part('carousel_platform', 'Mat_Walnut', 'structural', 'Carousel platform', null),
   part('carousel_horse', 'Mat_PaintedWood', 'follower', 'Carousel horse', 0.015),
-  part('carousel_canopy', 'Mat_PaintedWood', 'structural', 'Carousel canopy', null),
+  part('carousel_canopy', 'Mat_CreamEnamel', 'structural', 'Carousel canopy', null),
   part('carousel_lamp', 'Mat_PolishedBrass', 'structural', 'Carousel lamp', null),
-  part('carousel_column', 'Mat_Walnut', 'structural', 'Carousel column', null),
+  part('carousel_column', 'Mat_TealPaint', 'structural', 'Carousel column', null),
   // Windmill pieces. The tower has no COL_Grab yet.
   part('windmill_sails', 'Mat_Walnut', 'structural', 'Windmill sails', 0.025),
   part('windmill_millstone', 'Mat_Stone', 'structural', 'Millstone', 0.025),
