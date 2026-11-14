@@ -48,13 +48,13 @@
       "id": "stage",
       "name": "Stage",
       "content": { "type": "group" },
-      "transform": { "position": [0, 0.82, -0.55] },
+      "transform": { "position": [0, 0.6, -0.95] },
       "children": [
         {
           "id": "stand",
           "name": "Tockton velvet stand",
           "content": { "type": "asset", "asset": "tockton-base-round" },
-          "transform": { "position": [0, -0.045, 0] },
+          "transform": { "position": [0, -0.045, 0.125] },
           "children": [
             {
               "id": "stand-contact-shadow",
@@ -63,7 +63,7 @@
               "transform": { "position": [0, 0.002, 0] },
               "components": {
                 "ContactShadow": {
-                  "size": [0.64, 0.64],
+                  "size": [0.76, 0.71],
                   "opacity": 0.35,
                   "color": [0, 0, 0, 1],
                   "height": 0.0016

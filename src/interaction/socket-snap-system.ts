@@ -1,6 +1,7 @@
 import { createSystem, Grabbed, Matrix4, Quaternion, Types, Vector3 } from '@iwsdk/core';
 import type { Entity, Object3D } from '@iwsdk/core';
 import { Socket, SnappedTo, SnapPart } from './components.js';
+import { isGazeModeOn, mayRemoveSeated } from './gaze-state.js';
 import { GhostPreview } from './ghost.js';
 import { interactionIntents } from './intents.js';
 import {
@@ -46,6 +47,7 @@ const _inverse = new Matrix4();
  *  - On release it seats the part in the nearest socket that takes it, and emits `snapped`; next to a socket that does not
  *    take it, it emits `rejected` and leaves the part to GrabFeedbackSystem, which returns it to its tray.
  *  - A seated part is held on its socket every frame, follows the housing, and comes out when pulled over 3 cm (`unsnapped`).
+ *    In gaze mode the pinch must also have been held half a second first (INTERACTION_SPEC §9): a tap or a slip never removes a part.
  *
  * Register it with a priority above 0 (see installInteraction). Seated parts are positioned here, after GrabFeedbackSystem,
  * so a seated part wins over that system's return-to-tray ease, which also starts when a part is released.
@@ -64,6 +66,8 @@ export class SocketSnapSystem extends createSystem(
   private axisOnly: boolean[] = [];
   private samples: SocketSample[] = [];
   private readonly seats = new Map<Entity, Seat>();
+  /** Gaze mode: seconds each seated part has been held in the current pinch. */
+  private readonly heldFor = new Map<Entity, number>();
   private readonly ghosts = new Map<Entity, GhostPreview>();
   private readonly part: PartSample = { x: 0, y: 0, z: 0, id: '', family: '', key: 0 };
   private readonly pick = createPick();
@@ -152,7 +156,9 @@ export class SocketSnapSystem extends createSystem(
     const seat = this.seats.get(entity);
     if (seat) {
       seat.node.getWorldPosition(_socketPos);
-      if (!shouldUnsnap(_part.distanceTo(_socketPos))) {
+      const held = (this.heldFor.get(entity) ?? 0) + this.dt;
+      this.heldFor.set(entity, held);
+      if (!shouldUnsnap(_part.distanceTo(_socketPos)) || !mayRemoveSeated(isGazeModeOn(), held)) {
         this.ghosts.get(entity)?.hide(); // still seated, nothing to preview
         return;
       }
@@ -175,6 +181,7 @@ export class SocketSnapSystem extends createSystem(
 
   /** The hand let go of a part: seat it, reject it, or leave it for GrabFeedbackSystem to send back. */
   private release(entity: Entity): void {
+    this.heldFor.delete(entity);
     const ghost = this.ghosts.get(entity);
     if (ghost) {
       ghost.dispose();

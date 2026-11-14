@@ -39,6 +39,12 @@ export const PAUSE_SPOT: V3 = v(-0.27, 0.09, 0.2);
 export const GIFT_SPOT: V3 = v(0.27, 0.09, 0.2);
 /** The daily repair medallion (ADR-027), above the pause one: the same distance from the town, one medallion higher. */
 export const DAILY_SPOT: V3 = v(-0.27, 0.15, 0.2);
+/**
+ * The lens (X-ray) button, beside the bench on the pause side and nearer the player than the pause button, and the slip that tells
+ * the player about the palm gesture just above it. Both clear of the bench (it ends at x = -22.5 cm) and of the town (it ends at z = +15 cm).
+ */
+export const LENS_SPOT: V3 = v(-0.27, 0.09, 0.3);
+export const LENS_HINT_SPOT: V3 = v(-0.27, 0.15, 0.3);
 /** The trunk latch (trunk_main.glb `COL_Latch`) scaled with the town. */
 export const latchSpot = (s: number): V3 => v(0, 0.14 * s, 0.125 * s);
 

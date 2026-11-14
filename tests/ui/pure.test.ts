@@ -8,7 +8,7 @@ import { MACHINE_NAMES, SETTING_ROWS, describeResult, giftErrorText, giftMakeErr
 import { fitText, wrapText } from '../../src/ui/text-layout';
 import { freshLocal, viewFor, type LocalFlow } from '../../src/ui/view';
 
-const ctx = { letter: LETTERS.letter_1, closing: null, giftAvailable: false };
+const ctx = { letter: LETTERS.letter_1, closing: null, giftAvailable: false, xrayHint: true };
 const at = (mode: Mode, extra: Partial<ModeState> = {}): ModeState => ({ ...modeState(mode), ...extra });
 const local = (over: Partial<LocalFlow> = {}): LocalFlow => ({ ...freshLocal(), ...over });
 
@@ -28,8 +28,8 @@ describe('viewFor: which props exist in which mode', () => {
 
   it('shows the closing card only when no letter is waiting', () => {
     const base = local({ trunk: 'gone' });
-    expect(viewFor(at('town'), base, { letter: null, closing: 'x', giftAvailable: true })).toMatchObject({ closingCard: true, envelope: 'hidden', giftButton: true });
-    expect(viewFor(at('town'), base, { letter: LETTERS.letter_2, closing: null, giftAvailable: false })).toMatchObject({ closingCard: false, giftButton: false });
+    expect(viewFor(at('town'), base, { ...ctx, letter: null, closing: 'x', giftAvailable: true })).toMatchObject({ closingCard: true, envelope: 'hidden', giftButton: true });
+    expect(viewFor(at('town'), base, { ...ctx, letter: LETTERS.letter_2, giftAvailable: false })).toMatchObject({ closingCard: false, giftButton: false });
   });
 
   it('shows the daily repair medallion only in the town, while it is on offer, and not under a panel', () => {
@@ -59,6 +59,22 @@ describe('viewFor: which props exist in which mode', () => {
     const ran = { ...l, result: describeResult({ status: 'runs' }) };
     expect(viewFor(at('place'), ran, ctx)).toMatchObject({ runSign: true, runControls: false, placeHint: false });
     expect(viewFor(at('place'), l, ctx)).toMatchObject({ runSign: false, placeHint: true });
+  });
+
+  it('shows the lens wherever a machine is on the bench, and the X-ray hint only after a run that failed, with the setting on', () => {
+    const l = local({ trunk: 'gone', parcel: 'open' });
+    expect(viewFor(at('town'), local({ trunk: 'gone' }), ctx).lens).toBe(false);
+    expect(viewFor(at('intro'), local(), { ...ctx, letter: null }).lens).toBe(false);
+    for (const mode of ['build', 'wind', 'place'] as const) expect(viewFor(at(mode), l, ctx).lens).toBe(true);
+    expect(viewFor(at('pause', { resume: 'wind' }), l, ctx).lens).toBe(false); // the panel is up
+
+    const failed = { ...l, result: describeResult({ status: 'jams', jamReason: 'module_mismatch' }) };
+    const worked = { ...l, result: describeResult({ status: 'runs' }) };
+    expect(viewFor(at('wind'), failed, ctx).xrayHint).toBe(true);
+    expect(viewFor(at('wind'), failed, { ...ctx, xrayHint: false }).xrayHint).toBe(false); // the player turned it off
+    expect(viewFor(at('wind'), worked, ctx).xrayHint).toBe(false); // nothing to look into
+    expect(viewFor(at('wind'), l, ctx).xrayHint).toBe(false); // no run yet
+    expect(viewFor(at('pause', { resume: 'wind' }), failed, ctx).xrayHint).toBe(false);
   });
 
   it('shows the panel for pause, restart and gift, over the view of the mode it returns to', () => {

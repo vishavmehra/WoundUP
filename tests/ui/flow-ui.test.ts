@@ -1,7 +1,7 @@
 import { PokeInteractable, RayInteractable, World } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D, Scene, Vector3 } from 'three';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { LETTERS, MACHINE_PLOT } from '../../src/game/content';
 import { dailyRepairFor } from '../../src/game/daily';
 import { dateKey } from '../../src/game/date';
@@ -10,6 +10,8 @@ import { BENCH } from '../../src/ui/layout';
 import { SAVE_KEY, parseSave } from '../../src/game/save';
 import { GameSession } from '../../src/game/session';
 import { Socket } from '../../src/interaction/components';
+import { isGazeModeOn, setGazeModeFlag } from '../../src/interaction/gaze-state';
+import { isXRayLensOn, setXRayLens, writeXRayFlag } from '../../src/interaction/xray-state';
 import { installFlowUi } from '../../src/ui';
 import { FlowUi, type FlowEvent } from '../../src/ui/flow-ui';
 import type { GiftHost } from '../../src/ui/gift-flow';
@@ -78,7 +80,8 @@ async function rig(prepare?: (game: GameSession) => void, gift: GiftHost = GIFT_
   // Components are module singletons: register them in a fixed order so this World's ids are consistent (see systems.test.ts).
   for (const component of [RayInteractable, PokeInteractable, Socket]) world.registerComponent(component);
   const scene = new Scene();
-  Object.assign(world, { scene });
+  // No XR runtime here: the pause menu's gaze toggle only needs the input manager's `gazeEnabled` switch to exist.
+  Object.assign(world, { scene, input: { xr: { gazeEnabled: false } } });
   const stage = world.createTransformEntity(new Group());
   scene.add(stage.object3D as Object3D);
   const game = new GameSession({ storage });
@@ -213,7 +216,7 @@ describe('FlowUi: the first five minutes', () => {
     expect(visible(r, 'UI_Accept')).toBe(false);
     expect(visible(r, 'letter_envelope')).toBe(false);
     expect(visible(r, 'workbench')).toBe(true);
-    expect(live(r)).toEqual(['UI_Pause', 'parcel']);
+    expect(live(r)).toEqual(['UI_Lens', 'UI_Pause', 'parcel']);
   });
 
   it('opens the parcel, shows the blueprint and parts in the tray', async () => {
@@ -230,7 +233,7 @@ describe('FlowUi: the first five minutes', () => {
     expect(last(r)).toMatchObject({ type: 'parcel-opened', letter: { id: 'letter_1' } });
     expect(visible(r, 'parts_tray')).toBe(true);
     expect(visible(r, 'blueprint_sheet')).toBe(true);
-    expect(live(r)).toEqual(['UI_Pause']);
+    expect(live(r)).toEqual(['UI_Lens', 'UI_Pause']);
     r.ui.showBlueprint({ title: 'Music Box', slots: [{ id: 'case', label: 'Case' }, { id: 'key', label: 'Winding key' }] });
     expect(r.canvases.made.flatMap((c) => c.calls.map((t) => t.text))).toEqual(expect.arrayContaining(['Music Box', 'Case', 'Winding key']));
 
@@ -333,6 +336,140 @@ describe('FlowUi: winding, running and the result', () => {
     expect(visible(r, 'UI_Run')).toBe(false);
     expect(find(r, 'UI_Run').active).toBe(false);
     expect(r.canvases.made.flatMap((c) => c.calls.map((t) => t.text))).toContain('It works!');
+  });
+});
+
+afterEach(() => {
+  // The X-ray flag and the gaze flag are module state: one test's toggle must not reach the next.
+  setXRayLens(false);
+  writeXRayFlag(false, null);
+  setGazeModeFlag(false);
+});
+
+describe('FlowUi: the lens and the X-ray hint', () => {
+  const surface = (r: Rig, name: string): { key: string } => (r.ui as unknown as Record<string, { key: string }>)[name];
+  const texts = (r: Rig): string[] => r.canvases.made.flatMap((c) => c.calls.map((t) => t.text));
+  const toBench = async (r: Rig): Promise<void> => {
+    await toTown(r);
+    click(r, 'letter_envelope');
+    run(r, 1);
+    click(r, 'UI_Accept');
+    run(r, 1.2);
+    click(r, 'parcel');
+    run(r, 1);
+    expect(r.game.assemblyComplete()).toBe(true); // the session moves to Wind, as when the last part is seated
+  };
+
+  it('puts the lens beside the bench while a machine is built, and nowhere else', async () => {
+    const r = await rig();
+    expect(visible(r, 'UI_Lens')).toBe(false); // the introduction
+    await toTown(r);
+    expect(visible(r, 'UI_Lens')).toBe(false); // the town: no machine on the table
+    click(r, 'letter_envelope');
+    run(r, 1);
+    click(r, 'UI_Accept');
+    run(r, 1.2);
+    click(r, 'parcel');
+    run(r, 1);
+    expect(visible(r, 'UI_Lens')).toBe(true);
+    expect(find(r, 'UI_Lens').active).toBe(true);
+    click(r, 'UI_Pause');
+    expect(visible(r, 'UI_Lens')).toBe(false); // a paused game shows its panel, nothing else answers
+    expect(find(r, 'UI_Lens').active).toBe(false);
+  });
+
+  it('presses through to setXRayLens, and the medallion shows the real flag, from the lens or from the palm', async () => {
+    const r = await rig();
+    await toBench(r);
+    expect(isXRayLensOn()).toBe(false);
+    expect(surface(r, 'lensMed').key).toBe('lens|false|false');
+    expect(click(r, 'UI_Lens')).toBe(true);
+    expect(isXRayLensOn()).toBe(true);
+    expect(cues(r)[cues(r).length - 1]).toBe('button');
+    writeXRayFlag(true, null); // XRaySystem: the lens switches X-ray on
+    run(r, 0.05);
+    expect(surface(r, 'lensMed').key).toBe('lens|true|false');
+    click(r, 'UI_Lens');
+    expect(isXRayLensOn()).toBe(false);
+    writeXRayFlag(false, null);
+    run(r, 0.05);
+    expect(surface(r, 'lensMed').key).toBe('lens|false|false');
+    writeXRayFlag(true, null); // the palm gesture: no lens press, the medallion still tells the truth
+    run(r, 0.05);
+    expect(surface(r, 'lensMed').key).toBe('lens|true|false');
+  });
+
+  it('hints at looking inside only after a run that failed, and only while the setting is on', async () => {
+    const r = await rig();
+    await toBench(r);
+    r.ui.onModeChange('wind');
+    expect(visible(r, 'UI_XrayHint')).toBe(false);
+    r.ui.showResult({ status: 'jams', jamReason: 'module_mismatch' });
+    expect(visible(r, 'UI_XrayHint')).toBe(true);
+    expect(texts(r)).toContain('Look inside');
+    expect(texts(r).join(' ')).toContain('Palm down over the machine, or press the lens.'); // the slip wraps long text over lines
+
+    click(r, 'UI_Adjust'); // back to Build: the result is gone, so is the hint
+    expect(visible(r, 'UI_XrayHint')).toBe(false);
+    r.ui.onModeChange('wind');
+    r.ui.showResult({ status: 'incomplete', missingSockets: ['gear'] });
+    expect(visible(r, 'UI_XrayHint')).toBe(true);
+
+    click(r, 'UI_Pause');
+    expect(visible(r, 'UI_XrayHint')).toBe(false); // the panel is up
+    click(r, 'UI_Toggle_xrayHint');
+    expect(r.game.save.settings.xrayHint).toBe(false);
+    click(r, 'UI_PanelLeft'); // Resume
+    expect(visible(r, 'UI_XrayHint')).toBe(false); // switched off by the player
+    click(r, 'UI_Pause');
+    click(r, 'UI_Toggle_xrayHint');
+    click(r, 'UI_PanelLeft');
+    expect(visible(r, 'UI_XrayHint')).toBe(true);
+  });
+
+  it('says nothing about X-ray after a good run, and words the hint for gaze mode when that is on', async () => {
+    const r = await rig();
+    await toBench(r);
+    r.ui.onModeChange('wind');
+    r.ui.showResult({ status: 'runs' });
+    expect(visible(r, 'UI_XrayHint')).toBe(false);
+    click(r, 'UI_Pause');
+    click(r, 'UI_Toggle_gazeMode');
+    click(r, 'UI_PanelLeft');
+    r.ui.onModeChange('wind');
+    r.ui.showResult({ status: 'jams', jamReason: 'module_mismatch' });
+    expect(visible(r, 'UI_XrayHint')).toBe(true);
+    expect(texts(r).join(' ')).toContain('Look at the lens, then pinch.');
+  });
+});
+
+describe('FlowUi: gaze mode from the pause menu', () => {
+  const inputOf = (r: Rig): { xr: { gazeEnabled: boolean } } => (r.world as unknown as { input: { xr: { gazeEnabled: boolean } } }).input;
+
+  it('turns gaze-and-pinch on and off with the toggle, and starts from the save', async () => {
+    const r = await rig();
+    await toTown(r);
+    expect(isGazeModeOn()).toBe(false);
+    click(r, 'UI_Pause');
+    click(r, 'UI_Toggle_gazeMode');
+    expect(r.game.save.settings.gazeMode).toBe(true);
+    expect(isGazeModeOn()).toBe(true);
+    expect(inputOf(r).xr.gazeEnabled).toBe(true);
+    click(r, 'UI_Toggle_gazeMode');
+    expect(isGazeModeOn()).toBe(false);
+    expect(inputOf(r).xr.gazeEnabled).toBe(false);
+
+    // A player who saved gaze mode starts in it: the UI applies the save before the first frame.
+    const storage = new FakeStorage();
+    const first = await rig(undefined, undefined, storage);
+    await toTown(first);
+    click(first, 'UI_Pause');
+    click(first, 'UI_Toggle_gazeMode');
+    setGazeModeFlag(false); // a new page load starts with the flag off
+    const second = await rig(undefined, undefined, storage);
+    expect(second.game.save.settings.gazeMode).toBe(true);
+    expect(isGazeModeOn()).toBe(true);
+    expect(inputOf(second).xr.gazeEnabled).toBe(true);
   });
 });
 
@@ -480,7 +617,7 @@ describe('installFlowUi', () => {
     const world = new World();
     for (const component of [RayInteractable, PokeInteractable, Socket]) world.registerComponent(component);
     const scene = new Scene();
-    Object.assign(world, { scene });
+    Object.assign(world, { scene, input: { xr: { gazeEnabled: false } } });
     const stage = world.createTransformEntity(new Group());
     scene.add(stage.object3D as Object3D);
     const game = new GameSession({ storage: new FakeStorage() });

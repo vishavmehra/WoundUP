@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COMFORT_ANGLE_DEG, COMFORT_REACH_M, eyeAt, reachFromChest, targetAngleDeg } from '../../src/ui/comfort';
-import { BENCH, GIFT_SPOT, PAUSE_SPOT, benchZ, essentialAnchors } from '../../src/ui/layout';
+import { BENCH, GIFT_SPOT, LENS_HINT_SPOT, LENS_SPOT, PAUSE_SPOT, benchZ, essentialAnchors } from '../../src/ui/layout';
 
 /** Eyes over the stand (55 cm ahead, 38 cm above) and the spread a real table gives (INTERACTION_SPEC §3). */
 // The surface may be 20 to 60 cm below the eyes and its centre 40 to 60 cm ahead (placement.ts); it takes the candidate nearest the 55 cm aim
@@ -36,6 +36,17 @@ describe('flow UI layout against INTERACTION_SPEC §3', () => {
       expect(targetAngleDeg(eye, spot)).toBeLessThanOrEqual(COMFORT_ANGLE_DEG + 10); // not essential to the task, but never out of sight
       expect(reachFromChest(eye, spot)).toBeLessThanOrEqual(COMFORT_REACH_M);
     }
+  });
+
+  it('keeps the lens and its hint reachable, beside the bench and clear of the town', () => {
+    for (const eye of EYES) {
+      expect(reachFromChest(eye, LENS_SPOT), `reach, eyes ${eye.y}/${eye.z}`).toBeLessThanOrEqual(COMFORT_REACH_M);
+    }
+    expect(targetAngleDeg(eyeAt(0.38, 0.55), LENS_SPOT)).toBeLessThanOrEqual(COMFORT_ANGLE_DEG + 10); // not essential: the palm gesture is the first way
+    expect(LENS_SPOT.x).toBeLessThan(-0.225 - 0.025); // the bench is 45 cm wide: the 5 cm medallion sits beside it
+    expect(LENS_SPOT.z).toBeGreaterThan(0.15 + 0.025); // and in front of the town's front edge (z = +15 cm)
+    expect(LENS_HINT_SPOT.x).toBe(LENS_SPOT.x);
+    expect(LENS_HINT_SPOT.y).toBeGreaterThan(LENS_SPOT.y);
   });
 
   it('puts the bench against the town front edge and its zones in the order tray, build, blueprint', () => {

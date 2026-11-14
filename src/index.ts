@@ -16,7 +16,7 @@ import { createMaterialRegistry, type MaterialRegistry } from './materials/index
 import { PartLoader } from './parts/index.js';
 import { installRenderBudget, type RenderBudget } from './render-budget.js';
 import { StageSystem } from './stage.js';
-import { standZoom } from './stage-framing.js';
+import { machineFrame, stageFrame, type Insets, type StageBox } from './stage-framing.js';
 import { installTown } from './town/index.js';
 import { browserShareEnv, installFlowUi, mountGiftViewer } from './ui/index.js';
 import { detectXrSupport, enterXR } from './xr-entry.js';
@@ -28,6 +28,9 @@ let world: World | undefined;
 /** What the 2D page shows while no immersive session is running. */
 let idleMode: 'landing' | 'preview' = 'landing';
 let renderBudget: RenderBudget | undefined;
+/** On a gift page: the machine on show (stage-local box) and the part of the window the gift card leaves free. Both set means "frame the machine". */
+let giftMachine: StageBox | null = null;
+let giftInsets: Insets | null = null;
 
 const landingOptions: LandingOptions = {
   // Called synchronously from the click handler: WebXR needs the user gesture.
@@ -64,8 +67,8 @@ async function installGame(
   progress: (fraction: number) => void,
 ): Promise<ReturnType<Gameplay['debug']>> {
   const session = new GameSession();
-  // Easy Snap from the save reaches the snap system before the flow UI reads it.
-  installInteraction(gameWorld, { easySnap: session.save.settings.easySnap });
+  // Easy Snap and gaze mode from the save reach the interaction systems before the flow UI reads them (the pause menu changes both later).
+  installInteraction(gameWorld, { easySnap: session.save.settings.easySnap, gazeMode: session.save.settings.gazeMode });
   const audio = new AudioEngine();
   audio.installGestureUnlock();
   bindInteractionAudio(audio);
@@ -107,7 +110,8 @@ async function installGiftPage(
   town.town.group.visible = false;
   const reveal = async (gift: Gift): Promise<void> => {
     await texturesReady;
-    await showGiftMachine(giftWorld, town, materials, gift);
+    giftMachine = await showGiftMachine(giftWorld, town, materials, gift);
+    fitStand();
     landingOptions.previewHint = 'Your gift is turning on the stand. Enter mixed reality to see it on your own table.';
     idleMode = 'preview';
     page.setMode('preview');
@@ -118,13 +122,25 @@ async function installGiftPage(
     catalogue: giftCatalogue,
     verify: verifyGift,
     makeYourOwnHref: location.pathname,
+    onLayout: (insets) => {
+      giftInsets = insets;
+      fitStand();
+    },
     onReveal: (gift) => void reveal(gift).catch((e: unknown) => console.error('[wound-up] could not show the gift:', e)),
   });
 }
 
+/**
+ * Frames the 2D page: the whole stage in the preview, the gift's machine beside or above the gift card. Immersive sessions
+ * replace the projection every frame, so this only matters for the page; it runs again when a session ends.
+ */
 function fitStand(): void {
   if (!world) return;
-  world.camera.zoom = standZoom(window.innerWidth, window.innerHeight);
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const frame = giftMachine && giftInsets ? machineFrame(w, h, giftMachine, giftInsets) : stageFrame(w, h);
+  world.camera.zoom = frame.zoom;
+  world.camera.setViewOffset(w, h, frame.offsetX, frame.offsetY, w, h);
   world.camera.updateProjectionMatrix();
 }
 
@@ -167,6 +183,7 @@ try {
   fitStand();
   window.addEventListener('resize', fitStand);
   world.visibilityState.subscribe((state) => {
+    if (state === VisibilityState.NonImmersive) fitStand(); // the session's projection is gone: put the page's framing back
     landing.setMode(state === VisibilityState.NonImmersive ? idleMode : 'xr');
     budget.wake(); // the scene moved while the session ran, so redraw what the landing shows
   });

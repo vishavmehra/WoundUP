@@ -6,7 +6,7 @@ const model = (path: string): string => `${import.meta.env.BASE_URL}assets/model
 
 export default defineAssets({
   'tockton-base-round': {
-    url: model('environment/tockton_base_round.glb'),
+    url: model('tockton/environment/tockton_base_round.glb'),
     type: AssetType.GLTF,
     name: 'Tockton velvet stand',
     priority: 'critical',
