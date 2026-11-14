@@ -67,7 +67,9 @@ def build_body():
     bm = ct.new()
 
     # --- plinth: lower course, upper course, cornice, raised panels --------------------------------------------------
-    put(bm, box((-38.0, 0.0, -29.0), (38.0, 13.0, 29.0), 0.8), ST)
+    put(bm, box((-37.4, 0.4, -28.4), (37.4, 12.8, 28.4), 0.3), ST)                       # the plinth's core: the joints between the three bands show it
+    for y0, y1 in ((0.0, 4.4), (4.9, 8.9), (9.4, 13.0)):                                # three stone bands, 0.5 mm joints
+        put(bm, box((-38.0, y0, -29.0), (38.0, y1, 29.0), 0.5), ST)
     put(bm, box((-36.8, 12.8, -27.8), (36.8, 31.8, 27.8), 0.6), ST)
     put(bm, box((-37.6, 31.6, -28.6), (37.6, 35.0, 28.6), 0.6), ST)
     put(bm, box((-37.7, 33.2, -28.7), (37.7, 33.8, 28.7), 0.2), BR)                     # a brass bead at the cornice
