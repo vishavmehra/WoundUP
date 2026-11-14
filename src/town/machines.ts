@@ -12,8 +12,10 @@ import { Quaternion } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
 import type { MachineId } from '../game/content';
 import { buildClockTower } from '../machines/clock-tower/build';
+import { CLOCK_TOWER_NODE } from '../machines/clock-tower/rig';
 import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
+import { bakeRig } from './bake';
 import { axisOfGlb, createRig, createRotor, horsePhase, wuField, type MachineRig, type Rotor } from './motion';
 import type { ModelSource } from './scene';
 
@@ -204,8 +206,8 @@ export async function buildMusicBox(source: ModelSource, registry: MaterialRegis
   return rig;
 }
 
-/** Builds the finished machine of `id`, or null for an id this build has no machine for. */
-export function buildMachine(id: MachineId, source: ModelSource, registry: MaterialRegistry, ids?: SocketIds): Promise<MachineRig | null> {
+/** Assembles the finished machine of `id` from its GLBs, or null for an id this build has no machine for. */
+function assemble(id: MachineId, source: ModelSource, registry: MaterialRegistry, ids?: SocketIds): Promise<MachineRig | null> {
   switch (id) {
     case 'windmill':
       return buildWindmill(source, registry, ids);
@@ -218,4 +220,22 @@ export function buildMachine(id: MachineId, source: ModelSource, registry: Mater
     default:
       return Promise.resolve(null);
   }
+}
+
+/**
+ * Names the machine's own runtime finds by `getObjectByName` after the build, per machine, so the static batching leaves them as separate
+ * meshes. The solver-driven machines need none: the rig's rotors, bobbers, pulsers and lid are handed over as they are. The Clock Tower's
+ * nodes are looked up by `ClockTowerNodes.resolve`.
+ */
+const KEEP_BY_NAME: Partial<Record<MachineId, readonly string[]>> = { clock_tower: Object.values(CLOCK_TOWER_NODE) };
+
+/**
+ * Builds the finished machine of `id`, or null for an id this build has no machine for. Its static meshes are baked into one mesh per
+ * library material inside each moving node's frame (bake.ts), a fraction of the draw calls of the loose GLB meshes; the rig's rotors,
+ * bobbers, pulsers and lid are untouched.
+ */
+export async function buildMachine(id: MachineId, source: ModelSource, registry: MaterialRegistry, ids?: SocketIds): Promise<MachineRig | null> {
+  const rig = await assemble(id, source, registry, ids);
+  if (rig) bakeRig(rig, KEEP_BY_NAME[id]);
+  return rig;
 }

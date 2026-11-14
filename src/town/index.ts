@@ -26,6 +26,7 @@ import type { World } from '@iwsdk/core';
 import type { TownAudio } from '../audio/engine';
 import type { MaterialRegistry } from '../materials';
 import { STAGE_NODE_ID, StageSystem } from '../stage';
+import { bakeTown } from './bake';
 import { TownRuntime } from './runtime';
 import type { TownEvents } from './runtime';
 import { loadModel, loadTown } from './scene';
@@ -35,6 +36,8 @@ import { createWakeUniforms, installWakeShading } from './wake-shader';
 
 export { makeCarriable } from './carry';
 export { MACHINE_SNAP_PART, PLOTS, WAKE_GROUP, WAKE_SOURCES } from './layout';
+export { bakeRig, bakeStatic, bakeTown, disposeBaked } from './bake';
+export type { BakeOptions, Baked } from './bake';
 export { BLUEPRINT_SOCKET_IDS, buildMachine } from './machines';
 export { buildDressing, loadDressingModels } from './dressing';
 export type { Dressing, DressingModels } from './dressing';
@@ -77,6 +80,7 @@ export async function installTown(world: World, options: InstallTownOptions): Pr
   const uniforms = createWakeUniforms();
   installWakeShading(options.registry, uniforms);
   const town = await loadTown(options.source ?? loadModel, options.registry, options.dressing ?? true);
+  bakeTown(town); // the town's static meshes, one per library material (bake.ts); the town is never taken down
   stage.add(town.group);
   const placement = world.getSystem(StageSystem);
   if (placement && placement.placement !== 'idle') town.group.scale.setScalar(placement.townScale); // the choice was made while the town loaded

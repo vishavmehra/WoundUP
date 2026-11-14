@@ -20,6 +20,7 @@ import { machineFrame, stageFrame, type Insets, type StageBox } from './stage-fr
 import { addWorkshopLantern, installTown, loadModel, showGiftPlate } from './town/index.js';
 import { browserShareEnv, installFlowUi, mountGiftViewer, type FlowEvent } from './ui/index.js';
 import { detectXrSupport, enterXR } from './xr-entry.js';
+import { installXrTuning } from './xr-tuning.js';
 
 const sceneContainer = document.getElementById('scene-container') as HTMLDivElement;
 const landingRoot = document.getElementById('landing-root') as HTMLElement;
@@ -157,6 +158,7 @@ try {
     detectXrSupport(),
   ]);
   world = created;
+  installXrTuning(world, location.search); // multiview off-switch, foveation, framebuffer scale and the 72 Hz request (src/xr-tuning.ts)
   // Landing actions stay disabled until setSupport below, so the preview cannot have started yet.
   const budget = (renderBudget = installRenderBudget(world));
   // The shared library materials (ADR-032) go on every GLB built with the library profile. Their textures load in the
