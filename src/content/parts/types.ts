@@ -3,7 +3,8 @@ import type { PartMechanics } from '../../sim';
 
 /**
  * DATA §4 families, plus `governor` and `winding_key`: the Music Box blueprint (MUSIC_BOX_BLUEPRINT §7.1, gap A-01) gives
- * both parts a family of their own and the case GLB already writes them (`partFamily`).
+ * both parts a family of their own and the case GLB already writes them (`partFamily`). `ratchet`, `pawl`, `flywheel` and `vane`
+ * are the families of the Well's and the Belfry's parts (ADR-048); the part GLBs already write them.
  */
 export type PartFamily =
   | 'spur_gear'
@@ -22,7 +23,11 @@ export type PartFamily =
   | 'structural'
   | 'figure'
   | 'governor'
-  | 'winding_key';
+  | 'winding_key'
+  | 'ratchet'
+  | 'pawl'
+  | 'flywheel'
+  | 'vane';
 
 /**
  * A finish is a runtime material, never a file (ADR-030 item 2): `visual.finish` names a shared library material

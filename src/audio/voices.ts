@@ -136,13 +136,15 @@ const BELL_PARTIALS: ReadonlyArray<readonly [ratio: number, peak: number, second
   [3, 0.02, 0.7],
 ];
 const BELL_PRIME_HZ = 196; // G3
+/** The Belfry's smaller bell (ADR-048), a fourth above the tower's so the two can ring together: C4. */
+export const BELFRY_BELL_PRIME_HZ = 262;
 
 /** One strike of the Clock Tower bell: a clapper tick over the partials, ringing a little longer on the last strike of the hour. */
-export function bellVoice(ctx: AudioContext, out: AudioNode, noise: AudioBuffer, last: boolean): void {
+export function bellVoice(ctx: AudioContext, out: AudioNode, noise: AudioBuffer, last: boolean, primeHz: number = BELL_PRIME_HZ, ringSeconds = 1): void {
   const t = ctx.currentTime + 0.02;
   noiseClick(ctx, out, noise, t, 1800, 3, 0.25, 0.03);
-  const ring = last ? 1.3 : 1;
-  for (const [ratio, peak, seconds] of BELL_PARTIALS) toneVoice(ctx, out, t, BELL_PRIME_HZ * ratio, BELL_PRIME_HZ * ratio, peak, seconds * ring);
+  const ring = (last ? 1.3 : 1) * ringSeconds;
+  for (const [ratio, peak, seconds] of BELL_PARTIALS) toneVoice(ctx, out, t, primeHz * ratio, primeHz * ratio, peak, seconds * ring);
 }
 
 /** The pendulum's tick and tock: one dry click, a little lower and softer on the tock. */

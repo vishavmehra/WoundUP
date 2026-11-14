@@ -65,4 +65,8 @@ export const MACHINE_TARGET_SPECS = {
   musicBoxCylinder: { angularVelocity: 0.4, tolerance: 0.1 },
   carouselPlatform: { angularVelocity: 0.5, tolerance: 0.1 },
   windmillMillstone: { angularVelocity: 0.6, tolerance: 0.15 },
+  /** WELL_FOUNTAIN_BLUEPRINT §3.2: the cam turns twice as fast as the spring (20T to 10T), a stroke every 3.93 s. */
+  wellCam: { angularVelocity: 1.6, tolerance: 0.1 },
+  /** BELFRY_BLUEPRINT §3.2: the vane sweeps at the spring's 0.8 rad/s times 12/20, one turn in 13.1 s. */
+  belfryVane: { angularVelocity: 0.48, tolerance: 0.1 },
 } as const;

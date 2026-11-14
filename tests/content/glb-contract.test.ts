@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BLUEPRINTS, MUSIC_BOX, WINDMILL } from '../../src/content/blueprints';
 import { MODEL_PATHS, PART_DEFINITIONS, requirePart } from '../../src/content/parts';
+import { blueprintDelivered, delivered } from './delivered';
 
 // The data in src/content against the GLB files it describes: collider radii, socket empties, material names.
 // The GLBs of the mechanical library and the machines are built by the asset agents and may be missing from a checkout (they
@@ -48,7 +49,7 @@ function socketsOf(assetId: string): Map<string, Record<string, unknown>> {
 
 describe.skipIf(missing.length > 0)('the GLBs the catalogue and blueprints describe', () => {
   it('give every grabbable part a COL_Grab whose radius is the part definition colliderRadius, and no collider otherwise', () => {
-    for (const p of PART_DEFINITIONS) {
+    for (const p of PART_DEFINITIONS.filter((x) => delivered(x.visual.assetId))) {
       const node = readGlb(MODEL_PATHS[p.visual.assetId]).nodes?.find((n) => n.name === 'COL_Grab');
       if (!p.grab.enabled) {
         expect(node, `${p.id} has a COL_Grab but its definition says it cannot be grabbed`).toBeUndefined();
@@ -68,7 +69,7 @@ describe.skipIf(missing.length > 0)('the GLBs the catalogue and blueprints descr
     }
   });
 
-  it.each(BLUEPRINTS.map((b) => [b.id, b] as const))('%s: every socket node exists in the housing or an intended part, and takes what the blueprint accepts', (_id, bp) => {
+  it.each(BLUEPRINTS.filter(blueprintDelivered).map((b) => [b.id, b] as const))('%s: every socket node exists in the housing or an intended part, and takes what the blueprint accepts', (_id, bp) => {
     const hosts = [bp.housing.assetId, ...new Set(Object.values(bp.intended).map((id) => requirePart(id).visual.assetId))];
     const empties = new Map<string, Record<string, unknown>>();
     for (const host of hosts) for (const [name, wu] of socketsOf(host)) empties.set(name, wu);

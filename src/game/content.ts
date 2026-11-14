@@ -14,14 +14,15 @@ export function isOneOf<T extends string>(list: readonly T[], value: unknown): v
 // ---- Machines and plots (PRODUCT_SPEC §6, §11; TOCKTON_DIMENSIONS §3.4) --------------------------------------------
 
 /**
- * Blueprint ids of the four Tockton machines. The specifications name the machines but never fix the blueprint ids,
+ * Blueprint ids of the Tockton machines. The specifications name the machines but never fix the blueprint ids,
  * so these follow the plot-id pattern (`plot_music_box`); the content layer must use the same ids (see the gaps list).
+ * The Well and the Belfry are the fifth and sixth (ADR-048).
  */
-export const MACHINE_IDS = ['music_box', 'carousel', 'windmill', 'clock_tower'] as const;
+export const MACHINE_IDS = ['music_box', 'carousel', 'windmill', 'clock_tower', 'well', 'belfry'] as const;
 export type MachineId = (typeof MACHINE_IDS)[number];
 
-/** The four machine plots of the town (TOCKTON_DIMENSIONS §3.4). The Bakery is not a plot: the Windmill wakes it too. */
-export const PLOT_IDS = ['plot_music_box', 'plot_carousel', 'plot_windmill', 'plot_clock_tower'] as const;
+/** The machine plots of the town (TOCKTON_DIMENSIONS §3.4; the last two are ADR-048's). The Bakery is not a plot: the Windmill wakes it too. */
+export const PLOT_IDS = ['plot_music_box', 'plot_carousel', 'plot_windmill', 'plot_clock_tower', 'plot_well', 'plot_belfry'] as const;
 export type PlotId = (typeof PLOT_IDS)[number];
 
 /** Each machine has exactly one plot and only its own plot accepts it (TOCKTON_DIMENSIONS §3.4). */
@@ -30,11 +31,13 @@ export const MACHINE_PLOT: Readonly<Record<MachineId, PlotId>> = {
   carousel: 'plot_carousel',
   windmill: 'plot_windmill',
   clock_tower: 'plot_clock_tower',
+  well: 'plot_well',
+  belfry: 'plot_belfry',
 };
 
 // ---- Story repairs (PRODUCT_SPEC §8; GAMEPLAY_SYSTEMS §12) ---------------------------------------------------------
 
-export const REPAIR_IDS = ['worn_spring', 'wrong_gear'] as const;
+export const REPAIR_IDS = ['worn_spring', 'wrong_gear', 'slow_pump', 'silent_bell'] as const;
 export type RepairId = (typeof REPAIR_IDS)[number];
 
 /** What the player sees when the fault is present (units: seconds, and a multiple of the intended speed). */
@@ -72,12 +75,33 @@ export const REPAIRS: Readonly<Record<RepairId, RepairDef>> = {
     correctPartId: 'gear_spur_24_m1_brass',
     symptom: { kind: 'speed_ratio', ratio: 24 / 12 },
   },
+  // WELL_FOUNTAIN_BLUEPRINT §10.3: a 16-tooth gear where the 10-tooth one belongs, so the cam turns at 1.0 rad/s instead of 1.6 and the
+  // pump dribbles. Daily repair only (ADR-048): `letterId` names the Well's letter, which is a build letter, so no letter ever
+  // completes it.
+  slow_pump: {
+    id: 'slow_pump',
+    blueprintId: 'well',
+    letterId: 'letter_7',
+    faultyPartId: 'gear_spur_16_m1_brass',
+    correctPartId: 'gear_spur_10_m1_brass',
+    symptom: { kind: 'speed_ratio', ratio: 10 / 16 },
+  },
+  // BELFRY_BLUEPRINT §10.3: the worn spring of Letter 2 in a machine the player has not met it in: the bell stirs once, the vane turns a
+  // few degrees and everything stops. Daily repair only (ADR-048).
+  silent_bell: {
+    id: 'silent_bell',
+    blueprintId: 'belfry',
+    letterId: 'letter_8',
+    faultyPartId: 'spring_worn_brass',
+    correctPartId: 'spring_standard_brass',
+    symptom: { kind: 'short_runtime', seconds: 1.5 },
+  },
 };
 
 // ---- Letters (PRODUCT_SPEC §7; GAMEPLAY_SYSTEMS §5) ----------------------------------------------------------------
 
 /** Story order. Each letter unlocks when the one before it is completed (see progression.ts). */
-export const LETTER_IDS = ['letter_1', 'letter_2', 'letter_3', 'letter_4', 'letter_5', 'letter_6'] as const;
+export const LETTER_IDS = ['letter_1', 'letter_2', 'letter_3', 'letter_4', 'letter_5', 'letter_6', 'letter_7', 'letter_8'] as const;
 export type LetterId = (typeof LETTER_IDS)[number];
 
 /** Locked < available < accepted < completed. Persisted, so never store any other string (SAVE_PERSISTENCE_SPEC §4.2). */
@@ -149,6 +173,21 @@ export const LETTERS: Readonly<Record<LetterId, LetterDef>> = {
     message: "The theatre doors only open when the clock tower rings. Tockton hasn't heard it in years.",
     unlock: { type: 'letter_completed', letterId: 'letter_5' },
     objective: { type: 'build_and_run', blueprintId: 'clock_tower' },
+  },
+  // Letters 7 and 8 (ADR-048): the Gardener and the Bell-ringer, roles with no figure (ADR-039).
+  letter_7: {
+    id: 'letter_7',
+    sender: 'Gardener',
+    message: 'The planters on the street are drooping, and the old fountain has stood dry since the night the clock stopped. Could you get the water running again?',
+    unlock: { type: 'letter_completed', letterId: 'letter_6' },
+    objective: { type: 'build_and_run', blueprintId: 'well' },
+  },
+  letter_8: {
+    id: 'letter_8',
+    sender: 'Bell-ringer',
+    message: "The belfry bell hasn't rung since the night the clock stopped, and the weathervane has forgotten how to turn. Could you wake them both?",
+    unlock: { type: 'letter_completed', letterId: 'letter_7' },
+    objective: { type: 'build_and_run', blueprintId: 'belfry' },
   },
 };
 

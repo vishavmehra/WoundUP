@@ -8,6 +8,8 @@ import {
   MAX_WAKE_SOURCES,
   MIRA_AT,
   plotIdFromSocketName,
+  PLOT_CAPTURE_M,
+  PLOT_WAKE_GROUP,
   PLOTS,
   SCENERY_BOXES,
   THEATRE_AT,
@@ -34,6 +36,30 @@ describe('plots (TOCKTON_DIMENSIONS §3.3)', () => {
     expect(PLOTS.plot_windmill).toMatchObject({ x: 0.2425, z: 0.0647 });
   });
 
+  it('puts the Well and the Belfry side by side in the right zone behind the Windmill, at the pads of their blueprints (ADR-048)', () => {
+    // WELL_FOUNTAIN_BLUEPRINT §9.1: pad x 14.3 to 21.1, z -7.6 to -1.6; BELFRY_BLUEPRINT §9.1: pad x 21.6 to 29.6, same z.
+    const edges = (id: 'plot_well' | 'plot_belfry') => ({
+      x: [PLOTS[id].x - PLOTS[id].halfW, PLOTS[id].x + PLOTS[id].halfW].map((v) => Math.round(v * 1e4) / 100),
+      z: [PLOTS[id].z - PLOTS[id].halfD, PLOTS[id].z + PLOTS[id].halfD].map((v) => Math.round(v * 1e4) / 100),
+    });
+    expect(edges('plot_well')).toEqual({ x: [14.3, 21.1], z: [-7.6, -1.6] });
+    expect(edges('plot_belfry')).toEqual({ x: [21.6, 29.6], z: [-7.6, -1.6] });
+    expect(PLOTS.plot_well).toMatchObject({ x: 0.177, z: -0.046, socket: 'PlotWell' });
+    expect(PLOTS.plot_belfry).toMatchObject({ x: 0.256, z: -0.046, socket: 'PlotBelfry' });
+    // 0.5 cm apart, behind the Windmill pad (its back edge is z -0.56 cm), clear of the Bakery (right edge x 13.5 cm).
+    expect(PLOTS.plot_belfry.x - PLOTS.plot_belfry.halfW - (PLOTS.plot_well.x + PLOTS.plot_well.halfW)).toBeCloseTo(0.005, 9);
+    expect(PLOTS.plot_well.z + PLOTS.plot_well.halfD).toBeLessThan(PLOTS.plot_windmill.z - PLOTS.plot_windmill.halfD);
+    expect(PLOTS.plot_well.x - PLOTS.plot_well.halfW).toBeGreaterThan(BAKERY_AT.x + 0.065);
+  });
+
+  it('gives the Well and the Belfry alone a 9 cm capture radius, 11 cm with Easy Snap (ADR-048), and no other plot one', () => {
+    expect(PLOT_CAPTURE_M).toEqual({ plot_well: { radius: 0.09, easyRadius: 0.11 }, plot_belfry: { radius: 0.09, easyRadius: 0.11 } });
+    // Only a machine's own plot accepts it, and the two pads are 7.9 cm apart, so a wider radius cannot take the wrong machine.
+    expect(dist(PLOTS.plot_well, PLOTS.plot_belfry)).toBeCloseTo(0.079, 9);
+    expect(MACHINE_SNAP_PART.well).toBe('well_base');
+    expect(MACHINE_SNAP_PART.belfry).toBe('belfry_base');
+  });
+
   it('keeps every pad inside the 60 x 30 cm town and clear of the others', () => {
     const pads = PLOT_IDS.map((id) => PLOTS[id]);
     for (const p of pads) {
@@ -54,6 +80,8 @@ describe('plots (TOCKTON_DIMENSIONS §3.3)', () => {
     expect(plotIdFromSocketName('PlotClockTower')).toBe('plot_clock_tower');
     expect(plotIdFromSocketName('PlotCarousel')).toBe('plot_carousel');
     expect(plotIdFromSocketName('PlotWindmill')).toBe('plot_windmill');
+    expect(plotIdFromSocketName('PlotWell')).toBe('plot_well');
+    expect(plotIdFromSocketName('PlotBelfry')).toBe('plot_belfry');
     for (const id of PLOT_IDS) expect(plotIdFromSocketName(PLOTS[id].socket)).toBe(id);
     for (const other of ['Baker', 'Key', 'PlotNothing', 'Plot', '', 'plotmusicbox']) expect(plotIdFromSocketName(other)).toBeNull();
   });
@@ -95,10 +123,15 @@ describe('frozen scenery and wake sources', () => {
     for (const s of [music, carousel, clock]) expect(s.wakes & WAKE_GROUP.bakery, s.plot).toBe(0);
     for (const s of [music, carousel, windmill]) expect(s.wakes & WAKE_GROUP.theatre, s.plot).toBe(0);
     for (const s of [carousel, windmill, clock]) expect(s.wakes & WAKE_GROUP.mira, s.plot).toBe(0);
+    // The Well and the Belfry wake the street and their own pad, and nothing else (the dressing beside them wakes through its table rows).
+    for (const id of ['plot_well', 'plot_belfry'] as const) {
+      const s = source(id)!;
+      for (const group of [WAKE_GROUP.bakery, WAKE_GROUP.theatre, WAKE_GROUP.mira]) expect(s.wakes & group, id).toBe(0);
+    }
     // A plot wakes its own pad and no other pad.
     for (const id of PLOT_IDS) {
-      const pad = { plot_music_box: WAKE_GROUP.padMusicBox, plot_carousel: WAKE_GROUP.padCarousel, plot_windmill: WAKE_GROUP.padWindmill, plot_clock_tower: WAKE_GROUP.padClockTower }[id];
-      const pads = WAKE_GROUP.padMusicBox | WAKE_GROUP.padCarousel | WAKE_GROUP.padWindmill | WAKE_GROUP.padClockTower;
+      const pad = PLOT_WAKE_GROUP[id];
+      const pads = Object.values(PLOT_WAKE_GROUP).reduce((a, b) => a | b, 0);
       expect(source(id)!.wakes & pads, id).toBe(pad);
     }
   });

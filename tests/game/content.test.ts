@@ -20,6 +20,9 @@ describe('letters (PRODUCT_SPEC §7)', () => {
     ['letter_4', 'Otto', 'No wind, no windmill. No windmill, no flour. No flour, no bread. Please help.'],
     ['letter_5', 'Otto', "The windmill spins like it's late for something! Flour everywhere. Something's not right inside."],
     ['letter_6', 'Theatre keeper', "The theatre doors only open when the clock tower rings. Tockton hasn't heard it in years."],
+    // ADR-048, WELL_FOUNTAIN_BLUEPRINT §10.1 and BELFRY_BLUEPRINT §10.1: roles with no figure, like the Schoolteacher and the Theatre keeper.
+    ['letter_7', 'Gardener', 'The planters on the street are drooping, and the old fountain has stood dry since the night the clock stopped. Could you get the water running again?'],
+    ['letter_8', 'Bell-ringer', "The belfry bell hasn't rung since the night the clock stopped, and the weathervane has forgotten how to turn. Could you wake them both?"],
   ];
 
   it.each(expected)('%s has the exact sender and text', (id, sender, message) => {
@@ -27,7 +30,7 @@ describe('letters (PRODUCT_SPEC §7)', () => {
     expect(LETTERS[id as keyof typeof LETTERS].message).toBe(message);
   });
 
-  it('lists the six letters in story order, each under its own id', () => {
+  it('lists the eight letters in story order, each under its own id', () => {
     expect(LETTER_IDS).toEqual(expected.map(([id]) => id));
     for (const id of LETTER_IDS) expect(LETTERS[id].id).toBe(id);
   });
@@ -43,6 +46,8 @@ describe('letters (PRODUCT_SPEC §7)', () => {
     expect(LETTERS.letter_4.objective).toEqual({ type: 'build_and_run', blueprintId: 'windmill' });
     expect(LETTERS.letter_5.objective).toEqual({ type: 'repair_fault', repairId: 'wrong_gear' });
     expect(LETTERS.letter_6.objective).toEqual({ type: 'build_and_run', blueprintId: 'clock_tower' });
+    expect(LETTERS.letter_7.objective).toEqual({ type: 'build_and_run', blueprintId: 'well' });
+    expect(LETTERS.letter_8.objective).toEqual({ type: 'build_and_run', blueprintId: 'belfry' });
   });
 
   it('unlocks Letter 1 from the trunk and every later letter from the one before it being completed (DATA §12)', () => {
@@ -82,10 +87,31 @@ describe('story repairs (PRODUCT_SPEC §8)', () => {
     });
   });
 
-  it('points each repair at the letter whose objective is that repair', () => {
+  it('has the slow pump: a 16-tooth gear where the 10-tooth one belongs, so the cam turns at 1.0 rad/s instead of 1.6 (ADR-048)', () => {
+    expect(REPAIRS.slow_pump).toMatchObject({
+      blueprintId: 'well',
+      letterId: 'letter_7',
+      faultyPartId: 'gear_spur_16_m1_brass',
+      correctPartId: 'gear_spur_10_m1_brass',
+      symptom: { kind: 'speed_ratio', ratio: 0.625 },
+    });
+  });
+
+  it('has the silent bell: the worn spring of Letter 2 in the Belfry, about 1.5 s of runtime (ADR-048)', () => {
+    expect(REPAIRS.silent_bell).toMatchObject({
+      blueprintId: 'belfry',
+      letterId: 'letter_8',
+      faultyPartId: 'spring_worn_brass',
+      correctPartId: 'spring_standard_brass',
+      symptom: { kind: 'short_runtime', seconds: 1.5 },
+    });
+  });
+
+  it('points each story repair at the letter whose objective is that repair, and the Well and Belfry repairs (daily pool only) at their build letters', () => {
     for (const id of REPAIR_IDS) {
       const o = LETTERS[REPAIRS[id].letterId].objective;
-      expect(o).toEqual({ type: 'repair_fault', repairId: id });
+      const dailyOnly = id === 'slow_pump' || id === 'silent_bell';
+      expect(o, id).toEqual(dailyOnly ? { type: 'build_and_run', blueprintId: REPAIRS[id].blueprintId } : { type: 'repair_fault', repairId: id });
       expect(REPAIRS[id].id).toBe(id);
     }
   });
@@ -98,6 +124,8 @@ describe('machines and plots', () => {
       carousel: 'plot_carousel',
       windmill: 'plot_windmill',
       clock_tower: 'plot_clock_tower',
+      well: 'plot_well',
+      belfry: 'plot_belfry',
     });
     expect(new Set(Object.values(MACHINE_PLOT)).size).toBe(MACHINE_IDS.length);
     expect([...PLOT_IDS].sort()).toEqual(Object.values(MACHINE_PLOT).sort());

@@ -1,5 +1,5 @@
 /**
- * Desktop demo view (debug only): `/?debug&demo=music_box` (or `carousel`, `windmill`) skips the flow and shows that finished
+ * Desktop demo view (debug only): `/?debug&demo=music_box` (or `carousel`, `windmill`, `well`, `belfry`) skips the flow and shows that finished
  * machine running, so the way its parts work together can be watched in a plain browser window.
  *
  * It is not an animation of its own. The machine is the one the game builds (`buildMachine`), the speeds are the solver's
@@ -7,8 +7,9 @@
  * adds is what a headset does for the player: it winds the spring, winds it again when it has run down, and moves the camera.
  *
  * Without `?debug` nothing here is reached (`demoRequest` returns null). It never creates a GameSession, so it reads and writes no
- * save. The Music Box stands on the workbench where the game puts the machine it has just finished; the Carousel and the Windmill
- * stand on their plots, awake. The Clock Tower has no finished machine in this build (`buildMachine` returns null), so it is not offered.
+ * save. The Music Box stands on the workbench where the game puts the machine it has just finished; the Carousel, the Windmill, the
+ * Well and the Belfry stand on their plots, awake (the Well's basin starts empty so the fill can be watched). The Clock Tower is driven by
+ * its own system and is not offered.
  */
 import { Box3, createSystem, Vector3 } from '@iwsdk/core';
 import type { Object3D, World } from '@iwsdk/core';
@@ -21,13 +22,14 @@ import type { RenderBudget } from '../render-budget';
 import { MAX_WIND_UNITS } from '../sim';
 import type { SolveResult } from '../sim';
 import { STAGE_NODE_ID } from '../stage';
+import { bakeStatic } from '../town/bake';
 import { BLUEPRINT_SOCKET_IDS, buildMachine, installTown, loadModel } from '../town';
 import type { MachineRig, TownRuntime } from '../town';
 import { stepRig } from '../town/motion';
 import { BENCH, benchPoint, benchZ } from '../ui/layout';
 
 /** The finished machines `buildMachine` makes. */
-export const DEMO_MACHINES = ['music_box', 'carousel', 'windmill'] as const;
+export const DEMO_MACHINES = ['music_box', 'carousel', 'windmill', 'well', 'belfry'] as const;
 export type DemoMachine = (typeof DEMO_MACHINES)[number];
 
 export const DEMO_HINT = 'Debug demo: the real solver is turning this machine. Drag to look around, scroll to zoom.';
@@ -171,6 +173,8 @@ const LOOKS: Readonly<Record<DemoMachine, DemoLook>> = {
   music_box: { elevationDeg: 38, closeness: 0.8 },
   carousel: { elevationDeg: 18, closeness: 0.95 },
   windmill: { elevationDeg: 14, closeness: 0.95 },
+  well: { elevationDeg: 12, closeness: 0.95 },
+  belfry: { elevationDeg: 10, closeness: 0.95 },
 };
 
 class Demo {
@@ -261,6 +265,8 @@ async function place(world: World, town: TownRuntime, materials: MaterialRegistr
   } else {
     if (!town.placeRig(rig)) throw new Error(`The town has no plot for the ${machine}.`);
     town.restore([MACHINE_PLOT[machine]]);
+    rig.restored = false; // placeRig says "a saved game put it here": the demo wants to see the Well's basin fill, so it starts empty
+    bakeStatic(rig); // as the game does when a machine stands in the town
   }
   return rig.root;
 }

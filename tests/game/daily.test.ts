@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { REPAIR_IDS, REPAIRS } from '../../src/game/content';
-import { completeDaily, DAILY_POOL, dailyOffer, dailyRepairFor } from '../../src/game/daily';
+import { completeDaily, DAILY_POOL, dailyOffer, dailyRepairFor, drawablePool } from '../../src/game/daily';
 import { dateKey, dayNumber, isDateKey } from '../../src/game/date';
 import { acceptLetter, trunkOpened } from '../../src/game/progression';
 import { freshSave, parseSave, serializeSave, type SaveV1 } from '../../src/game/save';
@@ -69,13 +69,41 @@ describe('daily repair (ADR-027, ACCEPTANCE_TESTS §5.1)', () => {
     expect(completeDaily(completed, 'not a date')).toBe(completed);
   });
 
-  it('draws only from the two documented repairs, which already exist in the game', () => {
+  it("draws only from the repairs the game has, the Well's and the Belfry's among them (ADR-048)", () => {
     expect(DAILY_POOL).toEqual(REPAIR_IDS);
+    expect(DAILY_POOL).toEqual(['worn_spring', 'wrong_gear', 'slow_pump', 'silent_bell']);
     for (let day = 1; day <= 31; day++) {
       const repair = dailyRepairFor(`2026-12-${String(day).padStart(2, '0')}`);
       expect(repair).not.toBeNull();
       expect(Object.values(REPAIRS)).toContain(repair);
     }
+  });
+
+  it('offers a repair only for a machine that stands in the town, so nobody is asked to repair a Well they have not built (ADR-048)', () => {
+    const atLetter5 = playStory({ clockTower: false }); // Letters 1 to 5 done: the daily repair is unlocked, only the first two machines can break
+    expect(drawablePool(atLetter5)).toEqual(['worn_spring', 'wrong_gear']);
+    const seen = new Set<string>();
+    for (let day = 1; day <= 28; day++) {
+      const offer = dailyOffer(atLetter5, `2027-02-${String(day).padStart(2, '0')}`);
+      expect(offer, `day ${day}`).not.toBeNull();
+      seen.add((offer as { id: string }).id);
+    }
+    expect([...seen].sort()).toEqual(['worn_spring', 'wrong_gear']); // alternate days, as before the Well and the Belfry existed
+
+    const withWell = playStory({ clockTower: true, belfry: false });
+    expect(drawablePool(withWell)).toEqual(['worn_spring', 'wrong_gear', 'slow_pump']);
+    const full = playStory();
+    expect(drawablePool(full)).toEqual([...REPAIR_IDS]);
+    const all = new Set<string>();
+    for (let day = 1; day <= 28; day++) all.add((dailyOffer(full, `2027-02-${String(day).padStart(2, '0')}`) as { id: string }).id);
+    expect([...all].sort()).toEqual([...REPAIR_IDS].sort()); // each of the four comes round in turn
+  });
+
+  it("does not offer the Well's repair on the way to Letter 7, and does once the Well is placed, whichever day it is", () => {
+    const before = playStory({ clockTower: true, well: false });
+    for (let day = 1; day <= 28; day++) expect(dailyOffer(before, `2027-03-${String(day).padStart(2, '0')}`)?.id).not.toBe('slow_pump');
+    const after = playStory({ clockTower: true, belfry: false });
+    expect(Array.from({ length: 28 }, (_, i) => dailyOffer(after, `2027-03-${String(i + 1).padStart(2, '0')}`)?.id)).toContain('slow_pump');
   });
 
   it('steps through the pool day by day, so neighbouring days differ', () => {
@@ -84,7 +112,7 @@ describe('daily repair (ADR-027, ACCEPTANCE_TESTS §5.1)', () => {
       const b = dailyRepairFor(`2027-02-${String(day + 1).padStart(2, '0')}`);
       expect(a).not.toBe(b);
     }
-    expect(dailyRepairFor('2027-02-01')).toBe(dailyRepairFor('2027-02-03'));
+    expect(dailyRepairFor('2027-02-01')).toBe(dailyRepairFor('2027-02-05')); // a round of four repairs
   });
 
   it('steps correctly across month, year and leap-day boundaries and before 1970', () => {

@@ -34,7 +34,9 @@ import type { Gift } from './game/gift';
 import type { GameSession } from './game/session';
 import { interactionIntents, Socket, SnappedTo, WindKey } from './interaction';
 import type { InteractionIntent } from './interaction';
+import { BELFRY_MODEL_PATHS } from './machines/belfry';
 import { CLOCK_TOWER_MODEL_PATHS, ClockTowerRigComponent, ClockTowerSystem, clockTowerEvents, installClockTower, TheatreDoors } from './machines/clock-tower';
+import { WELL_MODEL_PATHS } from './machines/well';
 import type { MaterialRegistry } from './materials';
 import { machineAssetIds, PartLoader } from './parts';
 import type { MachineInstance, PartInstance } from './parts';
@@ -42,6 +44,7 @@ import { MAX_WIND_UNITS } from './sim';
 import type { SolveResult } from './sim';
 import { STAGE_NODE_ID, StageSystem } from './stage';
 import { BLUEPRINT_SOCKET_IDS, buildMachine, loadModel, makeCarriable, PLOTS, TownRuntime } from './town';
+import { bakeStatic } from './town/bake';
 import { PAD_TOP_M } from './town/layout';
 import type { MachineRig } from './town';
 import type { LidHinge } from './town/motion';
@@ -104,6 +107,13 @@ function planOfRepair(repair: RepairDef): { blueprint: MachineBlueprint; repair:
  */
 const keepsRunning = (machine: MachineId, result: Pick<SolveResult, 'continuous'>): boolean => result.continuous || machine === 'clock_tower';
 
+/** The files of the finished machines that the town loads by itself (no part loader), for a warm-up while the letter is read. */
+const FINISHED_MODEL_PATHS: Readonly<Record<string, readonly string[] | undefined>> = {
+  clock_tower: CLOCK_TOWER_MODEL_PATHS,
+  well: WELL_MODEL_PATHS,
+  belfry: BELFRY_MODEL_PATHS,
+};
+
 export class Gameplay {
   /** Set by `index.ts` once the town and the UI exist (they need this object's callbacks first). */
   town!: TownRuntime;
@@ -132,7 +142,8 @@ export class Gameplay {
   /** The finished Clock Tower, if one exists (carried, or standing on its plot): the entity that holds its `ClockTowerRig`. */
   private tower: { rig: MachineRig; entity: Entity } | null = null;
   private towerPowered = false;
-  private towerWarm = false;
+  /** Machines whose finished model files are already being fetched (see `preload`). */
+  private readonly warmed = new Set<string>();
   private towerSystem: ClockTowerSystem | undefined;
   /** The theatre facade's doors (PIV_DoorL, PIV_DoorR), opened by the tower's hour; `doorsWereOpen` shuts them once it stops. */
   private readonly doors = new TheatreDoors();
@@ -177,6 +188,7 @@ export class Gameplay {
       rig.result = result;
       rig.running = result !== null && keepsRunning(record.blueprintId, result); // a saved Windmill or Clock Tower runs again, a saved Music Box waits for its next letter
       if (!this.town.placeRig(rig)) continue;
+      bakeStatic(rig); // a machine standing in the town keeps only its moving parts as meshes of their own (ADR-048 draw-call budget)
       // Nothing carries a restored machine, so the town holds it; the Clock Tower still needs an entity for its rig component.
       this.placed.set(record.blueprintId, { rig, entity: record.blueprintId === 'clock_tower' ? this.attachTower(rig, null) : null });
     }
@@ -238,10 +250,11 @@ export class Gameplay {
     const plan = planOf(letter);
     if (!plan) return;
     this.loader.preload(machineAssetIds(plan.blueprint, plan.repair ? [plan.repair.faultyPartId] : []));
-    if (plan.blueprint.id === 'clock_tower' && !this.towerWarm) {
-      // The finished tower is made from a dozen files by the town's loader (its own cache): have them parsed before Run is pressed.
-      this.towerWarm = true;
-      for (const path of CLOCK_TOWER_MODEL_PATHS) loadModel(path).catch((e: unknown) => console.warn(`[wound-up] could not preload "${path}":`, e));
+    const finished = FINISHED_MODEL_PATHS[plan.blueprint.id];
+    if (finished && !this.warmed.has(plan.blueprint.id)) {
+      // The finished tower, well or belfry is made from a dozen files by the town's loader (its own cache): have them parsed before Run is pressed.
+      this.warmed.add(plan.blueprint.id);
+      for (const path of finished) loadModel(path).catch((e: unknown) => console.warn(`[wound-up] could not preload "${path}":`, e));
     }
   }
 
@@ -571,6 +584,7 @@ export class Gameplay {
     if (MACHINE_PLOT[machine] !== plot || !this.session.machinePlaced(machine, plot)) return;
     this.carried = null;
     this.placed.set(machine, { rig: carried.rig, entity: carried.entity });
+    bakeStatic(carried.rig); // its housing and still parts become one mesh per material; the moving parts keep theirs
     // A machine on its plot stays there: nothing carries it off again (it would return to the bench, which is gone).
     carried.entity.removeComponent(OneHandGrabbable);
     carried.entity.removeComponent(DistanceGrabbable);

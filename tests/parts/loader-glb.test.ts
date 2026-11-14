@@ -5,6 +5,7 @@ import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it, vi } from 'vitest';
 import { BLUEPRINTS } from '../../src/content/blueprints';
 import { MODEL_PATHS, PART_DEFINITIONS } from '../../src/content/parts';
+import { blueprintDelivered, delivered } from '../content/delivered';
 import { SnapPart, SnappedTo, Socket, XRayTarget } from '../../src/interaction';
 import { MaterialRegistry, parseLibrary } from '../../src/materials';
 import { PartLoader } from '../../src/parts';
@@ -53,7 +54,7 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
     const { scene, registry, loader } = setup();
     // The parts that carry sockets of their own are built into their machine, as the game does.
     const carrier: Record<string, string> = { carousel_canopy: 'carousel', windmill_tower: 'windmill', clock_face: 'clock_tower' };
-    for (const def of PART_DEFINITIONS) {
+    for (const def of PART_DEFINITIONS.filter((p) => delivered(p.visual.assetId))) {
       const machineId = carrier[def.visual.assetId];
       const machine = machineId === undefined ? undefined : await loader.spawnMachine(machineId, { parent: scene });
       const part = await loader.spawnPart(def.id, { parent: scene, machine });
@@ -86,7 +87,7 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
 
   it('binds every blueprint socket that names a GLB empty, in the housing or in the part that carries it', async () => {
     const { scene, loader } = setup();
-    for (const bp of BLUEPRINTS) {
+    for (const bp of BLUEPRINTS.filter(blueprintDelivered)) {
       const machine = await loader.spawnMachine(bp.id, { parent: scene });
       // Sockets nested in parts: spawn the parts of the intended build that carry SOCKET_ empties (canopy, tower).
       for (const partId of new Set(Object.values(bp.intended))) {

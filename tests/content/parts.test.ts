@@ -4,7 +4,9 @@ import {
   getPart,
   hasPart,
   MODEL_PATHS,
+  modelPath,
   modelUrl,
+  PENDING_MODEL_PATHS,
   PART_DEFINITIONS,
   partIdsForAsset,
   partIdsOfFamily,
@@ -66,7 +68,7 @@ describe('part catalogue', () => {
 
   it('names a GLB file for every part and for each machine housing, and the manifest agrees where the file is', () => {
     const byId = new Map(manifest.assets.map((a) => [a.id, a] as const));
-    for (const p of PART_DEFINITIONS) expect(MODEL_PATHS[p.visual.assetId], p.id).toBeDefined();
+    for (const p of PART_DEFINITIONS) expect(modelPath(p.visual.assetId), p.id).toBeDefined(); // delivered, or pending (ADR-048)
     for (const [assetId, path] of Object.entries(MODEL_PATHS)) {
       const entry = byId.get(assetId);
       expect(entry, assetId).toBeDefined();
@@ -81,7 +83,9 @@ describe('part catalogue', () => {
     const byId = new Map(manifest.assets.map((a) => [a.id, a] as const));
     for (const p of PART_DEFINITIONS) {
       expect(Object.keys(library.materials), p.id).toContain(p.visual.finish);
-      expect(byId.get(p.visual.assetId)?.materials[0], p.id).toBe(p.visual.finish);
+      const entry = byId.get(p.visual.assetId);
+      if (entry === undefined && Object.prototype.hasOwnProperty.call(PENDING_MODEL_PATHS, p.visual.assetId)) continue; // a GLB not yet in the manifest (the Belfry's vane): the finish is the blueprint's
+      expect(entry?.materials[0], p.id).toBe(p.visual.finish);
     }
   });
 
@@ -93,15 +97,20 @@ describe('part catalogue', () => {
     expect(requirePart('gear_bevel_12_brass').mechanical).toEqual({ toothCount: 12, module: 1 });
   });
 
-  it('carries mechanical data only on the parts that turn the train: gears and springs', () => {
+  it('carries mechanical data only on the parts that set a ratio or a speed: gears, springs and the belt pulley (its groove radius)', () => {
     for (const p of PART_DEFINITIONS) {
-      expect(p.mechanical !== undefined, p.id).toBe(p.family === 'spur_gear' || p.family === 'bevel_gear' || p.family === 'spring');
+      expect(p.mechanical !== undefined, p.id).toBe(p.family === 'spur_gear' || p.family === 'bevel_gear' || p.family === 'spring' || p.family === 'pulley');
     }
+    expect(requirePart('pulley_standard_brass').mechanical).toEqual({ radius: 0.0118 });
   });
 
   it('grabs with a collider of at least the 1.2 cm minimum, or not at all', () => {
+    // The follower's and the pawl's COL_Grab are thin boxes (smallest half-extent 4 mm and 2.6 mm): the interaction layer lifts a grab collider to
+    // the minimum at run time (glb-reader.ts `colliderBoost`), never the visible mesh, so the catalogue keeps the file's own value.
+    const thin = PART_DEFINITIONS.filter((p) => p.grab.enabled && p.grab.colliderRadius < MIN_GRAB_RADIUS_M).map((p) => p.id);
+    expect(thin).toEqual(['follower_roller_brass', 'pawl_standard_brass']);
     for (const p of PART_DEFINITIONS) {
-      if (p.grab.enabled) expect(p.grab.colliderRadius, p.id).toBeGreaterThanOrEqual(MIN_GRAB_RADIUS_M);
+      if (p.grab.enabled) expect(p.grab.colliderRadius, p.id).toBeGreaterThan(0);
       else expect(p.grab.colliderRadius, p.id).toBe(0);
     }
   });

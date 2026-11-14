@@ -11,7 +11,9 @@
 import { Quaternion } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
 import type { MachineId } from '../game/content';
+import { buildBelfry } from '../machines/belfry/build';
 import { buildClockTower } from '../machines/clock-tower/build';
+import { buildWell } from '../machines/well/build';
 import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
 import { axisOfGlb, createRig, createRotor, horsePhase, wuField, type MachineRig, type Rotor } from './motion';
@@ -215,6 +217,10 @@ export function buildMachine(id: MachineId, source: ModelSource, registry: Mater
       return buildMusicBox(source, registry);
     case 'clock_tower':
       return buildClockTower(source, registry); // ADR-047: its nodes are driven by src/machines/clock-tower, not by solver rotors
+    case 'well':
+      return buildWell(source, registry); // ADR-048: rotors by the solver, plus the pump, pawl and water of src/machines/well
+    case 'belfry':
+      return buildBelfry(source, registry); // ADR-048: rotors by the solver, plus the bell of src/machines/belfry
     default:
       return Promise.resolve(null);
   }

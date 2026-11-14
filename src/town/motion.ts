@@ -5,6 +5,7 @@
  */
 import { Quaternion, Vector3 } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
+import type { TownAudio } from '../audio/engine';
 import type { SolveResult } from '../sim';
 import type { MachineId } from '../game/content';
 
@@ -81,6 +82,12 @@ export interface LidHinge {
   angle: number;
 }
 
+/**
+ * One machine's own animation, run once a frame after the rotors have turned (the Well's follower, pawl and water, the Belfry's bell). It
+ * reads the rotors' angles and `rig.speed`, so it stops with the machine, and must not allocate. `time` is seconds since the start.
+ */
+export type RigUpdater = (rig: MachineRig, dt: number, time: number) => void;
+
 /** What the town needs to animate one finished machine. Built by `rigFromGlb` or by the machine assembly of the build mode. */
 export interface MachineRig {
   readonly machineId: MachineId;
@@ -88,6 +95,18 @@ export interface MachineRig {
   readonly rotors: Rotor[];
   readonly bobbers: Bobber[];
   readonly pulsers: Pulser[];
+  /** Per-machine animation, in order (see `RigUpdater`). */
+  readonly updaters: RigUpdater[];
+  /**
+   * Nodes the updaters move besides the rotors', bobbers' and pulsers' nodes and the lid. `bakeStatic` (bake.ts) leaves them and everything
+   * under them alone. Only a rig whose `bakeable` is true is ever baked: a machine driven from outside the rig (the Clock Tower) is not.
+   */
+  readonly moving: Object3D[];
+  bakeable: boolean;
+  /** True for a machine a saved game put on its plot (`TownRuntime.placeRig`): its payoff is already complete (the Well's basin is full). */
+  restored: boolean;
+  /** The town's audio, set when the rig joins the town (`TownRuntime.addRig`), for the sounds of the machine's own motion. */
+  audio: TownAudio | null;
   lid: LidHinge | null;
   /** Latest solver result, set by the game layer after each solve. Only `angularVelocity` is read. */
   result: Pick<SolveResult, 'angularVelocity'> | null;
@@ -123,7 +142,24 @@ export function stepScaler(scaler: Scaler, dt: number): boolean {
 const MELODY_START = -1e-6;
 
 export function createRig(machineId: MachineId, root: Object3D): MachineRig {
-  return { machineId, root, rotors: [], bobbers: [], pulsers: [], lid: null, result: null, running: true, speed: 0, melody: null, melodyAt: MELODY_START };
+  return {
+    machineId,
+    root,
+    rotors: [],
+    bobbers: [],
+    pulsers: [],
+    updaters: [],
+    moving: [],
+    bakeable: false,
+    restored: false,
+    audio: null,
+    lid: null,
+    result: null,
+    running: true,
+    speed: 0,
+    melody: null,
+    melodyAt: MELODY_START,
+  };
 }
 
 /** Time constant of the spin-up and spin-down, in seconds. */
@@ -190,6 +226,48 @@ export function stepRig(rig: MachineRig, dt: number, time: number): void {
     const p = rig.pulsers[i];
     p.node.scale.setScalar(p.baseScale * twinkle(time, p.phase, p.speed, p.amplitude * rig.speed));
   }
+  for (let i = 0; i < rig.updaters.length; i++) rig.updaters[i](rig, dt, time);
+}
+
+// ---- Hinges --------------------------------------------------------------------------------------------------------------------
+
+/** One node that turns about its local +Z (ADR-020) from the pose it had when it was found, optionally round a point that is not its origin. */
+export interface Hinge {
+  readonly node: Object3D;
+  readonly rest: Quaternion;
+  readonly restPosition: Vector3;
+  /** Turning point in the node's parent space, or null to turn about the node's own origin. */
+  readonly pivot: Vector3 | null;
+}
+
+/**
+ * Finds `name` under `root` and, when `pivotName` is given, the empty that marks where it turns. Null (the caller warns) when either is
+ * missing: a hinge never guesses a pivot. Call it once the node is in its final place, because the rest pose is remembered here.
+ */
+export function createHinge(root: Object3D, name: string, pivotName?: string): Hinge | null {
+  const node = root.getObjectByName(name);
+  if (!node) return null;
+  let pivot: Vector3 | null = null;
+  if (pivotName !== undefined) {
+    const marker = root.getObjectByName(pivotName);
+    if (!marker || !node.parent) return null;
+    root.updateWorldMatrix(true, true);
+    pivot = marker.getWorldPosition(new Vector3());
+    node.parent.worldToLocal(pivot);
+  }
+  return { node, rest: node.quaternion.clone(), restPosition: node.position.clone(), pivot };
+}
+
+/** Turns a hinge to `angle` radians (counter-clockwise seen from +Z of its parent). Allocation-free. */
+export function turnHinge(hinge: Hinge, angle: number): void {
+  const { node, rest, restPosition, pivot } = hinge;
+  node.quaternion.copy(rest).multiply(_spin.setFromAxisAngle(AXES.z, angle));
+  if (pivot === null) return;
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const dx = restPosition.x - pivot.x;
+  const dy = restPosition.y - pivot.y;
+  node.position.set(pivot.x + dx * c - dy * s, pivot.y + dx * s + dy * c, restPosition.z);
 }
 
 /**
