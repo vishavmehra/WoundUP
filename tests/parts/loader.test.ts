@@ -1,6 +1,6 @@
 import { Grabbed, World } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
-import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Object3D, Scene, Texture, Vector3 } from 'three';
+import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Object3D, Quaternion, Scene, Texture, Vector3 } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BLUEPRINTS, getBlueprint, MUSIC_BOX } from '../../src/content/blueprints';
 import { PART_DEFINITIONS, requirePart } from '../../src/content/parts';
@@ -241,14 +241,20 @@ describe('PartLoader.spawnMachine', () => {
     const town = new Group();
     town.scale.setScalar(0.75);
     town.position.set(2, 1, 0);
+    town.rotation.set(0.2, 0.6, -0.1); // the machine sits turned on its plot: the mating axes must turn with it
     scene.add(town);
     const machine = await loader.spawnMachine('music_box', { parent: town });
+    town.updateWorldMatrix(true, true);
     const world = new Vector3();
+    const worldQuat = new Quaternion();
     for (const s of MUSIC_BOX.sockets) {
       const node = machine.sockets.get(s.id)!.getValue(Socket, 'node') as Object3D;
       node.getWorldPosition(world);
-      const expected = new Vector3(...s.position!).multiplyScalar(0.75).add(town.position);
+      const expected = new Vector3(...s.position!).applyMatrix4(town.matrixWorld);
       expect(world.distanceTo(expected), s.id).toBeLessThan(1e-9);
+      // Mating axis: the socket's +Z in the machine frame is R_X applied to +Z (Music Box +X) for the shafts and gears, identity for the comb.
+      const expectedQuat = town.quaternion.clone().multiply(new Quaternion(...(s.rotation ?? [0, 0, 0, 1])).normalize());
+      expect(Math.abs(node.getWorldQuaternion(worldQuat).dot(expectedQuat)), s.id).toBeGreaterThan(1 - 1e-9);
     }
   });
 

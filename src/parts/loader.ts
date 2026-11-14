@@ -160,7 +160,11 @@ export class PartLoader {
         this.release(assetId);
       },
     };
-    if (machine && interaction.sockets.length > 0) machine.adopt(part, socketsById(machine.blueprint, interaction.sockets));
+    if (interaction.sockets.length > 0) {
+      if (machine) machine.adopt(part, socketsById(machine.blueprint, interaction.sockets));
+      // Without a blueprint the GLB's own `accepts` (asset ids) stay, and no part id ever matches them: say so instead of failing silently.
+      else interaction.warnings.push(`${partId}: carries sockets but was spawned without \`machine\`, so nothing can be placed in them`);
+    }
 
     // Order matters: ReturnsToRest records the pose it sees when it qualifies, so the pose is final by now.
     entity.addComponent(SnapPart, { partId, family: def.family });

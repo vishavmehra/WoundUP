@@ -1,5 +1,5 @@
 import { Grabbed, World } from '@iwsdk/core';
-import { Group, Mesh, Object3D, Scene, Texture } from 'three';
+import { Group, Mesh, Object3D, Quaternion, Scene, Texture } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it, vi } from 'vitest';
@@ -43,15 +43,20 @@ function setup() {
   const scene = new Scene();
   Object.assign(world, { scene });
   const registry = new MaterialRegistry(parseLibrary(libraryJson), { baseUrl: 'http://test/', loadTexture: async () => new Texture() });
-  return { scene, registry, loader: new PartLoader(world, registry, new GlbSource()) };
+  const source = new GlbSource();
+  return { scene, registry, source, loader: new PartLoader(world, registry, source) };
 }
 
 describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
   it('spawns every catalogue part with the library material, a grab collider exactly when the definition says so, and no reader warning', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { scene, registry, loader } = setup();
+    // The two parts that carry sockets of their own are built into their machine, as the game does.
+    const carrier: Record<string, string> = { carousel_canopy: 'carousel', windmill_tower: 'windmill' };
     for (const def of PART_DEFINITIONS) {
-      const part = await loader.spawnPart(def.id, { parent: scene });
+      const machineId = carrier[def.visual.assetId];
+      const machine = machineId === undefined ? undefined : await loader.spawnMachine(machineId, { parent: scene });
+      const part = await loader.spawnPart(def.id, { parent: scene, machine });
       expect(part.warnings, def.id).toEqual([]);
       expect(part.object.getObjectByName('COL_Grab_proxy') !== undefined, def.id).toBe(def.grab.enabled);
       expect(part.entity.hasComponent(ReturnsToRest), def.id).toBe(def.grab.enabled);
@@ -62,6 +67,21 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
     }
     expect(warn).not.toHaveBeenCalled(); // no material outside the library, no texture failure
     warn.mockRestore();
+  });
+
+  it('loads the base handle on demand like any part: it is a machine fitting with no catalogue entry', async () => {
+    const { registry, source, loader } = setup();
+    await loader.load('machine_base_handle');
+    const meshes: Mesh[] = [];
+    source.shared('machine_base_handle')!.traverse((n) => void ((n as Mesh).isMesh && meshes.push(n as Mesh)));
+    expect(meshes.length).toBeGreaterThan(0);
+    for (const mesh of meshes) expect(registry.owns(mesh.material as never), mesh.name).toBe(true);
+  });
+
+  it('warns when a part that carries sockets is spawned without its machine, since nothing could ever be placed in them', async () => {
+    const { scene, loader } = setup();
+    const canopy = await loader.spawnPart('carousel_canopy_painted_wood', { parent: scene });
+    expect(canopy.warnings.some((w) => w.includes('without `machine`'))).toBe(true);
   });
 
   it('binds every blueprint socket that names a GLB empty, in the housing or in the part that carries it', async () => {
@@ -90,6 +110,8 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
     for (const s of BLUEPRINTS[0].sockets) {
       const node = machine.sockets.get(s.id)!.getValue(Socket, 'node') as Object3D;
       expect(node.getWorldPosition(group.position).toArray(), s.id).toEqual(s.position!.map((v) => expect.closeTo(v, 9)));
+      const want = new Quaternion(...(s.rotation ?? [0, 0, 0, 1])).normalize();
+      expect(Math.abs(node.getWorldQuaternion(new Quaternion()).dot(want)), s.id).toBeGreaterThan(1 - 1e-9);
     }
   });
 });
