@@ -14,7 +14,8 @@ export { SocketSnapSystem } from './socket-snap-system.js';
 export { WindSystem } from './wind-system.js';
 export { XRaySystem } from './xray-system.js';
 export { installGaze, setGazeMode, useHeadWhenNoEyes } from './gaze-mode.js';
-export { GAZE_REMOVE_HOLD_S, isGazeModeOn } from './gaze-state.js';
+export { GAZE_REMOVE_HOLD_S, isGazeAiming, isGazeModeOn, isRayModeOn } from './gaze-state.js';
+export { setPointerModes, setRayMode } from './ray-mode.js';
 export { isXRayLensOn, setXRayLens, xrayFlag } from './xray-state.js';
 export type { XRayFlag } from './xray-state.js';
 

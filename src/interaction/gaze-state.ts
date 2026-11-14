@@ -9,18 +9,35 @@ export const GAZE_REMOVE_HOLD_S = 0.5;
 export const GAZE_TAP_MAX_M = 0.02;
 
 let on = false;
+let ray = false;
 const listeners = new Set<(on: boolean) => void>();
 
-export const isGazeModeOn = (): boolean => on;
+/**
+ * Is a pointer, not a near pinch, taking things? True in gaze-and-pinch and in ray mode (PRODUCT_SPEC §16): both aim a ray at a target and act on a
+ * pinch, so parts carry ray-capable grab components, a seated part comes out on a held pinch and the key winds on a tap. They differ only in whose ray
+ * it is (`isGazeAiming`). The name stays: the grab, snap, wind and feedback code all ask this one question.
+ */
+export const isGazeModeOn = (): boolean => on || ray;
+/** Gaze-and-pinch itself: the head-aimed pointer is on and the hands' far rays stand back. */
+export const isGazeAiming = (): boolean => on;
+/** Ray interaction mode: the hands' own rays aim. */
+export const isRayModeOn = (): boolean => ray;
 
-/** Sets the flag and tells the listeners, once per change. */
+/** Sets the gaze flag and tells the listeners when the pointer-mode answer changed. */
 export function setGazeModeFlag(value: boolean): void {
-  if (value === on) return;
+  const before = isGazeModeOn();
   on = value;
-  for (const listener of [...listeners]) listener(on);
+  if (isGazeModeOn() !== before) for (const listener of [...listeners]) listener(isGazeModeOn());
 }
 
-/** Calls `listener` whenever the mode changes. Returns the unsubscribe. */
+/** Sets the ray-mode flag (ray-mode.ts calls it) and tells the listeners when the pointer-mode answer changed. */
+export function setRayModeFlag(value: boolean): void {
+  const before = isGazeModeOn();
+  ray = value;
+  if (isGazeModeOn() !== before) for (const listener of [...listeners]) listener(isGazeModeOn());
+}
+
+/** Calls `listener` whenever the pointer-mode answer changes (gaze or ray mode turning on or off). Returns the unsubscribe. */
 export function onGazeModeChange(listener: (on: boolean) => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);

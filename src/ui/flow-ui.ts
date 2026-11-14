@@ -7,7 +7,7 @@ import { dateKey } from '../game/date.js';
 import type { GameSession } from '../game/session.js';
 import type { Mode } from '../game/modes.js';
 import { giftableMachines } from '../game/progression.js';
-import { setGazeMode } from '../interaction/gaze-mode.js';
+import { setPointerModes } from '../interaction/ray-mode.js';
 import { SocketSnapSystem } from '../interaction/socket-snap-system.js';
 import { isXRayLensOn, setXRayLens, xrayFlag } from '../interaction/xray-state.js';
 import { setupGlbInteraction, type GlbInteraction } from '../interaction/glb-interaction.js';
@@ -38,7 +38,7 @@ export type FlowEvent =
   | { type: 'run' }
   /** Adjust was pressed: the session is back in Build. */
   | { type: 'adjust' }
-  | { type: 'setting'; key: 'easySnap' | 'gazeMode' | 'xrayHint' | 'night'; value: boolean }
+  | { type: 'setting'; key: 'easySnap' | 'gazeMode' | 'rayMode' | 'xrayHint' | 'night'; value: boolean }
   /** Restart was confirmed and progress is deleted: reset the town and the machine. */
   | { type: 'restarted' }
   | { type: 'gift-link'; machineId: MachineId; url: string; delivered: 'copied' | 'shared' | 'shown' }
@@ -87,12 +87,14 @@ class Hot {
   ) {}
 }
 
-const PANEL_SMALL = { w: 0.26, h: 0.325 } as const; // four setting rows (a row and its caption take 0.055)
+const PANEL_SMALL = { w: 0.26, h: 0.381 } as const; // five setting rows (a row and its caption take 0.056)
 /** The tray rises this far (metres) as the parcel opens; parts are seated for its rest pose. */
 const TRAY_RISE = 0.02;
 /** The pause panel's first setting plaque (centre, metres from the panel's centre) and the step between rows; a caption sits under each. */
-const SETTING_ROW_Y = 0.1025;
+const SETTING_ROW_Y = 0.1305;
 const SETTING_ROW_STEP = 0.056;
+/** The five-row pause panel grew by one row (0.056) over the four-row one; half of that lifts it so its bottom edge stays clear of the table. */
+const PAUSE_PANEL_RAISE = 0.028;
 const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
 /** The gift panel's machine selector (centre, metres from the panel's centre): under the two message lines (they end about 9 cm above the centre) and over the first engraving row (its top edge is at 4.3 cm). */
 const GIFT_MACHINE_ROW_Y = 0.066;
@@ -885,7 +887,7 @@ export class FlowUi {
       for (const hot of this.panelHots) this.setHot(hot, false);
       return;
     }
-    this.panelGroup.position.set(PANEL_SPOT.x, PANEL_SPOT.y, PANEL_SPOT.z);
+    this.panelGroup.position.set(PANEL_SPOT.x, PANEL_SPOT.y + (kind === 'pause' ? PAUSE_PANEL_RAISE : 0), PANEL_SPOT.z); // the pause panel is the tall one: its bottom edge stays where it was
     if (was === 'none') this.faceHead(this.panelGroup);
     if (kind === 'gift' && was !== 'gift') {
       // Reopened later: the machines standing in the town may have changed since the last visit.
@@ -917,7 +919,7 @@ export class FlowUi {
     for (const c of this.chips) c.mesh.visible = gift;
     // One machine to gift is the usual case and needs no selector; none (a note) or several (a choice) do.
     this.machineBtn.mesh.visible = gift && this.giftState.machines.length !== 1;
-    const row = kind === 'pause' ? -0.1375 : kind === 'restart' ? -0.06 : -0.122;
+    const row = kind === 'pause' ? -0.1655 : kind === 'restart' ? -0.06 : -0.122;
     this.btnL.mesh.position.set(-0.067, row, 0.003);
     this.btnR.mesh.position.set(0.067, row, 0.003);
     for (const hot of this.panelHots) this.setHot(hot, (hot.entity.object3D as Object3D).visible);
@@ -958,7 +960,9 @@ export class FlowUi {
     if (!this.session.setSetting(row.key, value)) return;
     this.cue('button');
     if (row.key === 'easySnap') this.applySnap();
-    if (row.key === 'gazeMode') this.applyGaze();
+    // Gaze and pinch and ray mode both put a pointer in charge of the grab: turning one on turns the other off.
+    if (value && (row.key === 'gazeMode' || row.key === 'rayMode')) this.session.setSetting(row.key === 'gazeMode' ? 'rayMode' : 'gazeMode', false);
+    if (row.key === 'gazeMode' || row.key === 'rayMode') this.applyGaze();
     this.opt.onEvent?.({ type: 'setting', key: row.key, value });
     this.sync();
   }
@@ -968,9 +972,9 @@ export class FlowUi {
     if (system) system.config.easySnap.value = this.session.save.settings.easySnap;
   }
 
-  /** Gaze-and-pinch from the save: the pointer and every part's grab component (src/interaction/gaze-mode.ts). */
+  /** Gaze-and-pinch and ray mode from the save: the pointer and every part's grab component (src/interaction/gaze-mode.ts, ray-mode.ts). */
   private applyGaze(): void {
-    setGazeMode(this.world, this.session.save.settings.gazeMode);
+    setPointerModes(this.world, this.session.save.settings);
   }
 
   private cycleMachine(): void {
