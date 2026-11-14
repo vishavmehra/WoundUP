@@ -19,17 +19,21 @@ const node = (name: string, parent: Object3D, x = 0, y = 0, z = 0): Object3D => 
   return o;
 };
 
-/** A tower with every driven node, the striker 3 cm to the right of its pivot, and the pendulum bob under the rod. */
-function tower() {
+/**
+ * A tower with every driven node, the striker 3 cm to the right of its pivot, and the pendulum bob under the rod. As in
+ * `clock_hands.glb` (`gen_clock_tower.py`: "the hour hand (root) and the minute hand"), the minute hand is a CHILD of the hour hand.
+ */
+function tower(minuteUnderHour = true) {
   const root = new Group();
   const n = CLOCK_TOWER_NODE;
+  const hourHand = node(n.hourHand, root, 0, 0.2, 0.05);
   const parts = {
     pendulum: node(n.pendulum, root, 0, 0.1, 0.02),
     anchor: node(n.anchor, root, 0, 0.1, 0.02),
     escapeWheel: node(n.escapeWheel, root, 0, 0.08, 0),
     cam: node(n.cam, root, 0.02, 0.12, 0),
-    hourHand: node(n.hourHand, root, 0, 0.2, 0.05),
-    minuteHand: node(n.minuteHand, root, 0, 0.2, 0.05),
+    hourHand,
+    minuteHand: minuteUnderHour ? node(n.minuteHand, hourHand) : node(n.minuteHand, root, 0, 0.2, 0.05),
     bell: node(n.bell, root, 0, 0.3, 0),
     striker: node(n.striker, root, 0.03, 0.28, 0),
   };
@@ -38,6 +42,14 @@ function tower() {
 }
 
 const rotationOf = (o: Object3D): number => 2 * Math.atan2(o.quaternion.z, o.quaternion.w);
+const worldQ = new Quaternion();
+/** `a` as an angle in (-PI, PI], so a quaternion's angle can be compared with a turn of more than half a revolution. */
+const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
+/** Rotation about +Z of a node in world space (the node's own turn and every parent's), in (-PI, PI]. */
+const worldRotationOf = (o: Object3D): number => {
+  o.getWorldQuaternion(worldQ);
+  return wrap(2 * Math.atan2(worldQ.z, worldQ.w));
+};
 
 describe('ClockTowerNodes', () => {
   it('finds every node of a whole tower', () => {
@@ -76,11 +88,66 @@ describe('ClockTowerNodes', () => {
     expect(rotationOf(parts.pendulum)).toBeCloseTo(0.1, 9);
     expect(rotationOf(parts.anchor)).toBeCloseTo(0.1, 9);
     expect(rotationOf(parts.escapeWheel)).toBeCloseTo(-0.7, 9);
-    expect(rotationOf(parts.minuteHand)).toBeCloseTo(rt.minuteHandZ, 9);
-    expect(rotationOf(parts.minuteHand)).toBeCloseTo(-(2 * Math.PI) / 3, 9);
+    expect(rotationOf(parts.hourHand)).toBeCloseTo(rt.hourHandZ, 9);
+    expect(worldRotationOf(parts.minuteHand)).toBeCloseTo(wrap(rt.minuteHandZ), 9);
+    expect(worldRotationOf(parts.minuteHand)).toBeCloseTo(-(2 * Math.PI) / 3, 9);
     expect(rotationOf(parts.cam)).toBeCloseTo(rt.hourlyCamZ, 9);
     // Nodes turning about their own origin do not move.
     expect(parts.hourHand.position.toArray()).toEqual([0, 0.2, 0.05]);
+  });
+
+  it('shows the minute hand at its own angle although it is a child of the hour hand (the GLB hierarchy)', () => {
+    for (const [h, m] of [[14, 20], [3, 0], [9, 45], [6, 30], [0, 5]] as const) {
+      const { root, parts } = tower();
+      const nodes = new ClockTowerNodes();
+      nodes.resolve(root);
+      const rt = new ClockTowerRuntime(() => new Date(2026, 10, 13, h, m, 0).getTime());
+      rt.powered = true;
+      rt.update();
+      nodes.apply(rt);
+      expect(worldRotationOf(parts.hourHand), `hour hand at ${h}:${m}`).toBeCloseTo(wrap(rt.hourHandZ), 9);
+      expect(worldRotationOf(parts.minuteHand), `minute hand at ${h}:${m}`).toBeCloseTo(wrap(rt.minuteHandZ), 9);
+    }
+  });
+
+  it('turns a minute hand that is a sibling of the hour hand by its own angle too', () => {
+    const { root, parts } = tower(false);
+    const nodes = new ClockTowerNodes();
+    nodes.resolve(root);
+    const rt = new ClockTowerRuntime(() => new Date(2026, 10, 13, 14, 20, 0).getTime());
+    rt.powered = true;
+    rt.update();
+    nodes.apply(rt);
+    expect(worldRotationOf(parts.minuteHand)).toBeCloseTo(wrap(rt.minuteHandZ), 9);
+    expect(worldRotationOf(parts.hourHand)).toBeCloseTo(wrap(rt.hourHandZ), 9);
+  });
+
+  it('starts from the rest pose again when resolved a second time (the clock stopped and was restarted)', () => {
+    const { root, parts } = tower();
+    parts.hourHand.quaternion.setFromAxisAngle(new Vector3(0, 0, 1), 0.3); // a rest pose that is not identity
+    const hourRest = parts.hourHand.quaternion.clone();
+    const nodes = new ClockTowerNodes();
+    nodes.resolve(root);
+    const rt = new ClockTowerRuntime(() => 0);
+    rt.hourHandZ = -1;
+    rt.minuteHandZ = -2;
+    rt.strikerZ = 0.4;
+    rt.pendulumZ = 0.1;
+    nodes.apply(rt); // the first run leaves the nodes turned
+    expect(nodes.resolve(root)).toEqual([]); // the second run looks them up again
+    rt.hourHandZ = 0;
+    rt.minuteHandZ = 0;
+    rt.strikerZ = 0;
+    rt.pendulumZ = 0;
+    nodes.apply(rt);
+    expect(parts.hourHand.quaternion.angleTo(hourRest)).toBeLessThan(1e-6);
+    expect(parts.minuteHand.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-6);
+    expect(parts.pendulum.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-6);
+    expect(parts.striker.position.distanceTo(new Vector3(0.03, 0.28, 0))).toBeLessThan(1e-9);
+    // And a turn on the second run is the turn asked for, not added to the first.
+    rt.hourHandZ = -1;
+    nodes.apply(rt);
+    expect(rotationOf(parts.hourHand)).toBeCloseTo(0.3 - 1, 9);
   });
 
   it('swings the striker about PIV_Striker, not about its own origin', () => {
@@ -157,6 +224,17 @@ describe('TheatreDoors', () => {
     }
     expect(widest).toBeCloseTo(THEATRE_DOOR_OPEN_RAD, 6);
     expect(yaw(left)).toBe(0);
+  });
+
+  it('starts from the shut pose again when resolved a second time', () => {
+    const { root, left, right } = facade();
+    const doors = new TheatreDoors();
+    doors.resolve(root);
+    doors.apply(1);
+    expect(doors.resolve(root)).toEqual([]);
+    doors.apply(0);
+    expect(left.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-6);
+    expect(right.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-6);
   });
 
   it('names a missing pivot and skips it', () => {

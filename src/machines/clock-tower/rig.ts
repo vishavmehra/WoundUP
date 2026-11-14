@@ -13,7 +13,10 @@ export const CLOCK_TOWER_NODE = {
   anchor: 'EscapementAnchor',
   escapeWheel: 'EscapeWheel',
   cam: 'Cam_HourlyChime',
-  /** `clock_hands`: both meshes have their origin at the shared pivot (manifest `originAndPivot`). */
+  /**
+   * `clock_hands`: both meshes have their origin at the shared pivot (manifest `originAndPivot`). The minute hand is a CHILD of the
+   * hour hand in the GLB (`gen_clock_tower.py`), so it inherits the hour hand's turn: `ClockTowerNodes` takes that off again.
+   */
   hourHand: 'ClockHands_Hour',
   minuteHand: 'ClockHands_Minute',
   /** `clock_bell`: origin at the suspension point; the striker turns about the `PIV_Striker` empty. */
@@ -48,6 +51,13 @@ function turn(hinge: Hinge | null, angle: number): void {
   }
 }
 
+/** Puts a hinge's node back at the pose it had when it was found. */
+function restore(hinge: Hinge | null): void {
+  if (hinge === null) return;
+  hinge.object.quaternion.copy(hinge.rest);
+  hinge.object.position.copy(hinge.restPosition);
+}
+
 export class ClockTowerNodes {
   private pendulum: Hinge | null = null;
   private anchor: Hinge | null = null;
@@ -57,13 +67,17 @@ export class ClockTowerNodes {
   private minuteHand: Hinge | null = null;
   private bell: Hinge | null = null;
   private striker: Hinge | null = null;
+  /** The minute hand hangs under the hour hand, so the hour hand's turn reaches it and must be taken off its own. */
+  private minuteUnderHour = false;
 
   /**
    * Looks the nodes up under `root` (the Clock Tower's object) and remembers their rest pose. Call it again when parts are added
-   * (the nodes only exist once their part is installed). Returns the node names it did not find, empty when the tower is whole.
-   * `apply` skips a missing node, so a tower without a bell still ticks.
+   * (the nodes only exist once their part is installed) or when the clock starts again. The nodes found last time are put back at
+   * their rest pose first, so a second call does not take a turned pose for the rest pose. Returns the node names it did not find,
+   * empty when the tower is whole. `apply` skips a missing node, so a tower without a bell still ticks.
    */
   resolve(root: Object3D): string[] {
+    this.restoreAll();
     root.updateWorldMatrix(true, true);
     const missing: string[] = [];
     const find = (name: string, pivotName?: string): Hinge | null => {
@@ -91,7 +105,20 @@ export class ClockTowerNodes {
     this.minuteHand = find(n.minuteHand);
     this.bell = find(n.bell);
     this.striker = find(n.striker, n.strikerPivot);
+    this.minuteUnderHour =
+      this.hourHand !== null && this.minuteHand !== null && this.hourHand.object.getObjectById(this.minuteHand.object.id) !== undefined;
     return missing;
+  }
+
+  private restoreAll(): void {
+    restore(this.pendulum);
+    restore(this.anchor);
+    restore(this.escapeWheel);
+    restore(this.cam);
+    restore(this.hourHand);
+    restore(this.minuteHand);
+    restore(this.bell);
+    restore(this.striker);
   }
 
   /** Writes the runtime's rotations to the nodes. No allocation. */
@@ -101,7 +128,7 @@ export class ClockTowerNodes {
     turn(this.escapeWheel, runtime.escapeWheelZ);
     turn(this.cam, runtime.hourlyCamZ);
     turn(this.hourHand, runtime.hourHandZ);
-    turn(this.minuteHand, runtime.minuteHandZ);
+    turn(this.minuteHand, this.minuteUnderHour ? runtime.minuteHandZ - runtime.hourHandZ : runtime.minuteHandZ);
     turn(this.bell, runtime.bellZ);
     turn(this.striker, runtime.strikerZ);
   }
@@ -124,6 +151,9 @@ export class TheatreDoors {
 
   /** Returns the pivot names it did not find, empty when both are there. */
   resolve(root: Object3D): string[] {
+    // The leaves found last time go back to shut first, so that a second call does not take an open pose for the shut pose.
+    this.left?.quaternion.copy(this.leftRest);
+    this.right?.quaternion.copy(this.rightRest);
     const missing: string[] = [];
     this.left = root.getObjectByName(THEATRE_DOOR_NODE.left) ?? null;
     this.right = root.getObjectByName(THEATRE_DOOR_NODE.right) ?? null;
