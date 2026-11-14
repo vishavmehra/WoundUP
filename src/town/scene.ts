@@ -76,6 +76,11 @@ export function buildTown(
   const otto = models.otto.scene;
   const mira = models.mira.scene;
 
+  // town_ground.glb gives its plot sockets a Z-up frame (mating axis +Z, pointing up). A machine base is a Y-up model, and a
+  // part seated in a socket takes the socket's orientation, so it would be tipped onto its back. A plot is where the base
+  // origin lands, upright and facing the way the stage does: take the tilt out of the socket.
+  for (const plot of Object.values(PLOTS)) ground.getObjectByName(`SOCKET_${plot.socket}`)?.quaternion.identity();
+
   bakery.position.set(BAKERY_AT.x, 0, BAKERY_AT.z);
   theatre.position.set(THEATRE_AT.x, 0, THEATRE_AT.z);
   mira.position.set(MIRA_AT.x, MIRA_AT.y, MIRA_AT.z);

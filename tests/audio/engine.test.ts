@@ -46,6 +46,28 @@ describe('AudioEngine before a gesture', () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps listening while the context is still suspended (a key that is no user activation), and unlocks on the next gesture', () => {
+    const ctx = new FakeAudioContext();
+    let allow = false;
+    ctx.resume = () => {
+      ctx.resumed++;
+      if (allow) ctx.state = 'running';
+      return Promise.resolve();
+    };
+    const audio = new AudioEngine({ createContext: () => asContext(ctx) });
+    const target = new EventTarget();
+    audio.installGestureUnlock(target);
+    target.dispatchEvent(new Event('keydown')); // Shift: creates the context, which stays suspended
+    expect(audio.unlocked).toBe(true);
+    expect(ctx.state).toBe('suspended');
+    allow = true;
+    target.dispatchEvent(new Event('pointerdown'));
+    expect(ctx.state).toBe('running');
+    const resumes = ctx.resumed;
+    target.dispatchEvent(new Event('pointerdown')); // running now: the listeners are gone
+    expect(ctx.resumed).toBe(resumes);
+  });
+
   it('lets the listeners be removed early', () => {
     const { create, audio } = engine();
     const target = new EventTarget();

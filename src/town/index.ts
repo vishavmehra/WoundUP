@@ -5,7 +5,7 @@
  * Wiring (src/index.ts), after the material registry, the stage and `installInteraction`:
  *
  *   const audio = new AudioEngine(); audio.installGestureUnlock(); bindInteractionAudio(audio);
- *   const town = await installTown(world, { registry: materials, audio, events: { placed, woke } });
+ *   const town = await installTown(world, { registry: materials, audio, events: { placed, woke, lifted }, keepAwake: () => budget.wake() });
  *   town.restore(save.machines.filter((m) => m.placed).map((m) => m.plotId));   // a saved game: awake, no ripple
  *   const rig = await buildMachine('windmill', loadModel, materials);            // a saved machine reappears
  *   if (rig) { rig.result = ...; town.placeRig(rig); makeCarriable(world, rig); }
@@ -13,6 +13,8 @@
  *
  * A machine finished on the workbench: `createRig(id, root)` + `createRotor(node, solverSocketId)` per turning node, then
  * `town.addRig(rig)` and `makeCarriable(world, rig)`; the town does the rest (snap on its own plot, scale, wake, chime).
+ * `makeCarriable` makes only the machine's COL_ empties colliders: destroy the machine's own socket entities (build mode's
+ * `GlbInteraction.dispose()`) first, or it is within snap range of its own sockets wherever it is carried.
  * `installTown` patches the shared library materials once (a material already drawn recompiles once); the registry's textures
  * may still be loading. Note: GrabFeedbackSystem clones the materials of every `ReturnsToRest` entity, so a carriable machine
  * has its own (unpatched, so never frozen) materials while the town's scenery keeps the shared, patched ones.
@@ -45,6 +47,11 @@ export interface InstallTownOptions {
   registry: MaterialRegistry;
   audio?: TownAudio | null;
   events?: TownEvents;
+  /**
+   * Called every frame the town is still changing (a ripple, a machine running, a scale ease). Pass the 2D render budget's
+   * `wake` (src/render-budget.ts): while it idles, the page stops both drawing and ticking the ECS, so the town would freeze.
+   */
+  keepAwake?: () => void;
   /** Defaults to `loadModel` (IWSDK's AssetManager). Tests pass their own. */
   source?: ModelSource;
 }
@@ -64,6 +71,6 @@ export async function installTown(world: World, options: InstallTownOptions): Pr
   if (placement && placement.placement !== 'idle') town.group.scale.setScalar(placement.townScale); // the choice was made while the town loaded
   const runtime = new TownRuntime(town, uniforms, options.audio ?? null, options.events);
   world.registerSystem(TownSystem, { priority: 11 });
-  world.getSystem(TownSystem)?.bind(runtime);
+  world.getSystem(TownSystem)?.bind(runtime, options.keepAwake);
   return runtime;
 }

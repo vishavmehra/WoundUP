@@ -1,5 +1,6 @@
 import type { Entity, Object3D, World } from '@iwsdk/core';
-import { SnapPart, setupGlbInteraction } from '../interaction';
+import { SnapPart } from '../interaction';
+import { attachColliderProxies, readInteractionNodes } from '../interaction/glb-reader';
 import { ReturnsToRest } from '../returns-to-rest-component';
 import { MACHINE_SNAP_PART } from './layout';
 import type { MachineRig } from './motion';
@@ -17,7 +18,9 @@ function entityOf(world: World, object: Object3D | null): Entity | undefined {
  *    takes it (TOCKTON_DIMENSIONS §3.4) and the other three plots refuse it with the bonk.
  *  - `ReturnsToRest` makes GrabModeSystem add the grab component and GrabFeedbackSystem return it to where it stood on the
  *    bench when it is let go away from a plot.
- *  - `setupGlbInteraction` turns its `COL_` empties (the handle's grab sphere, the case) into colliders.
+ *  - Its `COL_` empties (the handle's grab sphere, the case) become colliders. Its `SOCKET_` empties do not become sockets:
+ *    the seated parts of a finished machine carry them 1.5 to 8 cm from its origin, so the machine would always be in snap range
+ *    of its own sockets, show a red preview while carried and be rejected wherever it was dropped.
  * Dropped on its plot, SocketSnapSystem seats it, TownRuntime eases it to the town scale and wakes the plot.
  *
  * The rig stays under the parent it has. IWSDK's `createTransformEntity(object)` would move it to the level root, and its
@@ -37,6 +40,8 @@ export function makeCarriable(world: World, rig: MachineRig): Entity {
   }
   entity.addComponent(SnapPart, { partId: MACHINE_SNAP_PART[rig.machineId], family: '' });
   entity.addComponent(ReturnsToRest, {});
-  setupGlbInteraction(world, rig.root);
+  const nodes = readInteractionNodes(rig.root);
+  for (const warning of nodes.warnings) console.warn(`[wound-up] ${rig.machineId}: ${warning}`);
+  attachColliderProxies(nodes.colliders);
   return entity;
 }

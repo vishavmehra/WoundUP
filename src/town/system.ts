@@ -17,10 +17,13 @@ const MAX_FRAME_S = 0.1;
 export class TownSystem extends createSystem({}) {
   private runtime: TownRuntime | null = null;
   private plots: GlbInteraction | null = null;
+  private keepAwake: (() => void) | null = null;
 
-  bind(runtime: TownRuntime): void {
+  /** `keepAwake` is called every frame the town is still changing (see `TownRuntime.busy`); the 2D render budget's `wake`. */
+  bind(runtime: TownRuntime, keepAwake?: () => void): void {
     if (this.runtime) throw new Error('TownSystem is already bound to a town.');
     this.runtime = runtime;
+    this.keepAwake = keepAwake ?? null;
     this.plots = setupGlbInteraction(this.world, runtime.town.ground);
     for (const warning of this.plots.warnings) console.warn(`[wound-up] town ground: ${warning}`);
     this.cleanupFuncs.push(
@@ -30,6 +33,9 @@ export class TownSystem extends createSystem({}) {
   }
 
   update(delta: number, time: number): void {
-    this.runtime?.update(delta < MAX_FRAME_S ? delta : MAX_FRAME_S, time);
+    const runtime = this.runtime;
+    if (!runtime) return;
+    runtime.update(delta < MAX_FRAME_S ? delta : MAX_FRAME_S, time);
+    if (this.keepAwake && runtime.busy) this.keepAwake();
   }
 }

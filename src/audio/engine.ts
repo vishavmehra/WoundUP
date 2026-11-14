@@ -78,11 +78,15 @@ export class AudioEngine implements TownAudio {
     return true;
   }
 
-  /** Unlocks on the first gesture on `target`, then stops listening. Returns the function that removes the listeners early. */
+  /**
+   * Unlocks on the first gesture on `target`, and stops listening once the context is running. A key that does not count as a
+   * user activation (Shift, Esc) leaves a new context suspended, so the next real gesture must still get a try. Returns the
+   * function that removes the listeners early.
+   */
   installGestureUnlock(target: EventTarget = window): () => void {
     const off = (): void => GESTURE_EVENTS.forEach((e) => target.removeEventListener(e, onGesture, CAPTURE));
     const onGesture = (): void => {
-      if (this.unlock()) off();
+      if (this.unlock() && this.ctx?.state === 'running') off();
     };
     GESTURE_EVENTS.forEach((e) => target.addEventListener(e, onGesture, CAPTURE));
     return off;

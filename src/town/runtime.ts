@@ -7,11 +7,13 @@
 import { Vector3 } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
 import type { TownAudio } from '../audio/engine';
+import { refreshColliderFloor } from '../interaction';
 import { notesBetween } from '../audio/notes';
 import type { MelodyNote } from '../audio/notes';
 import { MACHINE_PLOT } from '../game/content';
 import type { MachineId, PlotId } from '../game/content';
 import type { InteractionIntent } from '../interaction/intents';
+import { UNSNAP_DISTANCE_M } from '../interaction/snap';
 import { machineOfPlot, MAX_WAKE_SOURCES, plotIdFromSocketName } from './layout';
 import { approach, SPIN_EASE_S, stepRig, stepScaler } from './motion';
 import type { MachineRig, Scaler } from './motion';
@@ -32,8 +34,11 @@ export interface TownEvents {
 
 const TAU = Math.PI * 2;
 const _at = new Vector3();
+const _to = new Vector3();
 /** Level of the Carousel's copy of the tune against the Music Box's own. */
 const CAROUSEL_MELODY_LEVEL = 0.5;
+/** A restored machine that is back this close to its plot (real metres) counts as placed again. */
+const HOME_DISTANCE_M = 0.01;
 /** Time constant of Otto starting to knead once the Bakery has woken, seconds. */
 const KNEAD_EASE_S = SPIN_EASE_S;
 
@@ -43,6 +48,12 @@ export class TownRuntime {
   private readonly scalers: Scaler[] = [];
   /** Machines standing on a plot: they follow the town's scale when the stage changes it (stand to table, a new placement). */
   private readonly seated: Object3D[] = [];
+  /**
+   * Machines `placeRig` stood on their plot (a saved game): no snap seated them, so nothing else holds them on the socket or
+   * sees them lifted or put back. The runtime does that, with the interaction layer's 3 cm rule, until a snap takes them over.
+   * `away`: lifted off, in the hand or easing back to the pose it was made carriable at (GrabFeedbackSystem).
+   */
+  private readonly parked: Array<{ rig: MachineRig; plot: PlotId; socket: Object3D; away: boolean }> = [];
   private seenScale = Number.NaN;
   private dirty = true;
   private melodyLevel = 1;
@@ -68,6 +79,26 @@ export class TownRuntime {
   removeRig(rig: MachineRig): void {
     const i = this.rigs.indexOf(rig);
     if (i >= 0) this.rigs.splice(i, 1);
+    this.release(rig.root);
+  }
+
+  /** True while anything the town shows is changing: a ripple, a machine running or easing, a scale ease, Otto. */
+  get busy(): boolean {
+    if (this.wake.active || this.scalers.length > 0) return true;
+    const knead = this.town.knead;
+    if (knead && knead.action.timeScale > 0) return true;
+    for (let i = 0; i < this.rigs.length; i++) if (this.rigs[i].running || this.rigs[i].speed > 0) return true;
+    return false;
+  }
+
+  /** Forgets that `node` stands on a plot: its seat, its scale target and, for a restored machine, its watch. */
+  private release(node: Object3D): void {
+    const i = this.seated.indexOf(node);
+    if (i >= 0) this.seated.splice(i, 1);
+    const p = this.parked.findIndex((e) => e.rig.root === node);
+    if (p >= 0) this.parked.splice(p, 1);
+    const s = this.scalers.findIndex((e) => e.node === node);
+    if (s >= 0) this.scalers.splice(s, 1);
   }
 
   rigOf(machine: MachineId): MachineRig | undefined {
@@ -80,24 +111,31 @@ export class TownRuntime {
    * ground has no socket for the plot. Does not wake the plot: `restore` does that.
    */
   placeRig(rig: MachineRig): boolean {
-    const socket = plotSocket(this.town, MACHINE_PLOT[rig.machineId]);
+    const plot = MACHINE_PLOT[rig.machineId];
+    const socket = plotSocket(this.town, plot);
     if (!socket) return false;
-    const home = this.town.group.parent;
     rig.root.quaternion.identity();
-    if (home) {
-      this.town.group.updateWorldMatrix(true, true);
-      home.add(rig.root);
-      home.worldToLocal(socket.getWorldPosition(_at));
-      rig.root.position.copy(_at);
-      rig.root.scale.setScalar(this.townScale);
-    } else {
-      this.town.group.add(rig.root); // no stage root (a test): the group's own scale applies
-      rig.root.position.copy(socket.position);
-      rig.root.scale.setScalar(1);
-    }
+    this.standOn(rig.root, socket);
     if (!this.seated.includes(rig.root)) this.seated.push(rig.root);
+    if (!this.parked.some((e) => e.rig === rig)) this.parked.push({ rig, plot, socket, away: false });
     this.addRig(rig);
     return true;
+  }
+
+  /** Puts `root` on `socket` at the town scale, as a child of the stage root (or of the town group when there is none). */
+  private standOn(root: Object3D, socket: Object3D): void {
+    const home = this.town.group.parent;
+    this.town.group.updateWorldMatrix(true, true);
+    if (home) {
+      if (root.parent !== home) home.add(root);
+      home.worldToLocal(socket.getWorldPosition(_at));
+      root.position.copy(_at);
+      root.scale.setScalar(this.townScale);
+    } else {
+      if (root.parent !== this.town.group) this.town.group.add(root); // no stage root (a test): the group's own scale applies
+      root.position.copy(socket.position);
+      root.scale.setScalar(1);
+    }
   }
 
   /** Starts the wake of `plot` (or finishes it at once with `instant`). False when it was already awake. */
@@ -130,6 +168,8 @@ export class TownRuntime {
     if (!plot || !node) return;
     const machine = machineOfPlot(plot);
     if (intent.type === 'snapped') {
+      const p = this.parked.findIndex((e) => e.rig.root === node);
+      if (p >= 0) this.parked.splice(p, 1); // SocketSnapSystem holds it on the socket from here
       if (!this.seated.includes(node)) this.seated.push(node);
       this.scaleTo(node, this.townScale);
       this.wakePlot(plot);
@@ -160,7 +200,12 @@ export class TownRuntime {
     if (scale !== this.seenScale) {
       this.seenScale = scale;
       for (let i = 0; i < this.seated.length; i++) this.scaleTo(this.seated[i], scale);
+      for (let i = 0; i < this.parked.length; i++) {
+        const parked = this.parked[i];
+        if (!parked.away) this.standOn(parked.rig.root, parked.socket); // the plot moved with the scale
+      }
     }
+    this.watchParked();
     this.town.group.updateWorldMatrix(true, false);
     this.uniforms.uWuToTown.value.copy(this.town.group.matrixWorld).invert();
 
@@ -170,9 +215,38 @@ export class TownRuntime {
       this.playMelody(rig);
     }
     for (let i = this.scalers.length - 1; i >= 0; i--) {
-      if (stepScaler(this.scalers[i], dt)) this.scalers.splice(i, 1);
+      const scaler = this.scalers[i];
+      if (!stepScaler(scaler, dt)) continue;
+      this.scalers.splice(i, 1);
+      refreshColliderFloor(scaler.node); // the grab colliders keep their 1.2 cm minimum at the new size
     }
     this.knead(dt);
+  }
+
+  /**
+   * A restored machine pulled more than 3 cm off its plot is lifted: bench size again, and the game layer is told. Back within
+   * 1 cm of the plot (it eased home, or the hand returned it) it is placed again at the town scale.
+   */
+  private watchParked(): void {
+    for (let i = 0; i < this.parked.length; i++) {
+      const parked = this.parked[i];
+      const root = parked.rig.root;
+      parked.socket.getWorldPosition(_at);
+      root.getWorldPosition(_to);
+      const apart = _at.distanceTo(_to);
+      if (!parked.away && apart > UNSNAP_DISTANCE_M) {
+        parked.away = true;
+        const seat = this.seated.indexOf(root);
+        if (seat >= 0) this.seated.splice(seat, 1);
+        this.scaleTo(root, 1);
+        this.events.lifted?.(parked.rig.machineId, parked.plot, root);
+      } else if (parked.away && apart <= HOME_DISTANCE_M) {
+        parked.away = false;
+        if (!this.seated.includes(root)) this.seated.push(root);
+        this.scaleTo(root, this.townScale);
+        this.events.placed?.(parked.rig.machineId, parked.plot, root);
+      }
+    }
   }
 
   /** The cylinder (or the Carousel's platform) is a music-box cylinder: the pins that pass the comb since last frame ring. */

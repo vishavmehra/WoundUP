@@ -1,6 +1,6 @@
 import { Grabbed, TransformSystem, World } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
-import { Group, Object3D, Scene, Vector3 } from 'three';
+import { Group, Object3D, Quaternion, Scene, Vector3 } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SnapPart, SnappedTo, Socket, WindKey, XRayTarget } from '../../src/interaction/components';
 import { interactionIntents } from '../../src/interaction/intents';
@@ -18,7 +18,7 @@ import type { MachineRig } from '../../src/town/motion';
 import { TownRuntime } from '../../src/town/runtime';
 import type { TownEvents } from '../../src/town/runtime';
 import { TownSystem } from '../../src/town/system';
-import { libraryRegistry, recorder, sourceOf, townModels } from './helpers';
+import { libraryRegistry, recorder, socket as socketEmpty, sourceOf, townModels } from './helpers';
 
 /**
  * The town in a real IWSDK World, headless (no renderer, no session): installTown, TownSystem, the interaction layer's
@@ -63,11 +63,11 @@ const models = {
   'tockton/characters/figure_mira.glb': () => townModels().mira,
 };
 
-async function bootTown(events: TownEvents = {}) {
+async function bootTown(events: TownEvents = {}, keepAwake?: () => void) {
   const b = boot();
   b.world.registerSystem(SocketSnapSystem, { priority: 10 });
   const audio = recorder();
-  const runtime = await installTown(b.world, { registry: libraryRegistry(), audio, events, source: sourceOf(models) });
+  const runtime = await installTown(b.world, { registry: libraryRegistry(), audio, events, keepAwake, source: sourceOf(models) });
   return { ...b, audio, runtime };
 }
 
@@ -97,6 +97,22 @@ describe('installTown', () => {
     expect(world.getSceneObject(TOWN_NODE_ID)).toBe(runtime.town.group);
     expect(world.getSystem(TownSystem)).toBeDefined();
     expect(() => tick(world)).not.toThrow();
+  });
+
+  it('calls keepAwake every frame while the town is changing, and stops once it has settled', async () => {
+    const awake = vi.fn();
+    const { world, runtime } = await bootTown({}, awake);
+    tick(world);
+    expect(awake).not.toHaveBeenCalled(); // a frozen town needs no frames
+    runtime.wakePlot('plot_carousel');
+    tick(world);
+    expect(awake).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 72 * 2; i++) tick(world); // the 1.5 s ripple
+    const during = awake.mock.calls.length;
+    expect(during).toBeGreaterThan(100);
+    tick(world);
+    tick(world);
+    expect(awake.mock.calls.length).toBe(during);
   });
 
   it('refuses to build on a missing stage', async () => {
@@ -141,6 +157,32 @@ describe('a machine carried to its plot', () => {
     expect(rig.root.scale.x).toBeCloseTo(0.3, 3);
     expect(rig.root.position.distanceTo(own)).toBeLessThan(1e-4); // on the socket, whatever the town scale
     expect(rig.rotors[0].theta).toBeGreaterThan(0); // and it turns from the solver's omega
+    // Upright, facing the way it stood on the bench: the plot socket of town_ground.glb is a Z-up frame, which must not tip a
+    // Y-up machine base onto its back.
+    expect(rig.root.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-4);
+  });
+
+  it('turns the grab colliders of the machine on but not its own sockets, so carrying it is never a rejection', async () => {
+    const { world, stage, runtime } = await bootTown();
+    const rig = windmill(stage);
+    // The seated parts of a finished machine carry SOCKET_ empties 1.5 and 3.5 cm from its origin, always within snap range
+    // of the machine itself. They must not become sockets of the interaction layer.
+    rig.root.add(socketEmpty('Tower', 0, 0.035, 0, ['windmill_tower']));
+    const collider = new Object3D();
+    collider.name = 'COL_Case';
+    collider.userData.wu = { type: 'collider', shape: 'box', purpose: 'case' };
+    rig.root.add(collider);
+    const entity = makeCarriable(world, rig);
+    runtime.addRig(rig);
+    expect(collider.getObjectByName('COL_Case_proxy')).toBeDefined();
+
+    rig.root.position.set(0.1, 0.4, 0.9); // far from every plot
+    stage.updateMatrixWorld(true);
+    entity.addComponent(Grabbed);
+    tick(world);
+    entity.removeComponent(Grabbed);
+    tick(world);
+    expect(intents).toEqual([]);
   });
 
   it('gives the machine its bench size back when it is lifted off, and does not wake the plot again when it returns', async () => {

@@ -57,6 +57,11 @@ export class WakeField {
     this.plotOfSource = sources.map((s) => PLOT_IDS.indexOf(s.plot));
   }
 
+  /** True while a ripple is travelling, so the picture is changing. */
+  get active(): boolean {
+    return this.running > 0;
+  }
+
   isAwake(plot: PlotId): boolean {
     return this.elapsed[PLOT_IDS.indexOf(plot)] !== FROZEN;
   }

@@ -64,11 +64,14 @@ export interface WakeSource {
   readonly wakes: number;
 }
 
+const sourceAt = (plot: PlotId, radius: number, wakes: number): WakeSource => ({ plot, x: PLOTS[plot].x, z: PLOTS[plot].z, radius, wakes });
+
+/** Every source sits at its pad centre (`PLOTS`), so a pad moved in town_ground.glb moves its ripple with it. */
 export const WAKE_SOURCES: readonly WakeSource[] = [
-  { plot: 'plot_music_box', x: -0.11, z: 0.08, radius: 0.18, wakes: WAKE_GROUP.street | WAKE_GROUP.padMusicBox | WAKE_GROUP.mira },
-  { plot: 'plot_carousel', x: 0.11, z: 0.065, radius: 0.16, wakes: WAKE_GROUP.street | WAKE_GROUP.padCarousel },
-  { plot: 'plot_windmill', x: 0.2425, z: 0.0825, radius: 0.36, wakes: WAKE_GROUP.street | WAKE_GROUP.padWindmill | WAKE_GROUP.bakery },
-  { plot: 'plot_clock_tower', x: -0.2425, z: 0.0825, radius: 0.34, wakes: WAKE_GROUP.street | WAKE_GROUP.padClockTower | WAKE_GROUP.theatre },
+  sourceAt('plot_music_box', 0.18, WAKE_GROUP.street | WAKE_GROUP.padMusicBox | WAKE_GROUP.mira),
+  sourceAt('plot_carousel', 0.16, WAKE_GROUP.street | WAKE_GROUP.padCarousel),
+  sourceAt('plot_windmill', 0.36, WAKE_GROUP.street | WAKE_GROUP.padWindmill | WAKE_GROUP.bakery),
+  sourceAt('plot_clock_tower', 0.34, WAKE_GROUP.street | WAKE_GROUP.padClockTower | WAKE_GROUP.theatre),
 ];
 /** Fixed size of the shader's uniform array; unused slots stay frozen. */
 export const MAX_WAKE_SOURCES = 6;

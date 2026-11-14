@@ -1,4 +1,4 @@
-import { Group, Object3D, Vector3 } from '@iwsdk/core';
+import { Group, Mesh, Object3D, Vector3 } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
 import { describe, expect, it } from 'vitest';
 import { MELODY, notesBetween, STEPS_PER_TURN } from '../../src/audio/notes';
@@ -157,6 +157,131 @@ describe('TownRuntime machines', () => {
     expect(r.root.getWorldPosition(new Vector3()).distanceTo(socket)).toBeLessThan(1e-9);
     run(0.1);
     expect(r.root.getWorldPosition(new Vector3()).distanceTo(socket)).toBeLessThan(1e-9);
+  });
+
+  it('keeps a restored machine on its plot when the stage changes the town scale', () => {
+    const { town, runtime, run } = boot();
+    const stage = new Group();
+    stage.position.set(0.4, 0.7, -1);
+    stage.rotation.y = -0.6;
+    stage.add(town.group);
+    stage.updateMatrixWorld(true);
+    const r = rig('carousel');
+    expect(runtime.placeRig(r)).toBe(true);
+    run(0.2);
+    town.group.scale.setScalar(0.5); // stand to table: the plot moves with the scale
+    run(0.5);
+    stage.updateMatrixWorld(true);
+    const socket = plotSocket(town, 'plot_carousel')!.getWorldPosition(new Vector3());
+    expect(r.root.getWorldPosition(new Vector3()).distanceTo(socket)).toBeLessThan(1e-9);
+    expect(r.root.scale.x).toBeCloseTo(0.5, 6);
+  });
+
+  it('sees a restored machine lifted off its plot (3 cm rule): bench size again, and the game layer is told once', () => {
+    const lifted: string[] = [];
+    const { town, runtime, run } = boot({ lifted: (m, p) => void lifted.push(`${m}@${p}`) });
+    const stage = new Group();
+    stage.add(town.group);
+    town.group.scale.setScalar(0.5);
+    stage.updateMatrixWorld(true);
+    const r = rig('windmill');
+    runtime.placeRig(r);
+    run(0.3);
+    r.root.position.x += 0.02; // a hand's wobble, inside 3 cm
+    run(0.3);
+    expect(lifted).toEqual([]);
+    r.root.position.x += 0.02; // now 4 cm away
+    run(0.3);
+    expect(lifted).toEqual(['windmill@plot_windmill']);
+    expect(r.root.scale.x).toBeGreaterThan(0.5);
+    run(1);
+    expect(r.root.scale.x).toBeCloseTo(1, 3);
+    town.group.scale.setScalar(0.25); // the town changes size: a machine in the hand does not follow it
+    run(1);
+    expect(r.root.scale.x).toBeCloseTo(1, 3);
+    expect(lifted).toHaveLength(1);
+  });
+
+  it('puts a restored machine back at the town scale when it is home again (released away from the plot, it eases back)', () => {
+    const events: string[] = [];
+    const { town, runtime, run } = boot({ lifted: (m) => void events.push(`lifted ${m}`), placed: (m) => void events.push(`placed ${m}`) });
+    const stage = new Group();
+    stage.add(town.group);
+    town.group.scale.setScalar(0.5);
+    stage.updateMatrixWorld(true);
+    const r = rig('carousel');
+    runtime.placeRig(r);
+    run(0.1);
+    const home = r.root.position.clone();
+    r.root.position.y += 0.2;
+    run(2);
+    expect(events).toEqual(['lifted carousel']);
+    expect(r.root.scale.x).toBeCloseTo(1, 3);
+    run(0.2);
+    expect(events).toEqual(['lifted carousel']);
+    r.root.position.copy(home).y += 0.005; // eased home (GrabFeedbackSystem), 0.5 cm off
+    run(2);
+    expect(events).toEqual(['lifted carousel', 'placed carousel']);
+    expect(r.root.scale.x).toBeCloseTo(0.5, 3);
+    town.group.scale.setScalar(1); // watched again: it follows the plot
+    run(0.2);
+    stage.updateMatrixWorld(true);
+    const socket = plotSocket(town, 'plot_carousel')!.getWorldPosition(new Vector3());
+    expect(r.root.getWorldPosition(new Vector3()).distanceTo(socket)).toBeLessThan(1e-9);
+  });
+
+  it('hands a restored machine over to the snap system once it is dropped on its plot again', () => {
+    const lifted: string[] = [];
+    const placed: string[] = [];
+    const { town, runtime, run } = boot({ lifted: (m) => void lifted.push(m), placed: (m) => void placed.push(m) });
+    const stage = new Group();
+    stage.add(town.group);
+    stage.updateMatrixWorld(true);
+    const r = rig('windmill');
+    runtime.placeRig(r);
+    runtime.handleIntent(intent('snapped', 'PlotWindmill', r.root));
+    expect(placed).toEqual(['windmill']);
+    r.root.position.x += 0.1; // SocketSnapSystem owns the seat: its `unsnapped` reports a lift, not this runtime
+    run(0.5);
+    expect(lifted).toEqual([]);
+  });
+
+  it('says it is busy only while something changes: a ripple, a running machine, Otto', () => {
+    const { runtime, run } = boot();
+    run(0.1);
+    expect(runtime.busy).toBe(false);
+    runtime.wakePlot('plot_carousel');
+    expect(runtime.busy).toBe(true);
+    run(WAKE_RIPPLE_S + 0.1);
+    expect(runtime.busy).toBe(false);
+    const r = rig('music_box', 'cylinder');
+    runtime.addRig(r);
+    expect(runtime.busy).toBe(true); // running
+    r.running = false;
+    run(8);
+    expect(runtime.busy).toBe(false);
+    runtime.wakePlot('plot_windmill'); // Otto starts kneading once the Bakery has settled
+    run(WAKE_RIPPLE_S + 0.5);
+    expect(runtime.busy).toBe(true);
+    runtime.reset();
+    run(8);
+    expect(runtime.busy).toBe(false);
+  });
+
+  it('keeps the grab colliders of a machine at their 1.2 cm minimum when it takes the town scale', () => {
+    const { town, runtime, run } = boot();
+    town.group.scale.setScalar(0.5);
+    const node = new Object3D();
+    const col = new Object3D();
+    col.scale.setScalar(0.01); // a 1 cm grab sphere
+    const proxy = new Mesh();
+    proxy.userData.wuProxy = { purpose: 'grab', shape: 'sphere' };
+    col.add(proxy);
+    node.add(col);
+    runtime.handleIntent(intent('snapped', 'PlotMusicBox', node));
+    run(2);
+    expect(node.scale.x).toBeCloseTo(0.5, 3);
+    expect(proxy.scale.x).toBeCloseTo(0.012 / 0.005, 3); // world radius 0.5 cm lifted to 1.2 cm
   });
 
   it('keeps seated machines in step when the stage changes the town scale (stand to table)', () => {

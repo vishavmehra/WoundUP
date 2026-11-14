@@ -51,7 +51,9 @@ export function kneadClip(): AnimationClip {
 export function townModels(withClip = true): Record<'ground' | 'bakery' | 'theatre' | 'otto' | 'mira', TownModel> {
   const ground = group('TownGround', mesh('TownGround_Slab'));
   for (const plot of Object.values(PLOTS)) {
-    ground.add(socket(plot.socket, plot.x, 0.006, plot.z, [MACHINE_SNAP_PART[machineOfPlot(plot.id)]]));
+    const seat = socket(plot.socket, plot.x, 0.006, plot.z, [MACHINE_SNAP_PART[machineOfPlot(plot.id)]]);
+    seat.rotation.x = -Math.PI / 2; // as town_ground.glb has them: a Z-up frame, mating axis +Z pointing up
+    ground.add(seat);
   }
   const bakery = group('Bakery', mesh('Bakery_Shell'), socket('Baker', -0.045, 0.004, 0.0275, ['figure_otto']));
   const otto = group('Otto', mesh('Otto_Body'), mesh('Otto_Forearms'));

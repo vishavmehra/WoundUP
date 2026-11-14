@@ -1,3 +1,4 @@
+import { Quaternion } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readInteractionNodes } from '../../src/interaction/glb-reader';
@@ -39,6 +40,8 @@ describe.skipIf(!present)('Tockton from the real GLBs', () => {
       expect(def?.accepts, plot.id).toEqual([MACHINE_SNAP_PART[machineOfPlot(plot.id)]]);
       expect(node?.position.x).toBeCloseTo(plot.x, 3);
       expect(node?.position.z).toBeCloseTo(plot.z, 3);
+      // The file tips these sockets (Z-up frame); a Y-up machine base seated on one must stand upright.
+      expect(node?.quaternion.angleTo(new Quaternion()), plot.id).toBeLessThan(1e-6);
     }
   });
 
