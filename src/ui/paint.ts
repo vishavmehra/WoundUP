@@ -203,8 +203,8 @@ export function paintBlueprint(ctx: Ctx, w: number, h: number, title: string, sl
   });
 }
 
-/** A walnut panel with a cream title block and optional lines below it; the buttons are separate surfaces placed on it. */
-export function paintPanel(ctx: Ctx, w: number, h: number, title: string, lines: readonly string[] = [], lineY = 0.2): void {
+/** A walnut panel with a cream title block and optional lines below it; the buttons are separate surfaces placed on it. `captions` are small lines at `y` metres from the panel's centre (up positive). */
+export function paintPanel(ctx: Ctx, w: number, h: number, title: string, lines: readonly string[] = [], lineY = 0.2, captions: readonly { y: number; text: string }[] = []): void {
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = PALETTE.walnut;
   roundedRect(ctx, 0, 0, w, h, 22);
@@ -222,6 +222,8 @@ export function paintPanel(ctx: Ctx, w: number, h: number, title: string, lines:
   ctx.fillStyle = PALETTE.frost;
   ctx.font = font(400, 30);
   lines.forEach((line, i) => ctx.fillText(line, w / 2, h * lineY + i * 40));
+  ctx.font = font(400, 26);
+  for (const c of captions) ctx.fillText(c.text, w / 2, h / 2 - c.y * PX_PER_M);
 }
 
 /** A round brass medallion with a glyph and a word: the pause and gift controls. */

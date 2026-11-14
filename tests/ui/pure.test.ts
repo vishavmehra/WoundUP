@@ -4,7 +4,7 @@ import { ENGRAVINGS, LETTERS } from '../../src/game/content';
 import type { GiftError } from '../../src/game/gift';
 import { modeState, type Mode, type ModeState } from '../../src/game/modes';
 import { Progress, applyHinge, findHinge, hingeAngle, readPivot } from '../../src/ui/anim';
-import { MACHINE_NAMES, SETTING_ROWS, describeResult, giftErrorText, windLabel } from '../../src/ui/copy';
+import { MACHINE_NAMES, SETTING_ROWS, describeResult, giftErrorText, giftMakeErrorText, windLabel } from '../../src/ui/copy';
 import { fitText, wrapText } from '../../src/ui/text-layout';
 import { freshLocal, viewFor, type LocalFlow } from '../../src/ui/view';
 
@@ -98,6 +98,7 @@ describe('result labels (UI_UX_SPEC section 13)', () => {
     expect(windLabel(3, 8)).toBe('Wound 3 of 8');
     expect(windLabel(12, 8)).toBe('Wound 8 of 8');
     expect(windLabel(-1, 8)).toBe('Wound 0 of 8');
+    expect(windLabel(3.7, 8)).toBe('Wound 3 of 8'); // whole units only, however the caller measured them
   });
 
   it('gives every gift error a plain card and never echoes a code name', () => {
@@ -109,6 +110,18 @@ describe('result labels (UI_UX_SPEC section 13)', () => {
       expect(`${t.title}${t.body}`).not.toContain(e);
     }
     expect(new Set(errors.map((e) => giftErrorText(e).title)).size).toBeGreaterThan(3);
+  });
+
+  it('words a failed link for the person making it, never for the one receiving it', () => {
+    expect(giftMakeErrorText('no-machine')).toMatch(/not on the table/);
+    expect(giftMakeErrorText('unsupported')).toMatch(/browser/);
+    for (const e of ['too-long', 'solver-rejected', 'bad-assembly'] as const) expect(giftMakeErrorText(e)).not.toContain(e);
+    expect(giftMakeErrorText('too-long')).not.toMatch(/damaged|another version/);
+  });
+
+  it('explains each setting in a sentence of its own', () => {
+    for (const row of SETTING_ROWS) expect(row.hint.length).toBeGreaterThan(20);
+    expect(new Set(SETTING_ROWS.map((r) => r.hint)).size).toBe(SETTING_ROWS.length);
   });
 
   it('has a name for every machine and a row for each accessibility setting', () => {

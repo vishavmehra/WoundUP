@@ -3,6 +3,8 @@ import type { Entity } from '@iwsdk/core';
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D, Scene, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { LETTERS } from '../../src/game/content';
+import { SETTING_ROWS } from '../../src/ui/copy';
+import { BENCH } from '../../src/ui/layout';
 import { SAVE_KEY, parseSave } from '../../src/game/save';
 import { GameSession } from '../../src/game/session';
 import { Socket } from '../../src/interaction/components';
@@ -99,6 +101,10 @@ async function rig(prepare?: (game: GameSession) => void, gift: GiftHost = GIFT_
 }
 
 const FRAME = 1 / 72;
+/** Waits for an asynchronous result (the codec compresses) without a fixed sleep that a busy machine can outrun. */
+const until = async (done: () => boolean, ms = 5000): Promise<void> => {
+  for (let waited = 0; !done() && waited < ms; waited += 10) await new Promise((r) => setTimeout(r, 10));
+};
 const run = (r: Rig, seconds: number): void => {
   for (let t = 0; t < seconds; t += FRAME) r.ui.update(FRAME);
 };
@@ -114,8 +120,11 @@ const click = (r: Rig, name: string, hit?: Object3D): boolean => {
   return p.active;
 };
 const live = (r: Rig): string[] => r.ui.pressables().filter((p) => p.active).map((p) => p.name).sort();
-const last = (r: Rig): FlowEvent => r.events[r.events.length - 1];
-const types = (r: Rig): string[] => r.events.map((e) => e.type);
+/** The events the integrator acts on; `cue` events are sound cues and have their own helper. */
+const real = (r: Rig): FlowEvent[] => r.events.filter((e) => e.type !== 'cue');
+const last = (r: Rig): FlowEvent => real(r)[real(r).length - 1];
+const types = (r: Rig): string[] => real(r).map((e) => e.type);
+const cues = (r: Rig): string[] => r.events.flatMap((e) => (e.type === 'cue' ? [e.cue] : []));
 const visible = (r: Rig, name: string): boolean => {
   let on = false;
   r.scene.traverse((o) => {
@@ -148,10 +157,16 @@ describe('FlowUi: the first five minutes', () => {
     expect(r.game.mode).toBe('intro');
     expect(r.ui.localFlow.trunk).toBe('closed');
 
+    // The brass plate under the 1.8 cm collider counts too: a ray that lands on it must not be lost.
+    const plate = new Mesh(new BoxGeometry(0.05, 0.05, 0.004), new MeshBasicMaterial());
+    plate.name = 'Trunk_Latch';
+    expect(cues(r)).toEqual([]);
+
     const latch = r.scene.getObjectByName('COL_Latch_proxy') as Object3D;
     expect(latch.userData.wuProxy.purpose).toBe('latch');
-    click(r, 'trunk_main', latch);
+    click(r, 'trunk_main', plate);
     expect(r.ui.localFlow.trunk).toBe('opening');
+    expect(cues(r)).toEqual(['latch']);
     expect(find(r, 'trunk_main').active).toBe(false); // one pinch only
     expect(r.game.mode).toBe('intro');
     run(r, 0.7); // the lid is past half open
@@ -192,7 +207,7 @@ describe('FlowUi: the first five minutes', () => {
     click(r, 'UI_Accept');
     expect(r.game.mode).toBe('build');
     expect(types(r)).toEqual(['trunk-opened', 'letter-accepted']);
-    expect(r.events[1]).toMatchObject({ type: 'letter-accepted', letter: { id: 'letter_1' } });
+    expect(real(r)[1]).toMatchObject({ type: 'letter-accepted', letter: { id: 'letter_1' } });
     expect(visible(r, 'UI_Accept')).toBe(false);
     expect(visible(r, 'letter_envelope')).toBe(false);
     expect(visible(r, 'workbench')).toBe(true);
@@ -219,17 +234,46 @@ describe('FlowUi: the first five minutes', () => {
 
     const slots = r.ui.traySlots();
     expect(slots).toHaveLength(8);
+    const tray = r.scene.getObjectByName('parts_tray') as Object3D;
+    expect(tray.position.y).toBeLessThan(BENCH.tray.y - 0.015); // the tray is still sunk: it rises as the parcel opens
     const parts = [0, 1, 2].map(() => new Mesh(new BoxGeometry(0.01, 0.01, 0.01), new MeshBasicMaterial()));
     for (const p of parts) r.scene.add(p);
     r.ui.revealParts(parts);
     expect(parts[0].scale.x).toBeLessThan(0.01); // popping in
     run(r, 1.5);
+    expect(tray.position.y).toBeCloseTo(BENCH.tray.y, 6);
+    const rest = r.ui.traySlots();
     parts.forEach((p, i) => {
       expect(p.scale.x).toBe(1);
-      expect(p.getWorldPosition(new Vector3()).distanceTo(slots[i])).toBeLessThan(1e-6);
+      // Parts are seated for the tray's final pose, not for where it started: they sit in the compartments, never inside the tray.
+      expect(p.getWorldPosition(new Vector3()).distanceTo(rest[i])).toBeLessThan(1e-6);
+      expect(rest[i].y - slots[i].y).toBeCloseTo(0, 6);
     });
     r.ui.setSlotFilled('case', true);
     r.ui.setSlotFilled('case', true); // idempotent
+  });
+});
+
+describe('FlowUi: parts seated for where the bench ends up', () => {
+  it('gives the same compartments whether the parcel is pinched at once or after the bench has settled', async () => {
+    const r = await rig();
+    await toTown(r);
+    click(r, 'letter_envelope');
+    run(r, 1);
+    click(r, 'UI_Accept');
+    run(r, 0.1); // the bench is still sliding in
+    click(r, 'parcel');
+    const early = r.ui.traySlots();
+    run(r, 3);
+    const settled = r.ui.traySlots();
+    early.forEach((p, i) => expect(p.distanceTo(settled[i])).toBeLessThan(1e-9));
+    // And those are where the compartments really are once everything has settled.
+    const tray = r.scene.getObjectByName('parts_tray') as Object3D;
+    for (const n of ['SOCKET_Slot01', 'SOCKET_Slot08']) {
+      const node = tray.getObjectByName(n) as Object3D;
+      node.updateWorldMatrix(true, false);
+      expect(node.getWorldPosition(new Vector3()).distanceTo(settled[n === 'SOCKET_Slot01' ? 0 : 7])).toBeLessThan(1e-9);
+    }
   });
 });
 
@@ -406,7 +450,7 @@ describe('FlowUi: the gift panel', () => {
     click(r, 'UI_Engraving_thank_you');
     click(r, 'UI_PanelLeft'); // Make link
     expect(r.link.delivered).toHaveLength(0); // it is asynchronous: the codec compresses
-    await new Promise((done) => setTimeout(done, 50));
+    await until(() => r.link.delivered.length > 0);
     expect(r.link.delivered).toHaveLength(1);
     expect(r.link.delivered[0].startsWith('https://example.test/#g=')).toBe(true);
     expect(last(r)).toMatchObject({ type: 'gift-link', machineId: 'music_box', delivered: 'copied' });
@@ -422,9 +466,9 @@ describe('FlowUi: the gift panel', () => {
     const r = await rig(story, GIFT_HOST);
     click(r, 'UI_Gift');
     click(r, 'UI_PanelLeft');
-    await new Promise((done) => setTimeout(done, 20));
+    await new Promise((done) => setTimeout(done, 100)); // long enough for a link to have arrived if one were coming
     expect(r.link.delivered).toHaveLength(0);
-    expect(r.events.map((e) => e.type)).not.toContain('gift-link');
+    expect(types(r)).not.toContain('gift-link');
     expect(r.canvases.made.flatMap((c) => c.calls.map((t) => t.text)).join(' ')).toContain('not on the table');
   });
 });
@@ -453,7 +497,111 @@ describe('installFlowUi', () => {
   });
 });
 
+describe('FlowUi: pause freezes the scene', () => {
+  it('does not let the lid finish opening, or the story move, while the game is paused', async () => {
+    const r = await rig();
+    const latch = r.scene.getObjectByName('COL_Latch_proxy') as Object3D;
+    click(r, 'trunk_main', latch);
+    run(r, 0.3); // the lid is open less than halfway
+    expect(click(r, 'UI_Pause')).toBe(true);
+    run(r, 3);
+    expect(r.game.mode).toBe('pause');
+    expect(r.ui.localFlow.trunk).toBe('opening');
+    expect(types(r)).toEqual([]); // no trunk-opened while paused
+    click(r, 'UI_PanelLeft'); // Resume
+    expect(r.game.mode).toBe('intro');
+    run(r, 4);
+    expect(r.game.mode).toBe('town');
+    expect(r.ui.localFlow.trunk).toBe('gone');
+    expect(types(r)).toEqual(['trunk-opened']);
+  });
+
+  it('explains each setting in a plain sentence on the panel', async () => {
+    const r = await rig();
+    await toTown(r);
+    click(r, 'UI_Pause');
+    const painted = r.canvases.made.flatMap((c) => c.calls.map((t) => t.text));
+    for (const row of SETTING_ROWS) expect(painted).toContain(row.hint);
+  });
+});
+
+describe('FlowUi: billboards follow the stage', () => {
+  it('turns the pause and gift buttons to the player again when the stage is turned', async () => {
+    const r = await rig();
+    await toTown(r);
+    const head = new Vector3(0, 0.4, 0.55);
+    const med = r.scene.getObjectByName('UI_Pause') as Object3D;
+    const facing = (): number => {
+      med.updateWorldMatrix(true, false);
+      const to = head.clone().sub(med.getWorldPosition(new Vector3())).normalize();
+      return med.getWorldDirection(new Vector3()).dot(to);
+    };
+    expect(facing()).toBeGreaterThan(0.999);
+    (r.stage.object3D as Object3D).rotation.y = 1.2; // the table anchor settled, or the player recentred
+    (r.stage.object3D as Object3D).updateMatrixWorld(true);
+    expect(facing()).toBeLessThan(0.9); // turned away with the stage
+    r.ui.update(FRAME);
+    expect(facing()).toBeGreaterThan(0.999);
+  });
+});
+
+describe('FlowUi: a build without a letter (the daily repair)', () => {
+  it('still tells the integrator the parcel is open, with no letter', async () => {
+    const r = await rig();
+    await toTown(r);
+    click(r, 'letter_envelope');
+    run(r, 1);
+    click(r, 'UI_Accept');
+    run(r, 1.2);
+    expect(r.game.mode).toBe('build');
+    Object.defineProperty(r.game, 'letter', { get: () => null }); // every letter is done: the build comes from the daily repair
+    click(r, 'parcel');
+    expect(last(r)).toEqual({ type: 'parcel-opened', letter: null });
+  });
+});
+
+describe('FlowUi: returning to the gift panel', () => {
+  it('lists the machines standing in the town each time, not the ones from the first visit', async () => {
+    const r = await rig((game) => {
+      game.openTrunk();
+      game.acceptLetter('letter_1');
+      game.assemblyComplete();
+      game.machineRanCorrectly('music_box');
+      game.machinePlaced('music_box', 'plot_music_box');
+      game.acceptLetter('letter_2');
+      game.assemblyComplete();
+      game.repairVerified('worn_spring');
+      game.machineRanCorrectly('music_box');
+      game.machinePlaced('music_box', 'plot_music_box');
+    });
+    const painted = (): string[] => r.canvases.made.flatMap((c) => c.calls.map((t) => t.text));
+    click(r, 'UI_Gift');
+    expect(painted()).toContain('Machine: Music Box');
+    expect(painted()).not.toContain('Machine: Carousel');
+    click(r, 'UI_PanelRight'); // Close
+    // The carousel is built and placed in the meantime.
+    expect(r.game.acceptLetter('letter_3')).toBe(true);
+    r.game.assemblyComplete();
+    expect(r.game.machineRanCorrectly('carousel')).toBe(true);
+    expect(r.game.machinePlaced('carousel', 'plot_carousel')).toBe(true);
+    r.ui.onModeChange();
+    run(r, 1);
+    click(r, 'UI_Gift');
+    click(r, 'UI_Machine'); // with the first visit's list this would still be one machine, and the button would do nothing
+    expect(painted()).toContain('Machine: Carousel');
+  });
+});
+
 describe('FlowUi: housekeeping', () => {
+  it('releases every canvas texture on dispose', async () => {
+    const r = await rig();
+    const accept = r.scene.getObjectByName('UI_Accept') as Mesh;
+    let freed = 0;
+    accept.geometry.addEventListener('dispose', () => freed++);
+    r.ui.dispose();
+    expect(freed).toBe(1);
+  });
+
   it('does nothing before init and releases every target on dispose', async () => {
     const r = await rig();
     expect(live(r).length).toBeGreaterThan(0);

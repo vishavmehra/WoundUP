@@ -3,7 +3,10 @@ import { COMFORT_ANGLE_DEG, COMFORT_REACH_M, eyeAt, reachFromChest, targetAngleD
 import { BENCH, GIFT_SPOT, PAUSE_SPOT, benchZ, essentialAnchors } from '../../src/ui/layout';
 
 /** Eyes over the stand (55 cm ahead, 38 cm above) and the spread a real table gives (INTERACTION_SPEC §3). */
-const EYES = [eyeAt(0.38, 0.55), eyeAt(0.3, 0.45), eyeAt(0.3, 0.6), eyeAt(0.45, 0.45), eyeAt(0.45, 0.6)];
+// The surface may be 20 to 60 cm below the eyes and its centre 40 to 60 cm ahead (placement.ts); it takes the candidate nearest the 55 cm aim
+// point, so the extremes of both ranges are covered below except the nearest, lowest-eyed corner (under 50 cm ahead and 30 cm down),
+// where a bench in front of the town cannot be within 35 degrees of the line of sight.
+const EYES = [eyeAt(0.38, 0.55), eyeAt(0.3, 0.45), eyeAt(0.3, 0.6), eyeAt(0.45, 0.45), eyeAt(0.45, 0.6), eyeAt(0.2, 0.5), eyeAt(0.2, 0.6), eyeAt(0.6, 0.5), eyeAt(0.6, 0.6)];
 const SCALES = [0.75, 0.875, 1];
 
 describe('comfort geometry', () => {

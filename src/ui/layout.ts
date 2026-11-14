@@ -29,6 +29,11 @@ export const SHEET_PAPER = { w: 0.112, h: 0.15, y: 0.002 } as const;
 export const LETTER_SPOT: V3 = v(0, 0.002, 0.275);
 /** Centre of the reading card and of the pause and gift panels: close, a little above the surface, facing the player. */
 export const READING_SPOT: V3 = v(0, 0.17, 0.27);
+/**
+ * Centre of the pause, restart and gift panels (up to 29 x 30 cm): further from the eyes than the reading card, about 44 cm
+ * from the eyes over a stand (UI_UX_SPEC section 23, "avoid large panels close to the face"), still in front of the town.
+ */
+export const PANEL_SPOT: V3 = v(0, 0.2, 0.15);
 /** Small brass buttons beside the bench, floating just above the surface: pause on the left, the gift ribbon on the right. */
 export const PAUSE_SPOT: V3 = v(-0.27, 0.09, 0.2);
 export const GIFT_SPOT: V3 = v(0.27, 0.09, 0.2);
@@ -48,6 +53,7 @@ export function essentialAnchors(s: number): Record<string, V3> {
     latch: latchSpot(s),
     envelope: LETTER_SPOT,
     readingCard: READING_SPOT,
+    panel: PANEL_SPOT,
     tray: benchPoint(s, BENCH.tray),
     build: benchPoint(s, BENCH.build),
     blueprint: benchPoint(s, BENCH.blueprint),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CLOSING_CARD, ENGRAVINGS, LETTERS, MACHINE_IDS } from '../../src/game/content';
 import { MACHINE_NAMES, SETTING_ROWS, describeResult, windLabel } from '../../src/ui/copy';
-import { PX_PER_M, paintBlueprint, paintClosing, paintLetter, paintPlaque, paintSlip, resultSlip } from '../../src/ui/paint';
+import { PX_PER_M, paintBlueprint, paintClosing, paintLetter, paintPanel, paintPlaque, paintSlip, resultSlip } from '../../src/ui/paint';
 import { FONT_DISPLAY } from '../../src/ui/palette';
 import { fakeCanvas } from './fake-canvas';
 
@@ -54,6 +54,26 @@ describe('paper and plaque painters', () => {
       expect(c.calls.map((t) => t.text).join(' '), label).toBe(label);
       expect(c.calls[0].size, label).toBeGreaterThanOrEqual(24);
     }
+  });
+
+  it('sets the plain sentence of each setting under its plaque, inside the pause panel and clear of the plaques', () => {
+    const w = px(0.26);
+    const h = px(0.27);
+    const rowY = 0.075;
+    const step = 0.056;
+    const captions = SETTING_ROWS.map((row, i) => ({ y: rowY - i * step - 0.0235, text: row.hint }));
+    const c = fakeCanvas(w, h);
+    paintPanel(c.getContext('2d') as CanvasRenderingContext2D, w, h, 'Paused', [], 0.2, captions);
+    const drawn = c.calls.filter((t) => t.size === 26);
+    expect(drawn.map((t) => t.text)).toEqual(SETTING_ROWS.map((r) => r.hint));
+    for (const t of drawn) expect(t.text.length * t.size * 0.55, t.text).toBeLessThanOrEqual(w - 120);
+    // Each caption sits in the gap between its plaque (0.032 m tall) and the next one.
+    captions.forEach((cap, i) => {
+      const plaqueBottom = rowY - i * step - 0.016;
+      const nextTop = rowY - (i + 1) * step + 0.016;
+      expect(cap.y + 0.0065).toBeLessThan(plaqueBottom);
+      expect(cap.y - 0.0065).toBeGreaterThan(nextTop);
+    });
   });
 
   it('paints a result and a wind counter as a title and one line', () => {

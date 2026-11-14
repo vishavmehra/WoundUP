@@ -11,8 +11,8 @@ import { setupGlbInteraction, type GlbInteraction } from '../interaction/glb-int
 import { applyLibraryMaterials, type MaterialRegistry } from '../materials/index.js';
 import type { SolveResult } from '../sim/index.js';
 import { findHinge, applyHinge, Progress } from './anim.js';
-import { MACHINE_NAMES, SETTING_ROWS, HINTS, describeResult, giftErrorText, windLabel, type ResultHints } from './copy.js';
-import { BENCH, GIFT_SPOT, LETTER_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
+import { MACHINE_NAMES, SETTING_ROWS, HINTS, describeResult, giftMakeErrorText, windLabel, type ResultHints } from './copy.js';
+import { BENCH, GIFT_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
 import { createGiftLink, shortLink, showLinkInPage, type GiftHost, type ShareEnv } from './gift-flow.js';
 import { paintBlueprint, paintClosing, paintLetter, paintMedallion, paintPanel, paintSlip, resultSlip, type BlueprintSlot } from './paint.js';
 import { PALETTE, ensureFonts } from './palette.js';
@@ -27,8 +27,8 @@ export type FlowEvent =
   /** The lid is opening: start the town's unfolding. */
   | { type: 'trunk-opened' }
   | { type: 'letter-accepted'; letter: LetterDef }
-  /** The parcel is open: put the machine's housing and parts out (`traySlots`, `revealParts`), then `showBlueprint`. */
-  | { type: 'parcel-opened'; letter: LetterDef }
+  /** The parcel is open: put the machine's housing and parts out (`traySlots`, `revealParts`), then `showBlueprint`. `letter` is null for a build that has no letter (the daily repair). */
+  | { type: 'parcel-opened'; letter: LetterDef | null }
   /** Run was pressed: solve the machine and call `showResult`. */
   | { type: 'run' }
   /** Adjust was pressed: the session is back in Build. */
@@ -36,7 +36,9 @@ export type FlowEvent =
   | { type: 'setting'; key: 'easySnap' | 'gazeMode' | 'xrayHint'; value: boolean }
   /** Restart was confirmed and progress is deleted: reset the town and the machine. */
   | { type: 'restarted' }
-  | { type: 'gift-link'; machineId: MachineId; url: string; delivered: 'copied' | 'shared' | 'shown' };
+  | { type: 'gift-link'; machineId: MachineId; url: string; delivered: 'copied' | 'shared' | 'shown' }
+  /** A sound cue for the audio layer, at the moment of the action (UI_UX_SPEC section 22): the latch, paper, and every other press. */
+  | { type: 'cue'; cue: 'latch' | 'paper' | 'button' };
 
 export interface FlowUiOptions {
   session: GameSession;
@@ -80,7 +82,12 @@ class Hot {
   ) {}
 }
 
-const PANEL_SMALL = { w: 0.26, h: 0.2 } as const;
+const PANEL_SMALL = { w: 0.26, h: 0.27 } as const;
+/** The tray rises this far (metres) as the parcel opens; parts are seated for its rest pose. */
+const TRAY_RISE = 0.02;
+/** The pause panel's first setting plaque (centre, metres from the panel's centre) and the step between rows; a caption sits under each. */
+const SETTING_ROW_Y = 0.075;
+const SETTING_ROW_STEP = 0.056;
 const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
 
 /**
@@ -95,6 +102,11 @@ const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
  *   ui.setWind(units, max);           // while winding
  *   ui.showResult(solveResult);       // after a `run` event
  *   ui.update(dt);                    // every frame (FlowUiSystem does this)
+ *
+ * Start-up order: `installInteraction` before `installFlowUi`, so Easy Snap from the save reaches `SocketSnapSystem` at once. Gaze mode
+ * and the X-ray hint are the integrator's to apply, from `session.save.settings` at start and from the `setting` events afterwards.
+ * `cue` events are sound cues at the moment of the action (latch, paper, button); `parcel-opened` carries `letter: null` for a build
+ * that has no letter (the daily repair), which the UI does not start: the integrator calls `session.beginDailyRepair` and then `onModeChange`.
  */
 export class FlowUi {
   private readonly session: GameSession;
@@ -103,10 +115,13 @@ export class FlowUi {
   private readonly head = new Vector3();
   private readonly hots: Hot[] = [];
   private readonly disposables: Array<() => void> = [];
+  private readonly surfaces: Surface[] = [];
   private world: World;
   private stage!: Entity;
   private ready = false;
   private lastScale = 1;
+  /** The stage's yaw when the billboards last faced the player: the table anchor or a recentre turns the stage after they were placed. */
+  private facedYaw = 0;
   private view: View | null = null;
   private shownLetter: string | null = null;
 
@@ -231,13 +246,25 @@ export class FlowUi {
     if (this.ready) this.paintBlueprint();
   }
 
-  /** World positions of the tray's compartments, in order (the `SOCKET_SlotNN` empties of parts_tray.glb). */
+  /**
+   * World positions of the tray's compartments, in order (the `SOCKET_SlotNN` empties of parts_tray.glb), read with the bench seated
+   * and the tray risen: the bench slides in and the tray rises as the parcel opens, and parts are seated for where they end up.
+   */
   traySlots(): Vector3[] {
+    const bench = this.bench.root;
+    const tray = this.tray.root;
+    const benchAt = bench.position.z;
+    const trayAt = tray.position.y;
+    bench.position.z = benchZ(this.scale());
+    tray.position.y = BENCH.tray.y;
+    tray.updateWorldMatrix(true, true);
     const slots: Array<{ name: string; position: Vector3 }> = [];
-    this.tray.root.updateWorldMatrix(true, true);
-    this.tray.root.traverse((n) => {
+    tray.traverse((n) => {
       if (/^SOCKET_Slot\d+$/.test(n.name)) slots.push({ name: n.name, position: n.getWorldPosition(new Vector3()) });
     });
+    bench.position.z = benchAt;
+    tray.position.y = trayAt;
+    tray.updateWorldMatrix(true, true);
     return slots.sort((a, b) => (a.name < b.name ? -1 : 1)).map((s) => s.position);
   }
 
@@ -270,6 +297,9 @@ export class FlowUi {
       this.poseTrunk();
       this.poseBench();
     }
+    const yaw = this.stage.object3D?.rotation.y ?? 0;
+    if (Math.abs(yaw - this.facedYaw) > 0.017) this.reface(yaw);
+    if (this.session.mode === 'pause') return; // a paused game stays as it was, animations included
     this.stepTrunk(dt);
     if (this.appear.moving || this.flap.moving || this.card.moving) this.stepLetter(dt);
     if (this.slide.moving || this.parcelFlap.moving || this.reveal.moving || this.parcelAway.moving) this.stepBench(dt);
@@ -281,6 +311,8 @@ export class FlowUi {
     for (const g of this.glbs) g.dispose();
     for (const d of this.disposables) d();
     for (const h of this.hots) this.setHot(h, false);
+    for (const s of this.surfaces) s.dispose();
+    this.surfaces.length = 0;
     this.ready = false;
   }
 
@@ -340,8 +372,9 @@ export class FlowUi {
   private buildTrunk(root: Object3D): void {
     const entity = this.mount(root);
     this.glbs.push(setupGlbInteraction(this.world, root));
+    // The collider is a 1.8 cm sphere at the top of the latch plate; a pinch on the brass plate itself counts as well.
     const hot = this.hot(entity, (hit) => {
-      if ((hit.userData.wuProxy as { purpose?: string } | undefined)?.purpose === 'latch') this.pinchLatch();
+      if ((hit.userData.wuProxy as { purpose?: string } | undefined)?.purpose === 'latch' || /latch/i.test(hit.name)) this.pinchLatch();
     });
     this.trunk = { root, entity, hot, hinge: findHinge(root, 'PIV_Lid') };
     root.visible = false;
@@ -379,10 +412,10 @@ export class FlowUi {
   private buildSurfaces(): void {
     const f = this.factory;
     const stage = this.stage;
-    const place = (s: Surface, p: { x: number; y: number; z: number }): void => {
+    const place = (s: Surface, p: { x: number; y: number; z: number }): Entity => {
       s.mesh.position.set(p.x, p.y, p.z);
       s.mesh.visible = false;
-      this.mount(s.mesh, stage);
+      return this.mount(s.mesh, stage);
     };
 
     // The reading card and its Accept plaque share a group so they rise and face the player together.
@@ -406,15 +439,15 @@ export class FlowUi {
     this.giftMed = new Surface(f, 0.05, 0.05);
     this.pauseMed.mesh.name = 'UI_Pause';
     this.giftMed.mesh.name = 'UI_Gift';
-    place(this.pauseMed, PAUSE_SPOT);
-    place(this.giftMed, GIFT_SPOT);
+    const pauseEntity = place(this.pauseMed, PAUSE_SPOT);
+    const giftEntity = place(this.giftMed, GIFT_SPOT);
     const medHover = (s: Surface, glyph: 'pause' | 'gift', label: string) => (on: boolean) => s.paint(`${glyph}|${on}`, (c, w) => paintMedallion(c, w, glyph, label, on));
     const pauseHover = medHover(this.pauseMed, 'pause', 'Pause');
     const giftHover = medHover(this.giftMed, 'gift', 'Gift');
     pauseHover(false);
     giftHover(false);
-    this.pauseHot = this.hot(this.mount(this.pauseMed.mesh), () => this.pauseGame(), pauseHover);
-    this.giftHot = this.hot(this.mount(this.giftMed.mesh), () => this.openGift(), giftHover);
+    this.pauseHot = this.hot(pauseEntity, () => this.pauseGame(), pauseHover);
+    this.giftHot = this.hot(giftEntity, () => this.openGift(), giftHover);
 
     // The run sign: a post, the Run plaque, an Adjust plaque after a failed run, and one slip for the counter or the result.
     this.signGroup = new Group();
@@ -432,7 +465,7 @@ export class FlowUi {
     this.signSlip = new Surface(f, 0.15, 0.056);
     this.signSlip.mesh.position.set(0, RUN_SIGN_SLIP_HEIGHT, 0);
     this.signGroup.add(this.signSlip.mesh);
-    this.runHot = this.button(this.runPlaque, signEntity, () => this.opt.onEvent?.({ type: 'run' }), (on) => this.paintRun(on));
+    this.runHot = this.button(this.runPlaque, signEntity, () => this.press({ type: 'run' }), (on) => this.paintRun(on));
     this.adjustHot = this.button(this.adjustPlaque, signEntity, () => this.adjust(), (on) => this.adjustPlaque.set('Adjust', on ? 'hover' : 'idle'));
     this.adjustPlaque.set('Adjust');
     this.signGroup.position.set(BENCH.runSign.x, BENCH.runSign.y, BENCH.runSign.z);
@@ -474,6 +507,8 @@ export class FlowUi {
       this.hotButton(p, panelEntity, () => this.pickEngraving(e.id));
       return p;
     });
+    this.surfaces.push(this.sheet.overlay, this.cardPaper, this.accept, this.closingCard, this.hint, this.pauseMed, this.giftMed, this.signSlip, this.runPlaque, this.adjustPlaque);
+    this.surfaces.push(this.panelBase, this.panelGiftBase, this.btnL, this.btnR, this.machineBtn, ...this.toggles, ...this.chips);
   }
 
   /** A plaque that is a child of the panel group: it is already in the group's tree, so only its entity is created here. */
@@ -547,12 +582,30 @@ export class FlowUi {
 
     // Panels
     this.showPanel(view.panel);
+    this.facedYaw = this.stage.object3D?.rotation.y ?? 0;
+  }
+
+  /** The stage turned (the table anchor settled, or the player recentred): every billboard that is showing turns to face the player again. */
+  private reface(yaw: number): void {
+    this.facedYaw = yaw;
+    if (this.cardGroup.visible) this.faceHead(this.cardGroup);
+    if (this.closingCard.mesh.visible) this.faceHead(this.closingCard.mesh);
+    if (this.hint.mesh.visible) this.faceHead(this.hint.mesh);
+    if (this.pauseMed.mesh.visible) this.faceHead(this.pauseMed.mesh);
+    if (this.giftMed.mesh.visible) this.faceHead(this.giftMed.mesh);
+    if (this.signGroup.visible) this.faceHead(this.signGroup, true);
+    if (this.panelGroup.visible) this.faceHead(this.panelGroup);
+  }
+
+  private cue(cue: 'latch' | 'paper' | 'button'): void {
+    this.opt.onEvent?.({ type: 'cue', cue });
   }
 
   // ---- Actions (a pinch or a poke) ---------------------------------------------------------------------------------------
 
   private pinchLatch(): void {
     if (this.local.trunk !== 'closed') return;
+    this.cue('latch');
     this.local.trunk = 'opening';
     this.lid.go(1);
     this.sync();
@@ -564,8 +617,8 @@ export class FlowUi {
     this.withdraw.step(dt);
     this.poseTrunk();
     if (this.local.trunk === 'opening' && this.lid.value >= 0.5) {
+      if (!this.session.openTrunk()) return; // refused: the session is not in the introduction, so the story does not move on
       this.local.trunk = 'withdrawing';
-      this.session.openTrunk();
       this.withdraw.go(1, 1.3); // the opened lid stays a moment while the town unfolds, then the trunk sinks away (TOCKTON_DIMENSIONS §4, T1)
       this.opt.onEvent?.({ type: 'trunk-opened' });
       this.sync();
@@ -586,6 +639,7 @@ export class FlowUi {
 
   private openEnvelope(): void {
     if (this.local.envelope !== 'sealed') return;
+    this.cue('paper');
     this.local.envelope = 'open';
     this.flap.go(1);
     this.card.go(1, 0.25);
@@ -625,6 +679,7 @@ export class FlowUi {
     const letter = this.session.letter;
     if (!letter || this.local.envelope !== 'open') return;
     if (!this.session.acceptLetter(letter.id)) return;
+    this.cue('button');
     this.local.parcel = 'closed';
     this.opt.onEvent?.({ type: 'letter-accepted', letter });
     this.sync();
@@ -642,13 +697,14 @@ export class FlowUi {
 
   private openParcel(): void {
     if (this.local.parcel !== 'closed' || !this.view?.bench) return;
+    this.cue('paper');
     this.local.parcel = 'open';
     this.parcelFlap.go(1);
     this.parcelAway.go(1, 0.7);
     this.reveal.go(1, 0.7);
     const letter = this.session.letter;
     this.sync();
-    if (letter) this.opt.onEvent?.({ type: 'parcel-opened', letter });
+    this.opt.onEvent?.({ type: 'parcel-opened', letter });
   }
 
   private stepBench(dt: number): void {
@@ -669,7 +725,7 @@ export class FlowUi {
     this.parcel.root.visible = this.view ? this.view.parcel !== 'hidden' && gone < 1 : false;
     const r = this.reveal.eased;
     this.sheet.root.scale.set(1, Math.max(0.001, r), 1);
-    this.tray.root.position.y = BENCH.tray.y - 0.02 * (1 - r);
+    this.tray.root.position.y = BENCH.tray.y - TRAY_RISE * (1 - r);
   }
 
   private stepPops(dt: number): void {
@@ -685,19 +741,31 @@ export class FlowUi {
     }
   }
 
+  private press(event: FlowEvent): void {
+    this.cue('button');
+    this.opt.onEvent?.(event);
+  }
+
   private adjust(): void {
     if (!this.session.backToBuild()) return;
+    this.cue('button');
     this.local.result = null;
     this.opt.onEvent?.({ type: 'adjust' });
     this.sync();
   }
 
   private pauseGame(): void {
-    if (this.session.pause()) this.sync();
+    if (this.session.pause()) {
+      this.cue('button');
+      this.sync();
+    }
   }
 
   private openGift(): void {
-    if (this.session.openGift()) this.sync();
+    if (this.session.openGift()) {
+      this.cue('button');
+      this.sync();
+    }
   }
 
   private resetTrunk(): void {
@@ -717,23 +785,29 @@ export class FlowUi {
       for (const hot of this.panelHots) this.setHot(hot, false);
       return;
     }
-    this.panelGroup.position.set(READING_SPOT.x, READING_SPOT.y, READING_SPOT.z);
+    this.panelGroup.position.set(PANEL_SPOT.x, PANEL_SPOT.y, PANEL_SPOT.z);
     if (was === 'none') this.faceHead(this.panelGroup);
+    if (kind === 'gift' && was !== 'gift') {
+      // Reopened later: the machines standing in the town may have changed since the last visit.
+      this.giftState.machines = [];
+      this.giftState.lines = [];
+    }
     const gift = kind === 'gift';
     this.panelBase.mesh.visible = !gift;
     this.panelGiftBase.mesh.visible = gift;
     const settings = this.session.save.settings;
     if (kind === 'pause') {
-      this.panelBase.paint('pause', (c, w, h) => paintPanel(c, w, h, 'Paused'));
+      const captions = SETTING_ROWS.map((row, i) => ({ y: SETTING_ROW_Y - i * SETTING_ROW_STEP - 0.0235, text: row.hint }));
+      this.panelBase.paint('pause', (c, w, h) => paintPanel(c, w, h, 'Paused', [], 0.2, captions));
       SETTING_ROWS.forEach((row, i) => {
         const on = settings[row.key];
         this.toggles[i].set(`${row.label}: ${on ? 'On' : 'Off'}`, on ? 'on' : 'idle');
-        this.toggles[i].mesh.position.y = 0.055 - i * 0.04;
+        this.toggles[i].mesh.position.y = SETTING_ROW_Y - i * SETTING_ROW_STEP;
       });
       this.btnL.set('Resume');
       this.btnR.set('Restart chapter');
     } else if (kind === 'restart') {
-      this.panelBase.paint('restart', (c, w, h) => paintPanel(c, w, h, 'Start over?', ['This clears your progress.', 'Your settings stay.'], 0.32));
+      this.panelBase.paint('restart', (c, w, h) => paintPanel(c, w, h, 'Start over?', ['This clears your progress.', 'Your settings stay.'], 0.38));
       this.btnL.set('Keep playing');
       this.btnR.set('Restart');
     } else {
@@ -742,13 +816,14 @@ export class FlowUi {
     for (const t of this.toggles) t.mesh.visible = kind === 'pause';
     for (const c of this.chips) c.mesh.visible = gift;
     this.machineBtn.mesh.visible = gift;
-    const row = kind === 'pause' ? -0.075 : kind === 'restart' ? -0.05 : -0.122;
+    const row = kind === 'pause' ? -0.11 : kind === 'restart' ? -0.06 : -0.122;
     this.btnL.mesh.position.set(-0.067, row, 0.003);
     this.btnR.mesh.position.set(0.067, row, 0.003);
     for (const hot of this.panelHots) this.setHot(hot, (hot.entity.object3D as Object3D).visible);
   }
 
   private panelLeft(): void {
+    this.cue('button');
     if (this.panelKind === 'pause') {
       if (this.session.resume()) this.sync();
     } else if (this.panelKind === 'restart') {
@@ -757,6 +832,7 @@ export class FlowUi {
   }
 
   private panelRight(): void {
+    this.cue('button');
     if (this.panelKind === 'pause') {
       if (this.session.requestRestart()) this.sync();
     } else if (this.panelKind === 'restart') {
@@ -779,6 +855,7 @@ export class FlowUi {
     const row = SETTING_ROWS[i];
     const value = !this.session.save.settings[row.key];
     if (!this.session.setSetting(row.key, value)) return;
+    this.cue('button');
     if (row.key === 'easySnap') this.applySnap();
     this.opt.onEvent?.({ type: 'setting', key: row.key, value });
     this.sync();
@@ -792,12 +869,14 @@ export class FlowUi {
   private cycleMachine(): void {
     const g = this.giftState;
     if (g.machines.length < 2) return;
+    this.cue('button');
     g.index = (g.index + 1) % g.machines.length;
     g.lines = [];
     this.paintGiftPanel();
   }
 
   private pickEngraving(id: EngravingId): void {
+    this.cue('button');
     this.giftState.engraving = id;
     this.giftState.lines = [];
     this.paintGiftPanel();
@@ -836,7 +915,7 @@ export class FlowUi {
       ];
       this.opt.onEvent?.({ type: 'gift-link', machineId: machine, url: outcome.url, delivered: outcome.delivered });
     } else {
-      g.lines = [outcome.error === 'no-machine' ? 'That machine is not on the table.' : giftErrorText(outcome.error).title];
+      g.lines = [giftMakeErrorText(outcome.error)];
     }
     this.paintGiftPanel();
   }

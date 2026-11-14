@@ -69,19 +69,21 @@ export function describeResult(r: ResultInput, hints: ResultHints = {}): ResultV
 }
 
 export function windLabel(units: number, max: number): string {
-  return `Wound ${Math.max(0, Math.min(units, max))} of ${max}`;
+  return `Wound ${Math.max(0, Math.min(Math.floor(units), max))} of ${max}`;
 }
 
 export interface SettingRow {
   key: keyof Pick<Settings, 'easySnap' | 'gazeMode' | 'xrayHint'>;
   label: string;
+  /** One plain sentence under the row (UI_UX_SPEC section 20: explain Easy Snap and gaze mode in plain language). */
+  hint: string;
 }
 
 /** The accessibility rows of the pause menu, in order. `night` belongs to the day/night feature, not to accessibility. */
 export const SETTING_ROWS: readonly SettingRow[] = [
-  { key: 'easySnap', label: 'Easy Snap' },
-  { key: 'gazeMode', label: 'Gaze and pinch' },
-  { key: 'xrayHint', label: 'X-ray hint' },
+  { key: 'easySnap', label: 'Easy Snap', hint: 'Parts snap into place from further away.' },
+  { key: 'gazeMode', label: 'Gaze and pinch', hint: 'Look at a target, then pinch anywhere to press it.' },
+  { key: 'xrayHint', label: 'X-ray hint', hint: 'Shows a hint when looking inside a machine can help.' },
 ];
 
 export interface GiftErrorText {
@@ -106,6 +108,13 @@ export function giftErrorText(error: GiftError): GiftErrorText {
     default:
       return { title: 'This link looks damaged', body: 'It may have been cut short when it was copied. Ask for it again.' };
   }
+}
+
+/** What the sender sees when the link could not be made (the viewer's cards above are worded for the person who received it). */
+export function giftMakeErrorText(error: GiftError | 'no-machine'): string {
+  if (error === 'no-machine') return 'That machine is not on the table.';
+  if (error === 'unsupported') return 'This browser cannot make a link.';
+  return 'The link could not be made.';
 }
 
 export function engravingText(id: EngravingId, table: readonly { id: EngravingId; text: string }[]): string {
