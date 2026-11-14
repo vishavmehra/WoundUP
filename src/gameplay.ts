@@ -25,7 +25,8 @@ import { AdditiveBlending, createSystem, DistanceGrabbable, Grabbed, Mesh, MeshB
 import type { Entity, Object3D, World } from '@iwsdk/core';
 import { bindClockTowerAudio } from './audio';
 import type { AudioEngine } from './audio';
-import { getBlueprint, repairStart, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
+import { planBuild } from './build-plan';
+import { getBlueprint, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
 import type { Assembly, MachineBlueprint } from './content/blueprints';
 import { requirePart } from './content/parts';
 import { MACHINE_PLOT, REPAIRS } from './game/content';
@@ -47,7 +48,7 @@ import type { MachineRig } from './town';
 import type { LidHinge } from './town/motion';
 import type { FlowEvent, FlowUi } from './ui';
 import { BENCH, benchPoint } from './ui/layout';
-import { dropSeatedByGame, placeTrayParts } from './tray-layout';
+import { placeTrayParts } from './tray-layout';
 
 /** A finished machine keeps running after it is placed for at most this long (the Music Box plays one cylinder turn), seconds. */
 const PLACED_RUN_CAP_S = 16;
@@ -355,23 +356,10 @@ export class Gameplay {
     if (token !== this.buildToken) return machine.dispose();
     this.lid = openLid(machine.object);
 
-    // What each socket takes from the player, and what the game seats itself.
-    const start = repair ? repairStart(repair) : undefined;
-    const target: Assembly = start ? start.assembly : {};
-    const trayIds: string[] = [];
-    for (const entry of start ? start.tray : blueprint.tray) for (let i = 0; i < entry.quantity; i++) trayIds.push(entry.partId);
-    const handPlaced = (socketId: string, partId: string): boolean => machine.sockets.has(socketId) && requirePart(partId).grab.enabled;
-    const fixed: Record<string, string> = {};
-    for (const [socketId, partId] of Object.entries(start ? start.assembly : blueprint.intended)) {
-      if (!handPlaced(socketId, partId)) fixed[socketId] = partId;
-    }
-    if (!start) dropSeatedByGame(trayIds, fixed); // a part the game seats itself has no place in the tray
+    // What each socket takes from the player, and what the game seats itself (src/build-plan.ts).
+    const { fixed, seatNow, spawnIds, handBuilt } = planBuild(blueprint, repair, machine.sockets.size, (socketId) => machine.sockets.has(socketId));
     const build: Build = { blueprint, machine, parts: [], fixed, repair, daily: daily?.date ?? null, key: null };
-    const seatNow: Array<[string, string]> = Object.entries(target).filter(([socketId]) => !(socketId in fixed));
-    const spawnIds = [...trayIds.filter((id) => requirePart(id).grab.enabled), ...seatNow.map(([, partId]) => partId)];
-    // Nothing to place by hand (a machine whose sockets no GLB carries yet): there is no tray to show.
-    const handBuilt = machine.sockets.size > 0 || seatNow.length > 0;
-
+    const traySpawned = spawnIds.length - seatNow.length;
     this.build = build;
     if (handBuilt) {
       // Each part lies in the compartment made for it (parts_tray.glb, src/tray-layout.ts), in its final pose from the start: the pose it is
@@ -392,7 +380,7 @@ export class Gameplay {
       }
       this.ui.revealParts(spawned.map((part) => part.object)); // pops them in; it also moves part i to compartment i, so each goes back to its own
       spawned.forEach((part, i) => part.object.position.set(...lies[i].position));
-      if (seatNow.length > 0) this.seat(build, spawned.slice(trayIds.filter((id) => requirePart(id).grab.enabled).length), seatNow);
+      if (seatNow.length > 0) this.seat(build, spawned.slice(traySpawned), seatNow);
     }
     this.ui.showBlueprint({
       title: blueprint.name,

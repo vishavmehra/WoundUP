@@ -1,5 +1,5 @@
 /**
- * Desktop demo view (debug only): `/?debug&demo=music_box` (or `carousel`, `windmill`) skips the flow and shows that finished
+ * Desktop demo view (debug only): `/?debug&demo=music_box` (or `carousel`, `windmill`, `clock_tower`) skips the flow and shows that finished
  * machine running, so the way its parts work together can be watched in a plain browser window.
  *
  * It is not an animation of its own. The machine is the one the game builds (`buildMachine`), the speeds are the solver's
@@ -8,13 +8,15 @@
  *
  * Without `?debug` nothing here is reached (`demoRequest` returns null). It never creates a GameSession, so it reads and writes no
  * save. The Music Box stands on the workbench where the game puts the machine it has just finished; the Carousel and the Windmill
- * stand on their plots, awake. The Clock Tower has no finished machine in this build (`buildMachine` returns null), so it is not offered.
+ * stand on their plots, awake, and so does the Clock Tower, which keeps time by the clock of the page (its pendulum, escapement, hands
+ * and the hour that rings as it appears); its train is turned by the tower's own system, not by the town's rotors.
  */
 import { Box3, createSystem, Vector3 } from '@iwsdk/core';
 import type { Object3D, World } from '@iwsdk/core';
-import { AudioEngine } from '../audio';
+import { AudioEngine, bindClockTowerAudio } from '../audio';
 import { getBlueprint, solveAssembly } from '../content/blueprints';
 import { MACHINE_PLOT } from '../game/content';
+import { clockTowerEvents, startClockTower } from '../machines/clock-tower';
 import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
 import type { RenderBudget } from '../render-budget';
@@ -27,7 +29,7 @@ import { stepRig } from '../town/motion';
 import { BENCH, benchPoint, benchZ } from '../ui/layout';
 
 /** The finished machines `buildMachine` makes. */
-export const DEMO_MACHINES = ['music_box', 'carousel', 'windmill'] as const;
+export const DEMO_MACHINES = ['music_box', 'carousel', 'windmill', 'clock_tower'] as const;
 export type DemoMachine = (typeof DEMO_MACHINES)[number];
 
 export const DEMO_HINT = 'Debug demo: the real solver is turning this machine. Drag to look around, scroll to zoom.';
@@ -171,6 +173,7 @@ const LOOKS: Readonly<Record<DemoMachine, DemoLook>> = {
   music_box: { elevationDeg: 38, closeness: 0.8 },
   carousel: { elevationDeg: 18, closeness: 0.95 },
   windmill: { elevationDeg: 14, closeness: 0.95 },
+  clock_tower: { elevationDeg: 10, closeness: 0.85 },
 };
 
 class Demo {
@@ -202,6 +205,7 @@ class Demo {
     const { result, rig } = this.winding;
     const wound = !result.continuous && rig.running ? `, wound to ${MAX_WIND_UNITS}/${MAX_WIND_UNITS}` : ''; // not claimed once the spring is spent
     const lines = [`${this.machine}: solver says "${result.status}"${wound}`];
+    if (this.machine === 'clock_tower') return [...lines, 'keeps time: the pendulum steps the train, the hands show the clock of this page'].join('\n');
     lines.push(result.continuous ? 'driven by the wind' : `spring: ${this.winding.left.toFixed(1)} of ${result.runSeconds.toFixed(1)} s left${rig.running ? '' : ' (run down)'}`);
     for (const [socket, omega] of Object.entries(result.angularVelocity)) {
       if (rig.rotors.some((r) => r.socketId === socket)) lines.push(`${socket}: ${(omega * rig.speed).toFixed(2)} rad/s`);
@@ -282,6 +286,10 @@ export async function installDemo(world: World, materials: MaterialRegistry, tex
 
   const root = await place(world, town, materials, rig, machine);
   const winding = new Winding(rig, outcome.result);
+  if (machine === 'clock_tower') {
+    bindClockTowerAudio(audio, clockTowerEvents);
+    startClockTower(world, rig, { strikeOnStart: true }); // a town tower does not run down: its clock runs for as long as the page does
+  }
   if (rig.lid) rig.lid.angle = rig.lid.openRad; // open from the first frame: the mechanism is what there is to see
   stepRig(rig, 0, 0); // poses the open lid before the machine is measured and drawn
   world.scene.updateMatrixWorld(true);

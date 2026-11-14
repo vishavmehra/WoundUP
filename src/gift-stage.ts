@@ -1,11 +1,14 @@
 // The machine of a gift link on the stand (UI_UX_SPEC §18): the finished machine the link describes, turning, with its tune.
 // The link was validated by the codec and the solver before this is called (`mountGiftViewer`); the machine is made from the
 // content layer's blueprint, never from anything the link says about itself.
-import type { World } from '@iwsdk/core';
+import type { Entity, World } from '@iwsdk/core';
 import { Box3, Matrix4, Quaternion, Vector3, type Mesh, type Object3D } from 'three';
+import { bindClockTowerAudio } from './audio';
+import type { AudioEngine } from './audio';
 import { getBlueprint, solveAssembly } from './content/blueprints';
 import type { MachineId } from './game/content';
 import type { Gift } from './game/gift';
+import { clockTowerEvents, startClockTower } from './machines/clock-tower';
 import type { MaterialRegistry } from './materials';
 import { MAX_WIND_UNITS } from './sim';
 import { STAGE_NODE_ID } from './stage';
@@ -15,7 +18,9 @@ import type { MachineRig, TownRuntime } from './town';
 
 /** Where a machine's base stands on the velvet stand, stage-local metres: on the velvet top (the stage root), at the plinth's centre (TOCKTON_DIMENSIONS §9). */
 const STAND_CENTRE_Z_M = 0.125;
-const shown = new WeakMap<TownRuntime, MachineRig>();
+const shown = new WeakMap<TownRuntime, { rig: MachineRig; tower: Entity | null }>();
+/** Worlds whose Clock Tower already plays its tick and its bell (the binding lives as long as the page). */
+const towerSounds = new WeakSet<World>();
 const _box = new Box3();
 const _inverse = new Matrix4();
 const _spin = new Quaternion();
@@ -46,8 +51,12 @@ function visibleBox(rig: MachineRig, stage: Object3D): StageBox {
 /**
  * Puts the gift's machine on the stand at its own size and starts it, fully wound; "Show it again" replaces it. Returns the
  * machine's box on the stage, which the page frames (src/stage-framing.ts), or null when nothing could be shown.
+ *
+ * A Clock Tower keeps time: its pendulum swings, the escapement steps the train, the hands show the time of the viewer's clock, and the
+ * hour rings once as it appears (ClockTowerSystem, which this page does not otherwise have, is registered for it). Pass `audio` and
+ * the tick of the pendulum and the bell of the hour are heard once the page has had a click, as the Music Box's tune is.
  */
-export async function showGiftMachine(world: World, town: TownRuntime, materials: MaterialRegistry, gift: Gift): Promise<StageBox | null> {
+export async function showGiftMachine(world: World, town: TownRuntime, materials: MaterialRegistry, gift: Gift, audio?: AudioEngine): Promise<StageBox | null> {
   const blueprint = getBlueprint(gift.blueprintId);
   const stage = world.getSceneObject(STAGE_NODE_ID);
   if (!blueprint || !stage) return null;
@@ -55,8 +64,9 @@ export async function showGiftMachine(world: World, town: TownRuntime, materials
   if (!rig) return null;
   const previous = shown.get(town);
   if (previous) {
-    town.removeRig(previous);
-    previous.root.removeFromParent();
+    town.removeRig(previous.rig);
+    previous.rig.root.removeFromParent();
+    previous.tower?.destroy();
   }
   const outcome = solveAssembly(blueprint, Object.fromEntries(gift.placements.map((p) => [p.socketId, p.partId])), MAX_WIND_UNITS);
   rig.result = outcome.ok ? outcome.result : null;
@@ -64,6 +74,14 @@ export async function showGiftMachine(world: World, town: TownRuntime, materials
   rig.root.position.set(0, 0, STAND_CENTRE_Z_M);
   stage.add(rig.root);
   town.addRig(rig);
-  shown.set(town, rig);
+  let tower: Entity | null = null;
+  if (rig.machineId === 'clock_tower') {
+    if (audio && !towerSounds.has(world)) {
+      towerSounds.add(world);
+      bindClockTowerAudio(audio, clockTowerEvents);
+    }
+    tower = startClockTower(world, rig, { strikeOnStart: true });
+  }
+  shown.set(town, { rig, tower });
   return visibleBox(rig, stage);
 }

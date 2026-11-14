@@ -6,10 +6,14 @@ import {
   CLOCK_TOWER_NODE,
   ClockTowerNodes,
   ClockTowerRuntime,
+  MOVEMENT_PARTS,
+  movementNodeName,
   THEATRE_DOOR_NODE,
   THEATRE_DOOR_OPEN_RAD,
   TheatreDoors,
+  trainRatios,
 } from '../../../src/machines/clock-tower';
+import type { TrainSocket } from '../../../src/machines/clock-tower';
 
 const node = (name: string, parent: Object3D, x = 0, y = 0, z = 0): Object3D => {
   const o = new Object3D();
@@ -38,7 +42,11 @@ function tower(minuteUnderHour = true) {
     striker: node(n.striker, root, 0.03, 0.28, 0),
   };
   node(n.strikerPivot, root, 0, 0.28, 0);
-  return { root, parts };
+  // The going train: one node per part, named by its solver socket (the hourly cam is `parts.cam`, which follows the hour).
+  const train = Object.fromEntries(
+    MOVEMENT_PARTS.filter((p) => p.socket !== 'hourly_cam').map((p) => [p.socket, node(movementNodeName(p.socket), root)] as const),
+  ) as Record<TrainSocket, Object3D>;
+  return { root, parts, train };
 }
 
 const rotationOf = (o: Object3D): number => 2 * Math.atan2(o.quaternion.z, o.quaternion.w);
@@ -94,6 +102,53 @@ describe('ClockTowerNodes', () => {
     expect(rotationOf(parts.cam)).toBeCloseTo(rt.hourlyCamZ, 9);
     // Nodes turning about their own origin do not move.
     expect(parts.hourHand.position.toArray()).toEqual([0, 0.2, 0.05]);
+  });
+
+  it('turns the going train with the escape wheel by the ratios of the solver: the barrel 5.76 times as far, the meshes reversing', () => {
+    const { root, train } = tower();
+    const nodes = new ClockTowerNodes();
+    nodes.resolve(root);
+    const rt = new ClockTowerRuntime(() => 0);
+    rt.escapeWheelZ = -0.2;
+    nodes.apply(rt);
+    const turn = (socket: TrainSocket): number => rotationOf(train[socket]);
+    const sign = (socket: TrainSocket): number => MOVEMENT_PARTS.find((p) => p.socket === socket)?.sign ?? 1;
+    expect(turn('inter_gear_3')).toBeCloseTo(-0.2, 9); // on the wheel's axle
+    expect(turn('inter_gear_2')).toBeCloseTo(0.2 * (24 / 10), 9); // the mesh reverses and the 10T runs 2.4 times as far
+    expect(turn('large_gear')).toBeCloseTo(0.2 * (24 / 10), 9); // on inter_gear_2's axle
+    expect(turn('inter_gear_1')).toBeCloseTo(-0.2 * (24 / 10) ** 2, 9);
+    expect(turn('barrel')).toBeCloseTo(-0.2 * 5.76, 9);
+    expect(sign('spring')).toBe(-1); // the spring is turned about: its +Z points to the back, so the world turn is the solver's
+    expect(turn('spring')).toBeCloseTo(0.2 * 5.76, 9);
+    expect(turn('drive_shaft')).toBeCloseTo(-0.2 * 5.76, 9);
+    // They are the solver's ratios, not numbers of this file.
+    const ratios = trainRatios();
+    for (const socket of Object.keys(ratios) as TrainSocket[]) expect(turn(socket)).toBeCloseTo(-0.2 * ratios[socket] * sign(socket), 9);
+  });
+
+  it('holds the train still while the escape wheel is still, and puts it back at rest when resolved again', () => {
+    const { root, train } = tower();
+    const nodes = new ClockTowerNodes();
+    nodes.resolve(root);
+    const rt = new ClockTowerRuntime(() => 0);
+    nodes.apply(rt);
+    for (const node of Object.values(train)) expect(rotationOf(node)).toBe(0);
+    rt.escapeWheelZ = -1.3;
+    nodes.apply(rt);
+    expect(rotationOf(train.barrel)).not.toBe(0);
+    expect(nodes.resolve(root)).toEqual([]);
+    for (const node of Object.values(train)) expect(rotationOf(node)).toBeCloseTo(0, 9);
+  });
+
+  it('names a part of the train that is missing and keeps turning the rest', () => {
+    const { root, train } = tower();
+    train.large_gear.removeFromParent();
+    const nodes = new ClockTowerNodes();
+    expect(nodes.resolve(root)).toEqual([movementNodeName('large_gear')]);
+    const rt = new ClockTowerRuntime(() => 0);
+    rt.escapeWheelZ = -0.5;
+    expect(() => nodes.apply(rt)).not.toThrow();
+    expect(rotationOf(train.barrel)).not.toBe(0);
   });
 
   it('shows the minute hand at its own angle although it is a child of the hour hand (the GLB hierarchy)', () => {

@@ -57,6 +57,8 @@ export const TRAY_POSE: Readonly<Record<string, TrayPose>> = {
   winding_key: { yawDeg: 0, offset: [0, 0.004, 0] },
   // no compartment: the Windmill's designated gear (Letter 5) lies on the dividers
   gear_spur_24_m1: { yawDeg: 0, offset: [0, 0.0076, 0] },
+  // no compartment either: the Clock Tower's decoy bevel gear (Letter 6), 12 mm thick, origin at mid-thickness
+  gear_bevel_12: { yawDeg: 0, offset: [0, 0.006, 0] },
 };
 /** An asset that is not in the table: its origin is taken to be 1 cm over the underside (a disc or a flat part). */
 const DEFAULT_POSE: TrayPose = { yawDeg: 0, offset: [0, 0.01, 0] };
