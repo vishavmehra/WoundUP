@@ -14,6 +14,8 @@ import { isGazeModeOn, setGazeModeFlag } from './gaze-state.js';
  */
 
 const _eye = new Float32Array(16);
+/** The one pose object handed to the origin each frame: it only reads `.matrix`. */
+const _headPose = { matrix: _eye } as unknown as XRRigidTransform;
 
 /**
  * Makes `pointer` use the head pose when the runtime gives no gaze pose. Wraps two public methods of the pointer: the pose
@@ -27,7 +29,7 @@ export function useHeadWhenNoEyes(pointer: GazePointer, origin: XROrigin): void 
     if (origin.gazeOrigin === 'tracked') return;
     origin.head.updateMatrix();
     origin.head.matrix.toArray(_eye);
-    origin.applyTrackedEyePose({ matrix: _eye } as unknown as XRRigidTransform);
+    origin.applyTrackedEyePose(_headPose);
   };
   const owns = pointer.ownsFarTargeting.bind(pointer);
   pointer.ownsFarTargeting = (time) => origin.gazeOrigin === 'tracked' || owns(time);

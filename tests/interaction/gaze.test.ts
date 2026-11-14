@@ -298,6 +298,21 @@ describe('WindSystem: a tap winds one unit in gaze mode (INTERACTION_SPEC §10)'
     expect(entity.getValue(WindKey, 'units')).toBe(3);
   });
 
+  it('names the hand that pinched, asked while the grab still holds the pointer (IWSDK forgets the hand before Grabbed goes away)', () => {
+    setGazeModeFlag(true);
+    const { world, entity } = key();
+    let held = false;
+    // GrabSystem's getHolderHand: the hand while the handle has a pointer, null once the pinch ended.
+    Object.assign(world, { getSystem: () => ({ getHolderHand: () => (held ? 'left' : null) }) });
+    held = true;
+    entity.addComponent(Grabbed);
+    tick(world, 0.2);
+    held = false;
+    entity.removeComponent(Grabbed);
+    expect(intents[0]).toMatchObject({ type: 'wind', hand: 'left' });
+    expect(intents[1]).toMatchObject({ type: 'windEnd', hand: 'left' });
+  });
+
   it('stops at the maximum', () => {
     setGazeModeFlag(true);
     const { world, entity } = key(7, 8);

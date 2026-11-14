@@ -44,15 +44,16 @@ export class WindSystem extends createSystem({
   heldKeys: { required: [WindKey, Grabbed] },
 }) {
   private readonly sessions: Record<Hand, Session | null> = { left: null, right: null };
-  /** Gaze mode: when and where each key was taken by a pinch. */
-  private readonly taps = new Map<Entity, { at: number; position: Vector3 }>();
+  /** Gaze mode: when, where and by which hand each key was taken by a pinch. */
+  private readonly taps = new Map<Entity, { at: number; position: Vector3; hand: Hand }>();
   private clock = 0;
 
   init(): void {
     this.queries.heldKeys.subscribe('qualify', (entity) => {
       const object = entity.object3D;
       if (!object || !isGazeModeOn()) return;
-      this.taps.set(entity, { at: this.clock, position: object.getWorldPosition(new Vector3()) });
+      // Asked now, while the grab handle still holds the pointer: by the time Grabbed goes away it no longer says who held it.
+      this.taps.set(entity, { at: this.clock, position: object.getWorldPosition(new Vector3()), hand: this.holderOf(entity) });
     });
     this.queries.heldKeys.subscribe('disqualify', (entity) => this.endTap(entity));
   }
@@ -66,7 +67,7 @@ export class WindSystem extends createSystem({
     const units = entity.getValue(WindKey, 'units') ?? 0;
     if (units >= (entity.getValue(WindKey, 'maxUnits') ?? MAX_WIND_UNITS)) return;
     if (!isWindTap(this.clock - tap.at, object.getWorldPosition(_tip).distanceTo(tap.position))) return;
-    const hand = this.holderOf(entity);
+    const { hand } = tap;
     entity.setValue(WindKey, 'units', units + 1);
     interactionIntents.emit({ type: 'wind', key: entity, units: units + 1, gained: 1, hand });
     interactionIntents.emit({ type: 'windEnd', key: entity, units: units + 1, gained: 1, hand });
