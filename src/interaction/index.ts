@@ -1,4 +1,5 @@
 import type { World } from '@iwsdk/core';
+import { installGaze } from './gaze-mode.js';
 import { SocketSnapSystem } from './socket-snap-system.js';
 import { WindSystem } from './wind-system.js';
 import { XRaySystem } from './xray-system.js';
@@ -12,6 +13,8 @@ export type { InteractionIntent, IntentListener } from './intents.js';
 export { SocketSnapSystem } from './socket-snap-system.js';
 export { WindSystem } from './wind-system.js';
 export { XRaySystem } from './xray-system.js';
+export { installGaze, setGazeMode, useHeadWhenNoEyes } from './gaze-mode.js';
+export { GAZE_REMOVE_HOLD_S, isGazeModeOn } from './gaze-state.js';
 export { isXRayLensOn, setXRayLens, xrayFlag } from './xray-state.js';
 export type { XRayFlag } from './xray-state.js';
 
@@ -21,10 +24,12 @@ export type { XRayFlag } from './xray-state.js';
  * positioned by SocketSnapSystem and must win over GrabFeedbackSystem's return-to-tray ease.
  * `easySnap` is the accessibility setting that widens the snap radius from 4 cm to 7 cm (INTERACTION_SPEC §8); it can also be
  * changed later through `world.getSystem(SocketSnapSystem)?.config.easySnap.value`.
+ * `gazeMode` starts gaze-and-pinch (ADR-036); `setGazeMode(world, on)` changes it later (the pause menu does).
  */
-export function installInteraction(world: World, options: { easySnap?: boolean } = {}): void {
+export function installInteraction(world: World, options: { easySnap?: boolean; gazeMode?: boolean } = {}): void {
   world
     .registerSystem(SocketSnapSystem, { priority: 10, configData: { easySnap: options.easySnap ?? false } })
     .registerSystem(WindSystem, { priority: 10 })
     .registerSystem(XRaySystem, { priority: 10 });
+  installGaze(world, options.gazeMode ?? false);
 }

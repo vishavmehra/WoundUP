@@ -172,6 +172,8 @@ describe('mountGiftViewer', () => {
     expect(onReveal).not.toHaveBeenCalled();
   });
 
+  const lastOf = <T>(items: T[]): T | undefined => items[items.length - 1];
+
   /** A window with the pieces the viewer measures with: the layout query, the height, resize and the card's own observer. */
   function withWindow(sideLayout: boolean) {
     const resize: Array<() => void> = [];
@@ -210,15 +212,15 @@ describe('mountGiftViewer', () => {
     const card = shell.children[0] as El;
     card.rect = { left: 20, top: 520, right: 355, bottom: 760 };
     shell.find('button')[0].click(); // Unwrap
-    expect(layouts.at(-1)).toEqual({ top: 64, right: 16, bottom: 812 - 520 + 16, left: 16 });
+    expect(lastOf(layouts)).toEqual({ top: 64, right: 16, bottom: 812 - 520 + 16, left: 16 });
     card.rect = { left: 20, top: 480, right: 355, bottom: 760 }; // the card grew: the observer and a resize both re-measure
     win.observed[0]();
-    expect(layouts.at(-1)).toMatchObject({ bottom: 812 - 480 + 16 });
+    expect(lastOf(layouts)).toMatchObject({ bottom: 812 - 480 + 16 });
     card.rect = { left: 20, top: 540, right: 355, bottom: 760 };
     win.resize[0]();
-    expect(layouts.at(-1)).toMatchObject({ bottom: 812 - 540 + 16 });
+    expect(lastOf(layouts)).toMatchObject({ bottom: 812 - 540 + 16 });
     viewer.destroy();
-    expect(layouts.at(-1)).toBeNull();
+    expect(lastOf(layouts)).toBeNull();
     expect(win.resize).toHaveLength(0);
   });
 
@@ -233,7 +235,7 @@ describe('mountGiftViewer', () => {
     const shell = root.find('section')[0];
     (shell.children[0] as El).rect = { left: 43, top: 300, right: 443, bottom: 600 };
     shell.find('button')[0].click();
-    expect(layouts.at(-1)).toEqual({ top: 64, right: 16, bottom: 16, left: 443 + 16 });
+    expect(lastOf(layouts)).toEqual({ top: 64, right: 16, bottom: 16, left: 443 + 16 });
   });
 
   it('reports nothing to make room for on an error card', async () => {
@@ -242,7 +244,7 @@ describe('mountGiftViewer', () => {
     const root = new El('div');
     const layouts: Array<unknown> = [];
     await mountGiftViewer(root as unknown as HTMLElement, '#nope', { ...options(), makeYourOwnHref: '/', onLayout: (i) => layouts.push(i) });
-    expect(layouts.at(-1)).toBeNull();
+    expect(lastOf(layouts)).toBeNull();
   });
 
   it('removes itself on destroy', async () => {

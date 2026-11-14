@@ -226,18 +226,28 @@ export function paintPanel(ctx: Ctx, w: number, h: number, title: string, lines:
   for (const c of captions) ctx.fillText(c.text, w / 2, h / 2 - c.y * PX_PER_M);
 }
 
-/** A round brass medallion with a glyph and a word: the pause and gift controls. */
-export function paintMedallion(ctx: Ctx, size: number, glyph: 'pause' | 'gift', label: string, hover: boolean): void {
+/**
+ * A round brass medallion with a glyph and a word: the pause, gift and lens controls. `active` is a control that is on (the lens
+ * while X-ray shows): lamp-lit, with a lit ring round the rim.
+ */
+export function paintMedallion(ctx: Ctx, size: number, glyph: 'pause' | 'gift' | 'lens', label: string, hover: boolean, active = false): void {
   ctx.clearRect(0, 0, size, size);
   const c = size / 2;
   const g = ctx.createRadialGradient(c, c * 0.8, size * 0.05, c, c, c);
-  g.addColorStop(0, hover ? PALETTE.lamp : PALETTE.brassLit);
+  g.addColorStop(0, hover || active ? PALETTE.lamp : PALETTE.brassLit);
   g.addColorStop(0.7, PALETTE.brass);
   g.addColorStop(1, PALETTE.brassDark);
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(c, c, c - 2, 0, Math.PI * 2);
   ctx.fill();
+  if (active) {
+    ctx.strokeStyle = PALETTE.cream;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(c, c, c - 6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.strokeStyle = PALETTE.ink;
   ctx.lineWidth = 4;
   ctx.beginPath();
@@ -247,6 +257,24 @@ export function paintMedallion(ctx: Ctx, size: number, glyph: 'pause' | 'gift', 
   if (glyph === 'pause') {
     ctx.fillRect(c - 28, c - 52, 18, 58);
     ctx.fillRect(c + 10, c - 52, 18, 58);
+  } else if (glyph === 'lens') {
+    // A magnifying glass: a ring (filled with lamp glow while X-ray is on) and a handle.
+    ctx.beginPath();
+    ctx.arc(c - 8, c - 18, 26, 0, Math.PI * 2);
+    if (active) {
+      ctx.fillStyle = PALETTE.cream;
+      ctx.fill();
+      ctx.fillStyle = PALETTE.ink;
+    }
+    ctx.lineWidth = 9;
+    ctx.stroke();
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 11;
+    ctx.beginPath();
+    ctx.moveTo(c + 12, c + 2);
+    ctx.lineTo(c + 36, c + 26);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
   } else {
     ctx.fillRect(c - 36, c - 30, 72, 44);
     ctx.fillStyle = PALETTE.brassLit;

@@ -18,6 +18,8 @@ export interface ViewContext {
   letter: LetterDef | null;
   closing: string | null;
   giftAvailable: boolean;
+  /** The X-ray hint setting (SaveV1 `settings.xrayHint`). */
+  xrayHint: boolean;
 }
 
 export interface View {
@@ -37,6 +39,10 @@ export interface View {
   placeHint: boolean;
   pauseButton: boolean;
   giftButton: boolean;
+  /** The lens button (the accessible way to X-ray): wherever a machine is being built or carried. */
+  lens: boolean;
+  /** The X-ray hint: after a run that did not work out, when looking inside can help, and only if the player left the hint on. */
+  xrayHint: boolean;
   panel: 'none' | 'pause' | 'restart' | 'gift';
 }
 
@@ -66,6 +72,8 @@ export function viewFor(state: ModeState, local: LocalFlow, ctx: ViewContext): V
     placeHint: mode === 'place' && local.result === null,
     pauseButton: !paused && mode !== 'gift',
     giftButton: inTown && ctx.giftAvailable && !paused,
+    lens: bench && !paused,
+    xrayHint: bench && !paused && ctx.xrayHint && local.result !== null && !local.result.canContinue,
     panel: paused ? (state.restartArmed ? 'restart' : 'pause') : mode === 'gift' ? 'gift' : 'none',
   };
 }

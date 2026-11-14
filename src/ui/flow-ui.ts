@@ -6,13 +6,15 @@ import { ENGRAVINGS, type EngravingId, type LetterDef, type MachineId } from '..
 import type { GameSession } from '../game/session.js';
 import type { Mode } from '../game/modes.js';
 import { giftableMachines } from '../game/progression.js';
+import { setGazeMode } from '../interaction/gaze-mode.js';
 import { SocketSnapSystem } from '../interaction/socket-snap-system.js';
+import { isXRayLensOn, setXRayLens, xrayFlag } from '../interaction/xray-state.js';
 import { setupGlbInteraction, type GlbInteraction } from '../interaction/glb-interaction.js';
 import { applyLibraryMaterials, type MaterialRegistry } from '../materials/index.js';
 import type { SolveResult } from '../sim/index.js';
 import { findHinge, applyHinge, Progress } from './anim.js';
-import { MACHINE_NAMES, SETTING_ROWS, HINTS, describeResult, giftMakeErrorText, windLabel, type ResultHints } from './copy.js';
-import { BENCH, GIFT_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
+import { MACHINE_NAMES, SETTING_ROWS, HINTS, XRAY_HINT, describeResult, giftMakeErrorText, windLabel, type ResultHints } from './copy.js';
+import { BENCH, GIFT_SPOT, LENS_HINT_SPOT, LENS_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
 import { createGiftLink, shortLink, showLinkInPage, type GiftHost, type ShareEnv } from './gift-flow.js';
 import { paintBlueprint, paintClosing, paintLetter, paintMedallion, paintPanel, paintSlip, resultSlip, type BlueprintSlot } from './paint.js';
 import { PALETTE, ensureFonts } from './palette.js';
@@ -103,8 +105,9 @@ const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
  *   ui.showResult(solveResult);       // after a `run` event
  *   ui.update(dt);                    // every frame (FlowUiSystem does this)
  *
- * Start-up order: `installInteraction` before `installFlowUi`, so Easy Snap from the save reaches `SocketSnapSystem` at once. Gaze mode
- * and the X-ray hint are the integrator's to apply, from `session.save.settings` at start and from the `setting` events afterwards.
+ * Start-up order: `installInteraction` before `installFlowUi`, so the settings in the save reach the systems at once: Easy Snap
+ * (`SocketSnapSystem`) and gaze mode (`setGazeMode`) are applied here, at start and on every toggle; the X-ray hint is the UI's own
+ * (a slip above the lens button after a run that failed). The lens button turns X-ray on and off through `setXRayLens`.
  * `cue` events are sound cues at the moment of the action (latch, paper, button); `parcel-opened` carries `letter: null` for a build
  * that has no letter (the daily repair), which the UI does not start: the integrator calls `session.beginDailyRepair` and then `onModeChange`.
  */
@@ -155,6 +158,8 @@ export class FlowUi {
   private adjustPlaque!: Plaque;
   private pauseMed!: Surface;
   private giftMed!: Surface;
+  private lensMed!: Surface;
+  private lensHint!: Surface;
   private panelGroup!: Group;
   private panelBase!: Surface;
   private panelGiftBase!: Surface;
@@ -166,6 +171,10 @@ export class FlowUi {
   private acceptHot!: Hot;
   private pauseHot!: Hot;
   private giftHot!: Hot;
+  private lensHot!: Hot;
+  /** What the lens medallion was last painted as, so the per-frame check repaints only on a change. */
+  private lensLit = false;
+  private lensHover = false;
   private runHot!: Hot;
   private adjustHot!: Hot;
   /** The panel's buttons: live only while the panel shows them. */
@@ -211,6 +220,7 @@ export class FlowUi {
     this.lastScale = this.scale();
     this.ready = true;
     this.applySnap();
+    this.applyGaze();
     this.sync();
   }
 
@@ -299,6 +309,7 @@ export class FlowUi {
     }
     const yaw = this.stage.object3D?.rotation.y ?? 0;
     if (Math.abs(yaw - this.facedYaw) > 0.017) this.reface(yaw);
+    if (xrayFlag.active !== this.lensLit) this.paintLens(); // X-ray also starts from the palm gesture: the lens shows the real state
     if (this.session.mode === 'pause') return; // a paused game stays as it was, animations included
     this.stepTrunk(dt);
     if (this.appear.moving || this.flap.moving || this.card.moving) this.stepLetter(dt);
@@ -449,6 +460,21 @@ export class FlowUi {
     this.pauseHot = this.hot(pauseEntity, () => this.pauseGame(), pauseHover);
     this.giftHot = this.hot(giftEntity, () => this.openGift(), giftHover);
 
+    // The lens: the accessible way to X-ray (INTERACTION_SPEC §11), lit while X-ray shows, and the slip that points to it.
+    this.lensMed = new Surface(f, 0.05, 0.05);
+    this.lensMed.mesh.name = 'UI_Lens';
+    this.lensHot = this.hot(
+      place(this.lensMed, LENS_SPOT),
+      () => this.toggleLens(),
+      (on) => {
+        this.lensHover = on;
+        this.paintLens();
+      },
+    );
+    this.lensHint = new Surface(f, 0.17, 0.045);
+    this.lensHint.mesh.name = 'UI_XrayHint';
+    place(this.lensHint, LENS_HINT_SPOT);
+
     // The run sign: a post, the Run plaque, an Adjust plaque after a failed run, and one slip for the counter or the result.
     this.signGroup = new Group();
     this.signGroup.visible = false;
@@ -507,7 +533,7 @@ export class FlowUi {
       this.hotButton(p, panelEntity, () => this.pickEngraving(e.id));
       return p;
     });
-    this.surfaces.push(this.sheet.overlay, this.cardPaper, this.accept, this.closingCard, this.hint, this.pauseMed, this.giftMed, this.signSlip, this.runPlaque, this.adjustPlaque);
+    this.surfaces.push(this.sheet.overlay, this.cardPaper, this.accept, this.closingCard, this.hint, this.pauseMed, this.giftMed, this.lensMed, this.lensHint, this.signSlip, this.runPlaque, this.adjustPlaque);
     this.surfaces.push(this.panelBase, this.panelGiftBase, this.btnL, this.btnR, this.machineBtn, ...this.toggles, ...this.chips);
   }
 
@@ -522,7 +548,12 @@ export class FlowUi {
   private sync(): void {
     if (!this.ready) return;
     const letter = this.session.letter;
-    const view = viewFor(this.session.modeState, this.local, { letter, closing: this.session.closing, giftAvailable: this.session.giftAvailable });
+    const view = viewFor(this.session.modeState, this.local, {
+      letter,
+      closing: this.session.closing,
+      giftAvailable: this.session.giftAvailable,
+      xrayHint: this.session.save.settings.xrayHint,
+    });
     const before = this.view;
     this.view = view;
 
@@ -578,6 +609,11 @@ export class FlowUi {
     this.faceIfShown(this.giftMed.mesh, view.giftButton);
     this.setHot(this.pauseHot, free && view.pauseButton);
     this.setHot(this.giftHot, free && view.giftButton);
+    this.lensMed.mesh.visible = view.lens;
+    this.faceIfShown(this.lensMed.mesh, view.lens);
+    this.setHot(this.lensHot, free && view.lens);
+    this.paintLens();
+    this.showXrayHint(view);
     this.showHint(view);
 
     // Panels
@@ -593,6 +629,8 @@ export class FlowUi {
     if (this.hint.mesh.visible) this.faceHead(this.hint.mesh);
     if (this.pauseMed.mesh.visible) this.faceHead(this.pauseMed.mesh);
     if (this.giftMed.mesh.visible) this.faceHead(this.giftMed.mesh);
+    if (this.lensMed.mesh.visible) this.faceHead(this.lensMed.mesh);
+    if (this.lensHint.mesh.visible) this.faceHead(this.lensHint.mesh);
     if (this.signGroup.visible) this.faceHead(this.signGroup, true);
     if (this.panelGroup.visible) this.faceHead(this.panelGroup);
   }
@@ -761,6 +799,31 @@ export class FlowUi {
     }
   }
 
+  /** The lens button: X-ray on or off. Inspection only: nothing about the machine changes (GAMEPLAY_SYSTEMS §15). */
+  private toggleLens(): void {
+    setXRayLens(!isXRayLensOn());
+    this.cue('button');
+    this.paintLens();
+  }
+
+  /** The lens medallion shows whether X-ray is on, from the real flag (gesture or lens), and a lit rim under a pointer. */
+  private paintLens(): void {
+    this.lensLit = xrayFlag.active;
+    const lit = this.lensLit;
+    const hover = this.lensHover;
+    this.lensMed.paint(`lens|${lit}|${hover}`, (c, w) => paintMedallion(c, w, 'lens', 'X-ray', hover, lit));
+  }
+
+  /** The X-ray hint: a slip above the lens after a run that did not work out, worded for the way the player acts (palm, or gaze and pinch). */
+  private showXrayHint(view: View): void {
+    const show = view.xrayHint && view.panel === 'none';
+    this.lensHint.mesh.visible = show;
+    if (!show) return;
+    const text = this.session.save.settings.gazeMode ? XRAY_HINT.gaze : XRAY_HINT.hands;
+    this.lensHint.paint(text.hint, (c, w, h) => paintSlip(c, w, h, XRAY_HINT.title, text.hint, 'good'));
+    this.faceHead(this.lensHint.mesh);
+  }
+
   private openGift(): void {
     if (this.session.openGift()) {
       this.cue('button');
@@ -857,6 +920,7 @@ export class FlowUi {
     if (!this.session.setSetting(row.key, value)) return;
     this.cue('button');
     if (row.key === 'easySnap') this.applySnap();
+    if (row.key === 'gazeMode') this.applyGaze();
     this.opt.onEvent?.({ type: 'setting', key: row.key, value });
     this.sync();
   }
@@ -864,6 +928,11 @@ export class FlowUi {
   private applySnap(): void {
     const system = this.world.getSystem(SocketSnapSystem);
     if (system) system.config.easySnap.value = this.session.save.settings.easySnap;
+  }
+
+  /** Gaze-and-pinch from the save: the pointer and every part's grab component (src/interaction/gaze-mode.ts). */
+  private applyGaze(): void {
+    setGazeMode(this.world, this.session.save.settings.gazeMode);
   }
 
   private cycleMachine(): void {

@@ -66,8 +66,8 @@ async function installGame(
   progress: (fraction: number) => void,
 ): Promise<ReturnType<Gameplay['debug']>> {
   const session = new GameSession();
-  // Easy Snap from the save reaches the snap system before the flow UI reads it.
-  installInteraction(gameWorld, { easySnap: session.save.settings.easySnap });
+  // Easy Snap and gaze mode from the save reach the interaction systems before the flow UI reads them (the pause menu changes both later).
+  installInteraction(gameWorld, { easySnap: session.save.settings.easySnap, gazeMode: session.save.settings.gazeMode });
   const audio = new AudioEngine();
   audio.installGestureUnlock();
   bindInteractionAudio(audio);

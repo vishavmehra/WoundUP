@@ -5,6 +5,7 @@ import { HANDS, readWristPose } from './hand-pose.js';
 import type { Hand } from './hand-pose.js';
 import { interactionIntents } from './intents.js';
 import { WindKey } from './components.js';
+import { isGazeModeOn, isWindTap } from './gaze-state.js';
 import { MAX_WIND_UNITS, twistAbout, WindTracker } from './wind.js';
 
 /** One hand turning one key. Created when a pinch takes the key, dropped when it lets go. */
@@ -33,15 +34,52 @@ const _turn = new Quaternion();
  *    already holding something (a held part wins, INTERACTION_SPEC §18).
  *  - Twist is the wrist's rotation since the pinch, about the key's axis. The key's mesh turns with it.
  *  - Emits `wind` for each unit gained and `windEnd` on release. `WindKey.units` keeps the running total.
- * Hands only. Gaze-and-pinch winding ("each pinch adds one unit", INTERACTION_SPEC §10) is a separate input for the gaze task.
+ * Gaze mode (INTERACTION_SPEC §10): no twist. A pinch on the key that ends within half a second without pulling it out is a tap, and
+ * a tap adds one unit; the wind counter and the Run plaque are the UI's. Holding the pinch and pulling takes the key out instead.
+ * Hands: the key is the near-grab part of a pinch and a wrist twist, as above.
  */
 export class WindSystem extends createSystem({
   keys: { required: [WindKey] },
   held: { required: [Grabbed] },
+  heldKeys: { required: [WindKey, Grabbed] },
 }) {
   private readonly sessions: Record<Hand, Session | null> = { left: null, right: null };
+  /** Gaze mode: when and where each key was taken by a pinch. */
+  private readonly taps = new Map<Entity, { at: number; position: Vector3 }>();
+  private clock = 0;
 
-  update(): void {
+  init(): void {
+    this.queries.heldKeys.subscribe('qualify', (entity) => {
+      const object = entity.object3D;
+      if (!object || !isGazeModeOn()) return;
+      this.taps.set(entity, { at: this.clock, position: object.getWorldPosition(new Vector3()) });
+    });
+    this.queries.heldKeys.subscribe('disqualify', (entity) => this.endTap(entity));
+  }
+
+  /** The pinch on a key ended: wind one unit when it was a tap. */
+  private endTap(entity: Entity): void {
+    const tap = this.taps.get(entity);
+    this.taps.delete(entity);
+    const object = entity.object3D;
+    if (!tap || !object || !entity.active) return;
+    const units = entity.getValue(WindKey, 'units') ?? 0;
+    if (units >= (entity.getValue(WindKey, 'maxUnits') ?? MAX_WIND_UNITS)) return;
+    if (!isWindTap(this.clock - tap.at, object.getWorldPosition(_tip).distanceTo(tap.position))) return;
+    const hand = this.holderOf(entity);
+    entity.setValue(WindKey, 'units', units + 1);
+    interactionIntents.emit({ type: 'wind', key: entity, units: units + 1, gained: 1, hand });
+    interactionIntents.emit({ type: 'windEnd', key: entity, units: units + 1, gained: 1, hand });
+  }
+
+  /** The hand that pinched the key, as GrabSystem reports it; the right hand when it cannot say. */
+  private holderOf(entity: Entity): Hand {
+    return this.world.getSystem(GrabSystem)?.getHolderHand(entity) ?? 'right';
+  }
+
+  update(delta: number): void {
+    this.clock += delta;
+    if (isGazeModeOn()) return; // the twist is for hands; in gaze mode a tap winds (see endTap)
     const frame = this.xrFrame as XRFrame | null; // typed non-null, but null outside an XR frame
     const space = this.xrManager.getReferenceSpace();
     for (let i = 0; i < HANDS.length; i++) {

@@ -23,6 +23,13 @@ export const HINTS = {
   windMore: 'Wind it, then press Run',
 } as const;
 
+/** The X-ray hint slip (UI_UX_SPEC §14), by how the player acts: an open palm over the machine, or the lens button with gaze and pinch. */
+export const XRAY_HINT = {
+  title: 'Look inside',
+  hands: { hint: 'Palm down over the machine, or press the lens.' },
+  gaze: { hint: 'Look at the lens, then pinch.' },
+} as const;
+
 export type Tone = 'good' | 'warn' | 'bad';
 
 export interface ResultView {

@@ -2,6 +2,7 @@ import {
   Color,
   createSystem,
   Grabbed,
+  Hovered,
   Material,
   Mesh,
   MeshStandardMaterial,
@@ -9,11 +10,14 @@ import {
   Vector3,
 } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
+import { isGazeModeOn } from './interaction/gaze-state.js';
 import { ReturnsToRest } from './returns-to-rest-component.js';
 
 /** Warm lamp glow (#FFC66D) while a part is held: "highlight the part, confirm selection" (INTERACTION_SPEC §7.1). */
 const GLOW_COLOR = new Color(0xffc66d);
 const GLOW_MAX_INTENSITY = 0.3;
+/** The glow of the part the gaze cone is on, as a fraction of the held glow: "clear targeting feedback" before a pinch acts (INTERACTION_SPEC §14). */
+const GAZE_TARGET_GLOW = 0.55;
 /** Exponential approach rate (1/s) for the glow. */
 const GLOW_RATE = 14;
 /** Seconds for a released part to settle back to its rest pose. */
@@ -113,7 +117,7 @@ export class GrabFeedbackSystem extends createSystem({
     const current = this.glow.get(entity);
     const materials = this.materials.get(entity);
     if (current === undefined || !materials) return;
-    const target = this.queries.held.entities.has(entity) ? 1 : 0;
+    const target = this.queries.held.entities.has(entity) ? 1 : isGazeModeOn() && entity.hasComponent(Hovered) ? GAZE_TARGET_GLOW : 0;
     if (current === target) return;
     let next = current + (target - current) * (1 - Math.exp(-GLOW_RATE * delta));
     if (Math.abs(target - next) < 0.002) next = target;
