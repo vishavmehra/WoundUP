@@ -3,6 +3,7 @@ import type { Entity } from '@iwsdk/core';
 import { describe, expect, it } from 'vitest';
 import { MELODY, notesBetween, STEPS_PER_TURN } from '../../src/audio/notes';
 import type { InteractionIntent } from '../../src/interaction/intents';
+import { LAMP_LIGHT_CD } from '../../src/town/dressing';
 import { MAX_WAKE_SOURCES, PLOTS, WAKE_SOURCES } from '../../src/town/layout';
 import { createRig, createRotor } from '../../src/town/motion';
 import type { MachineRig } from '../../src/town/motion';
@@ -376,5 +377,57 @@ describe('Otto', () => {
     const runtime = new TownRuntime(town, uniforms, null);
     runtime.wakePlot('plot_windmill');
     expect(() => runtime.update(FRAME, 1)).not.toThrow();
+  });
+});
+
+describe('the night', () => {
+  it('eases the shader value and the town to the night and back, and is busy only while it moves', () => {
+    const { runtime, uniforms, run } = boot();
+    expect(runtime.night).toBe(0);
+    expect(runtime.busy).toBe(false);
+    runtime.setNight(true);
+    expect(runtime.busy).toBe(true);
+    run(0.5);
+    expect(runtime.night).toBeGreaterThan(0.2);
+    expect(runtime.night).toBeLessThan(0.9);
+    expect(uniforms.uWuNight.value).toBe(runtime.night);
+    run(6);
+    expect(runtime.night).toBe(1);
+    expect(uniforms.uWuNight.value).toBe(1);
+    expect(runtime.busy).toBe(false);
+    runtime.setNight(false);
+    run(6);
+    expect(runtime.night).toBe(0);
+    expect(uniforms.uWuNight.value).toBe(0);
+    expect(runtime.busy).toBe(false);
+  });
+
+  it('can start in the night at once (a saved game), with no fade', () => {
+    const { runtime, uniforms } = boot();
+    runtime.setNight(true, true);
+    expect(runtime.night).toBe(1);
+    expect(uniforms.uWuNight.value).toBe(1);
+    expect(runtime.busy).toBe(false);
+  });
+
+  it('lights the lamp of a plot that wakes at night, and keeps the town drawing while the light comes up', () => {
+    const { town, uniforms } = syntheticTown(true, true);
+    const runtime = new TownRuntime(town, uniforms, recorder());
+    let clock = 0;
+    const frame = (): void => {
+      clock += FRAME;
+      runtime.update(FRAME, clock);
+    };
+    const lamp = town.dressing!.lamps[0];
+    runtime.setNight(true, true);
+    frame();
+    expect(lamp.light.visible).toBe(true);
+    expect(lamp.light.intensity).toBe(0); // frozen: dark
+    runtime.wakePlot(lamp.plot);
+    for (let i = 0; i < 30; i++) frame();
+    expect(lamp.light.intensity).toBeGreaterThan(0);
+    for (let i = 0; i < 72 * 6; i++) frame();
+    expect(lamp.light.intensity).toBeCloseTo(LAMP_LIGHT_CD, 6);
+    expect(runtime.busy).toBe(false);
   });
 });

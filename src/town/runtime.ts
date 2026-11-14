@@ -41,6 +41,8 @@ const CAROUSEL_MELODY_LEVEL = 0.5;
 const HOME_DISTANCE_M = 0.01;
 /** Time constant of Otto starting to knead once the Bakery has woken, seconds. */
 const KNEAD_EASE_S = SPIN_EASE_S;
+/** Time constant of the change between day and night, seconds (settled in about three). */
+const NIGHT_EASE_S = 0.8;
 
 export class TownRuntime {
   readonly wake = new WakeField();
@@ -56,6 +58,10 @@ export class TownRuntime {
   private readonly parked: Array<{ rig: MachineRig; plot: PlotId; socket: Object3D; away: boolean }> = [];
   private seenScale = Number.NaN;
   private dirty = true;
+  /** 0 day to 1 night, eased towards `nightTarget`; the shader's `uWuNight`, the lamp lights and (TownSystem) the room lights follow it. */
+  private nightAmount = 0;
+  private nightTarget = 0;
+  private lightsMoving = false;
   private melodyLevel = 1;
   private readonly playNote = (note: MelodyNote): void => this.audio?.pluck(note.midi, note.velocity, this.melodyLevel);
 
@@ -82,9 +88,23 @@ export class TownRuntime {
     this.release(rig.root);
   }
 
-  /** True while anything the town shows is changing: a ripple, a machine running or easing, a scale ease, Otto. */
+  /** How far the town is into the night, 0 (day) to 1 (night). */
+  get night(): number {
+    return this.nightAmount;
+  }
+
+  /** Day or night (the saved `night` setting, PRODUCT_SPEC F16). The change eases over a few seconds; `instant` skips it (a game that loads at night). */
+  setNight(on: boolean, instant = false): void {
+    this.nightTarget = on ? 1 : 0;
+    if (instant) {
+      this.nightAmount = this.nightTarget;
+      this.uniforms.uWuNight.value = this.nightAmount;
+    }
+  }
+
+  /** True while anything the town shows is changing: a ripple, a machine running or easing, a scale ease, the night, Otto. */
   get busy(): boolean {
-    if (this.wake.active || this.scalers.length > 0) return true;
+    if (this.wake.active || this.scalers.length > 0 || this.nightAmount !== this.nightTarget || this.lightsMoving) return true;
     const knead = this.town.knead;
     if (knead && knead.action.timeScale > 0) return true;
     for (let i = 0; i < this.rigs.length; i++) if (this.rigs[i].running || this.rigs[i].speed > 0) return true;
@@ -205,6 +225,11 @@ export class TownRuntime {
         if (!parked.away) this.standOn(parked.rig.root, parked.socket); // the plot moved with the scale
       }
     }
+    if (this.nightAmount !== this.nightTarget) {
+      this.nightAmount = Math.abs(this.nightTarget - this.nightAmount) < 1e-3 ? this.nightTarget : approach(this.nightAmount, this.nightTarget, dt, NIGHT_EASE_S);
+      this.uniforms.uWuNight.value = this.nightAmount;
+    }
+    this.lightsMoving = this.town.dressing?.update(dt, this.nightAmount, this.wake) ?? false;
     this.watchParked();
     this.town.group.updateWorldMatrix(true, false);
     this.uniforms.uWuToTown.value.copy(this.town.group.matrixWorld).invert();

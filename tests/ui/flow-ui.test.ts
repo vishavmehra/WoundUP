@@ -480,7 +480,7 @@ describe('FlowUi: the pause menu', () => {
     expect(click(r, 'UI_Pause')).toBe(true);
     expect(r.game.mode).toBe('pause');
     expect(r.ui.currentView?.panel).toBe('pause');
-    expect(live(r)).toEqual(['UI_PanelLeft', 'UI_PanelRight', 'UI_Toggle_easySnap', 'UI_Toggle_gazeMode', 'UI_Toggle_xrayHint']);
+    expect(live(r)).toEqual(['UI_PanelLeft', 'UI_PanelRight', 'UI_Toggle_easySnap', 'UI_Toggle_gazeMode', 'UI_Toggle_night', 'UI_Toggle_xrayHint']);
     expect(find(r, 'UI_Pause').active).toBe(false);
     expect(visible(r, 'letter_envelope')).toBe(true); // the paused scene stays as it was
 

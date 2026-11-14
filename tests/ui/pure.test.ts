@@ -150,9 +150,9 @@ describe('result labels (UI_UX_SPEC section 13)', () => {
     expect(new Set(SETTING_ROWS.map((r) => r.hint)).size).toBe(SETTING_ROWS.length);
   });
 
-  it('has a name for every machine and a row for each accessibility setting', () => {
+  it('has a name for every machine and a row for each setting', () => {
     expect(Object.keys(MACHINE_NAMES).sort()).toEqual(['carousel', 'clock_tower', 'music_box', 'windmill']);
-    expect(SETTING_ROWS.map((r) => r.key)).toEqual(['easySnap', 'gazeMode', 'xrayHint']);
+    expect(SETTING_ROWS.map((r) => r.key)).toEqual(['easySnap', 'gazeMode', 'xrayHint', 'night']);
     expect(ENGRAVINGS.length).toBe(8);
   });
 });

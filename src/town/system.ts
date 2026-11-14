@@ -1,6 +1,7 @@
-import { createSystem } from '@iwsdk/core';
+import { createSystem, DirectionalLightComponent, HemisphereLightComponent, IBLGradient } from '@iwsdk/core';
 import { interactionIntents, setupGlbInteraction } from '../interaction';
 import type { GlbInteraction } from '../interaction';
+import { NightLights } from './night';
 import type { TownRuntime } from './runtime';
 
 /** A frame longer than this (a hidden tab, a hitch) is cut, so the melody and the ripple never leap. */
@@ -11,13 +12,22 @@ const MAX_FRAME_S = 0.1;
  * interaction layer (so SocketSnapSystem seats a machine on its own plot, INTERACTION_SPEC §12), routes the `snapped` and
  * `unsnapped` intents to the runtime, and steps it every frame. IWSDK has no animation system, so Otto's mixer runs here too.
  *
+ * It also writes the night into the scene's lights (night.ts) whenever `TownRuntime.night` changes.
+ *
  * Register it with priority 11 (after the interaction systems at 10, which write the seated machine's pose). `installTown`
  * in index.ts does all of this.
  */
-export class TownSystem extends createSystem({}) {
+export class TownSystem extends createSystem({
+  hemispheres: { required: [HemisphereLightComponent] },
+  directionals: { required: [DirectionalLightComponent] },
+  environments: { required: [IBLGradient] },
+}) {
   private runtime: TownRuntime | null = null;
   private plots: GlbInteraction | null = null;
   private keepAwake: (() => void) | null = null;
+  private readonly lights = new NightLights();
+  /** The night amount the lights were last written for (NaN: not yet; also retried while the level has no lights yet). */
+  private lit = Number.NaN;
 
   /** `keepAwake` is called every frame the town is still changing (see `TownRuntime.busy`); the 2D render budget's `wake`. */
   bind(runtime: TownRuntime, keepAwake?: () => void): void {
@@ -36,6 +46,11 @@ export class TownSystem extends createSystem({}) {
     const runtime = this.runtime;
     if (!runtime) return;
     runtime.update(delta < MAX_FRAME_S ? delta : MAX_FRAME_S, time);
+    // Day on a fresh start needs no write (the scene authored the day); once a night has been written the way back must be.
+    if (runtime.night !== this.lit && (runtime.night > 0 || !Number.isNaN(this.lit))) {
+      const written = this.lights.apply(runtime.night, this.queries.hemispheres.entities, this.queries.directionals.entities, this.queries.environments.entities);
+      if (written) this.lit = runtime.night;
+    }
     if (this.keepAwake && runtime.busy) this.keepAwake();
   }
 }

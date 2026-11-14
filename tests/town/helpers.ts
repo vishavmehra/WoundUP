@@ -2,6 +2,8 @@ import { AnimationClip, BoxGeometry, Group, Mesh, MeshStandardMaterial, Object3D
 import type { TownAudio } from '../../src/audio/engine';
 import type { PlotId } from '../../src/game/content';
 import { MaterialRegistry, parseLibrary } from '../../src/materials';
+import { DRESSING_MODEL_PATHS, DRESSING_NODES } from '../../src/town/dressing-table';
+import type { DressingModels } from '../../src/town/dressing';
 import { MACHINE_SNAP_PART, machineOfPlot, PLOTS } from '../../src/town/layout';
 import type { ModelSource, TownModel } from '../../src/town/scene';
 import { buildTown } from '../../src/town/scene';
@@ -66,9 +68,31 @@ export function townModels(withClip = true): Record<'ground' | 'bakery' | 'theat
   };
 }
 
-export function syntheticTown(withClip = true) {
+/**
+ * The three dressing files as small stand-ins: every table node as a group of two boxes (walls and a lit pane, or one material),
+ * with an `originM` at the node's own centre. The real files' nesting is tested against the real GLBs (dressing.test.ts).
+ */
+export function dressingModels(): DressingModels {
+  const models = {} as Record<keyof typeof DRESSING_MODEL_PATHS, TownModel>;
+  for (const file of Object.keys(DRESSING_MODEL_PATHS) as Array<keyof typeof DRESSING_MODEL_PATHS>) {
+    const nodes = Object.entries(DRESSING_NODES).filter(([, n]) => n.file === file);
+    const scene = new Group();
+    for (const [name, n] of nodes) {
+      const glb = name === 'LampPost' ? 'LampPost_Housing' : name;
+      const walls = mesh(`${glb}_a`, n.kind === 'house' ? 'Mat_PaintedWood' : 'Mat_Walnut');
+      const lit = mesh(`${glb}_b`, n.kind === 'prop' ? 'Mat_Stone' : 'Mat_WarmEmissive');
+      const node = group(glb, walls, lit);
+      node.userData.wu = { originM: [0, 0, 0] };
+      scene.add(node);
+    }
+    models[file] = { scene, animations: [] };
+  }
+  return models;
+}
+
+export function syntheticTown(withClip = true, withDressing = false) {
   const registry = libraryRegistry();
-  const town = buildTown(townModels(withClip), registry);
+  const town = buildTown({ ...townModels(withClip), dressing: withDressing ? dressingModels() : undefined }, registry);
   const uniforms = createWakeUniforms();
   return { town, uniforms, registry };
 }
