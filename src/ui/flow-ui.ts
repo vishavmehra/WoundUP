@@ -33,7 +33,7 @@ export type FlowEvent =
   | { type: 'run' }
   /** Adjust was pressed: the session is back in Build. */
   | { type: 'adjust' }
-  | { type: 'setting'; key: 'easySnap' | 'gazeMode' | 'xrayHint'; value: boolean }
+  | { type: 'setting'; key: 'easySnap' | 'gazeMode' | 'xrayHint' | 'night'; value: boolean }
   /** Restart was confirmed and progress is deleted: reset the town and the machine. */
   | { type: 'restarted' }
   | { type: 'gift-link'; machineId: MachineId; url: string; delivered: 'copied' | 'shared' | 'shown' }
@@ -82,11 +82,11 @@ class Hot {
   ) {}
 }
 
-const PANEL_SMALL = { w: 0.26, h: 0.27 } as const;
+const PANEL_SMALL = { w: 0.26, h: 0.325 } as const; // four setting rows (a row and its caption take 0.055)
 /** The tray rises this far (metres) as the parcel opens; parts are seated for its rest pose. */
 const TRAY_RISE = 0.02;
 /** The pause panel's first setting plaque (centre, metres from the panel's centre) and the step between rows; a caption sits under each. */
-const SETTING_ROW_Y = 0.075;
+const SETTING_ROW_Y = 0.1025;
 const SETTING_ROW_STEP = 0.056;
 const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
 
@@ -816,7 +816,7 @@ export class FlowUi {
     for (const t of this.toggles) t.mesh.visible = kind === 'pause';
     for (const c of this.chips) c.mesh.visible = gift;
     this.machineBtn.mesh.visible = gift;
-    const row = kind === 'pause' ? -0.11 : kind === 'restart' ? -0.06 : -0.122;
+    const row = kind === 'pause' ? -0.1375 : kind === 'restart' ? -0.06 : -0.122;
     this.btnL.mesh.position.set(-0.067, row, 0.003);
     this.btnR.mesh.position.set(0.067, row, 0.003);
     for (const hot of this.panelHots) this.setHot(hot, (hot.entity.object3D as Object3D).visible);

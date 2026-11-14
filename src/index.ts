@@ -17,7 +17,7 @@ import { installRenderBudget, type RenderBudget } from './render-budget.js';
 import { StageSystem } from './stage.js';
 import { standZoom } from './stage-framing.js';
 import { installTown } from './town/index.js';
-import { browserShareEnv, installFlowUi, mountGiftViewer } from './ui/index.js';
+import { browserShareEnv, installFlowUi, mountGiftViewer, type FlowEvent } from './ui/index.js';
 import { detectXrSupport, enterXR } from './xr-entry.js';
 
 const sceneContainer = document.getElementById('scene-container') as HTMLDivElement;
@@ -77,7 +77,11 @@ async function installGame(
     session,
     townScale: () => gameWorld.getSystem(StageSystem)?.townScale ?? 1,
     materials,
-    onEvent: play.onFlow,
+    // The Night setting (PRODUCT_SPEC F16) is the town's: its lamps, windows and the room lights; the loop handles every other event.
+    onEvent: (event: FlowEvent) => {
+      if (event.type === 'setting' && event.key === 'night') play.town.setNight(event.value);
+      play.onFlow(event);
+    },
     gift: {
       // The machine as it stands in the town: what the player built, or the intended build for one restored from a save.
       build: (machineId, engraving) => play.giftOf(machineId, engraving),
@@ -87,6 +91,7 @@ async function installGame(
     share: browserShareEnv(),
   });
   progress(0.95);
+  play.town.setNight(session.save.settings.night, true); // a saved night: the town loads dark, with no fade
   installGameplay(gameWorld, play);
   await play.start();
   return play.debug();

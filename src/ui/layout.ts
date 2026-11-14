@@ -30,7 +30,7 @@ export const LETTER_SPOT: V3 = v(0, 0.002, 0.275);
 /** Centre of the reading card and of the pause and gift panels: close, a little above the surface, facing the player. */
 export const READING_SPOT: V3 = v(0, 0.17, 0.27);
 /**
- * Centre of the pause, restart and gift panels (up to 29 x 30 cm): further from the eyes than the reading card, about 44 cm
+ * Centre of the pause, restart and gift panels (up to 29 x 32.5 cm): further from the eyes than the reading card, about 44 cm
  * from the eyes over a stand (UI_UX_SPEC section 23, "avoid large panels close to the face"), still in front of the town.
  */
 export const PANEL_SPOT: V3 = v(0, 0.2, 0.15);

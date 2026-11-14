@@ -1,4 +1,4 @@
-import { Grabbed, TransformSystem, World } from '@iwsdk/core';
+import { DirectionalLightComponent, Grabbed, HemisphereLightComponent, IBLGradient, TransformSystem, World } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
 import { Group, Object3D, Quaternion, Scene, Vector3 } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +11,7 @@ import { STAGE_NODE_ID, TOWN_NODE_ID } from '../../src/stage';
 import { installTown } from '../../src/town';
 import { makeCarriable } from '../../src/town/carry';
 import { MACHINE_SNAP_PART } from '../../src/town/layout';
+import { NIGHT_LOOK } from '../../src/town/night';
 import type { PlotId } from '../../src/game/content';
 import { plotSocket } from '../../src/town/scene';
 import { createRig, createRotor } from '../../src/town/motion';
@@ -123,6 +124,59 @@ describe('installTown', () => {
     const world = new World();
     Object.assign(world, { scene: new Scene() });
     await expect(installTown(world, { registry: libraryRegistry(), source: sourceOf(models) })).rejects.toThrow(/stage/);
+  });
+});
+
+describe('the night', () => {
+  const lightsOf = (world: World) => {
+    const hemisphere = world.createEntity().addComponent(HemisphereLightComponent, { intensity: 0.6 });
+    const directional = world.createEntity().addComponent(DirectionalLightComponent, { intensity: 2 });
+    const environment = world.createEntity().addComponent(IBLGradient, { intensity: 0.9 });
+    return { hemisphere, directional, environment };
+  };
+
+  it('dims the scene lights as the night comes and gives back exactly the authored day', async () => {
+    const { world, runtime } = await bootTown();
+    const { hemisphere, directional, environment } = lightsOf(world);
+    const day = { sky: [...hemisphere.getVectorView(HemisphereLightComponent, 'skyColor')], key: [...directional.getVectorView(DirectionalLightComponent, 'color')] };
+    tick(world);
+    expect(hemisphere.getValue(HemisphereLightComponent, 'intensity')).toBeCloseTo(0.6, 5); // a day on a fresh start writes nothing
+
+    runtime.setNight(true, true);
+    tick(world);
+    expect(hemisphere.getValue(HemisphereLightComponent, 'intensity')).toBeCloseTo(0.6 * NIGHT_LOOK.hemisphere.intensity, 5);
+    expect(directional.getValue(DirectionalLightComponent, 'intensity')).toBeCloseTo(2 * NIGHT_LOOK.directional.intensity, 5);
+    expect(environment.getValue(IBLGradient, 'intensity')).toBeCloseTo(0.9 * NIGHT_LOOK.environment.intensity, 5);
+    const sky = hemisphere.getVectorView(HemisphereLightComponent, 'skyColor');
+    expect([sky[0], sky[1], sky[2]].map((c) => +c.toFixed(4))).toEqual(NIGHT_LOOK.hemisphere.sky.map((c) => +c.toFixed(4)));
+    expect(directional.getValue(DirectionalLightComponent, 'castShadow')).toBe(false); // the night adds no shadows
+
+    runtime.setNight(false);
+    for (let i = 0; i < 72 * 8; i++) tick(world);
+    expect(runtime.night).toBe(0);
+    expect(hemisphere.getValue(HemisphereLightComponent, 'intensity')).toBeCloseTo(0.6, 5);
+    expect(environment.getValue(IBLGradient, 'intensity')).toBeCloseTo(0.9, 5);
+    const back = hemisphere.getVectorView(HemisphereLightComponent, 'skyColor');
+    expect([back[0], back[1], back[2]].map((c) => +c.toFixed(5))).toEqual(day.sky.slice(0, 3).map((c) => +c.toFixed(5)));
+    const key = directional.getVectorView(DirectionalLightComponent, 'color');
+    expect([key[0], key[1], key[2]].map((c) => +c.toFixed(5))).toEqual(day.key.slice(0, 3).map((c) => +c.toFixed(5)));
+  });
+
+  it('eases over a few seconds, keeping the page drawing while it does', async () => {
+    const awake = vi.fn();
+    const { world, runtime } = await bootTown({}, awake);
+    const { hemisphere } = lightsOf(world);
+    runtime.setNight(true);
+    tick(world);
+    const first = hemisphere.getValue(HemisphereLightComponent, 'intensity') as number;
+    expect(first).toBeLessThan(0.6);
+    expect(first).toBeGreaterThan(0.6 * NIGHT_LOOK.hemisphere.intensity + 0.1); // not there yet
+    expect(awake).toHaveBeenCalled();
+    for (let i = 0; i < 72 * 6; i++) tick(world);
+    expect(runtime.night).toBe(1);
+    const settled = awake.mock.calls.length;
+    tick(world);
+    expect(awake.mock.calls.length).toBe(settled); // a settled night needs no frames
   });
 });
 
