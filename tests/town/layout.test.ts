@@ -31,7 +31,7 @@ describe('plots (TOCKTON_DIMENSIONS §3.3)', () => {
     expect(PLOTS.plot_clock_tower).toMatchObject({ x: -0.2425, z: 0.0825 });
     expect(PLOTS.plot_music_box).toMatchObject({ x: -0.11, z: 0.08 });
     expect(PLOTS.plot_carousel).toMatchObject({ x: 0.11, z: 0.065 });
-    expect(PLOTS.plot_windmill).toMatchObject({ x: 0.2425, z: 0.0825 });
+    expect(PLOTS.plot_windmill).toMatchObject({ x: 0.2425, z: 0.0647 });
   });
 
   it('keeps every pad inside the 60 x 30 cm town and clear of the others', () => {

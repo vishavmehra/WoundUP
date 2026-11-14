@@ -58,19 +58,19 @@ const spurGear = (teeth: number, grab: number): PartDefinition =>
   });
 
 const spring = (kind: 'standard' | 'worn', energyPerUnit: number, drainRate: number): PartDefinition =>
-  part(`spring_${kind}`, 'Mat_AgedBrass', 'spring', `${kind === 'worn' ? 'Worn' : 'Standard'} mainspring`, 0.0225, {
+  part(`spring_${kind}`, 'Mat_AgedBrass', 'spring', `${kind === 'worn' ? 'Worn' : 'Standard'} mainspring`, 0.02, {
     angularVelocity: SPRING_ANGULAR_VELOCITY,
     energyPerUnit,
     drainRate,
   });
 
 export const PART_DEFINITIONS: readonly PartDefinition[] = Object.freeze([
-  spurGear(10, 0.0212),
-  spurGear(12, 0.0248),
-  spurGear(16, 0.032),
-  spurGear(20, 0.0392),
-  spurGear(24, 0.0465),
-  part('gear_bevel_12', 'Mat_AgedBrass', 'bevel_gear', 'Brass bevel gear, 12 teeth', 0.0239, { toothCount: 12, module: GEAR_MODULE_TOKEN }),
+  spurGear(10, 0.0146), // COL_Grab radius of the regenerated gear GLBs (module 2.5 mm) = the tip radius
+  spurGear(12, 0.0171),
+  spurGear(16, 0.0221),
+  spurGear(20, 0.0271),
+  spurGear(24, 0.0321),
+  part('gear_bevel_12', 'Mat_AgedBrass', 'bevel_gear', 'Brass bevel gear, 12 teeth', 0.0161, { toothCount: 12, module: GEAR_MODULE_TOKEN }),
   part('shaft_short', 'Mat_AgedBrass', 'shaft', 'Short brass shaft', 0.012),
   part('shaft_long', 'Mat_AgedBrass', 'shaft', 'Long brass shaft', 0.012),
   spring('standard', STANDARD_ENERGY_PER_UNIT, STANDARD_DRAIN_RATE),

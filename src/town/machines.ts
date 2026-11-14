@@ -20,6 +20,8 @@ import type { ModelSource } from './scene';
  * from the case GLB (`wu.slot`, MUSIC_BOX_BLUEPRINT §7.1). Override them when the content layer names the sockets differently.
  */
 export const DEFAULT_SOCKET_IDS = { sails: 'sails', millstone: 'millstone', platform: 'platform' } as const;
+/** The same nodes under the ids the Windmill and Carousel blueprints give their sockets (the sails are the `rotor` socket); what the game passes. */
+export const BLUEPRINT_SOCKET_IDS = { sails: 'rotor', millstone: 'millstone', platform: 'platform' } as const;
 export type SocketIds = Readonly<Record<keyof typeof DEFAULT_SOCKET_IDS, string>>;
 
 const MODELS = 'tockton/';

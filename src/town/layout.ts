@@ -24,7 +24,8 @@ export const PLOTS: Readonly<Record<PlotId, PlotLayout>> = {
   plot_clock_tower: { id: 'plot_clock_tower', socket: 'PlotClockTower', x: -0.2425, z: 0.0825, halfW: 0.0525, halfD: 0.0525 },
   plot_music_box: { id: 'plot_music_box', socket: 'PlotMusicBox', x: -0.11, z: 0.08, halfW: 0.07, halfD: 0.055 },
   plot_carousel: { id: 'plot_carousel', socket: 'PlotCarousel', x: 0.11, z: 0.065, halfW: 0.07, halfD: 0.07 },
-  plot_windmill: { id: 'plot_windmill', socket: 'PlotWindmill', x: 0.2425, z: 0.0825, halfW: 0.0525, halfD: 0.0525 },
+  // MACHINE_SLOT_MAPPINGS §8 (Q5): the Windmill pad is 10.5 x 14.06 cm, centred at z 0.0647, as town_ground.glb now has it.
+  plot_windmill: { id: 'plot_windmill', socket: 'PlotWindmill', x: 0.2425, z: 0.0647, halfW: 0.0525, halfD: 0.0703 },
 };
 
 /** Where each building group's origin (floor-contact centre) stands. */

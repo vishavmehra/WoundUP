@@ -42,7 +42,7 @@ test.describe('desktop browser without WebXR', () => {
     await page.getByRole('button', { name: 'Preview in this browser' }).click();
 
     await expect(page.locator('.wu')).toHaveAttribute('data-mode', 'preview');
-    await expect(page.locator('.wu-hint')).toContainText('brass gear');
+    await expect(page.locator('.wu-hint')).toContainText('trunk latch');
     await expect(page.getByRole('button', { name: 'Back to start' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toBeHidden();
 
@@ -68,48 +68,31 @@ test.describe('desktop browser without WebXR', () => {
     await expect(preview).toBeFocused();
   });
 
-  test('INT-11 (preview): the mouse picks the gear up and it settles back on release', async ({ page }) => {
+  test('INT-11 (preview): the mouse presses the trunk latch and the town unfolds', async ({ page }) => {
     await page.goto('./?debug');
-    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none', { timeout: 30_000 });
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none', { timeout: 60_000 });
     await page.getByRole('button', { name: 'Preview in this browser' }).click();
     await expect(page.locator('.wu')).toHaveAttribute('data-mode', 'preview');
-    await page.waitForFunction(() => Boolean((window as unknown as { __world?: unknown }).__world));
-    // Entering the preview moves the world into place over 1.25 s; read the gear's screen position once it has landed.
+    await page.waitForFunction(() => Boolean((window as unknown as { __wu?: unknown }).__wu));
     await page.waitForFunction(() => document.getElementById('scene-container')?.getAnimations().length === 0);
 
-    // Where is the gear on screen, and where does it rest?
-    const probe = () =>
-      page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const world = (window as unknown as { __world: any }).__world;
-        const gear = world.getSceneObject('gear-16');
-        const p = gear.position;
-        const grip = gear.getWorldPosition(gear.position.clone());
-        grip.x += 0.018; // a point on the rim: the centre of the gear is its bore, a hole the mouse ray would pass through
-        const ndc = grip.project(world.camera);
-        const rect = world.renderer.domElement.getBoundingClientRect();
-        return {
-          local: [p.x, p.y, p.z],
-          screen: [rect.left + ((ndc.x + 1) / 2) * rect.width, rect.top + ((1 - ndc.y) / 2) * rect.height],
-        };
-      });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const state = () => page.evaluate(() => (window as any).__wu.state() as { mode: string; letter: string | null });
+    expect((await state()).mode).toBe('intro');
 
-    const rest = await probe();
-    const [x, y] = rest.screen;
-    await page.mouse.move(x, y);
+    // Where is the latch on screen? The trunk is the one prop in view: the town stays hidden until it opens.
+    const at = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const world = (window as any).__world;
+      const latch = world.getSceneObject('stage').getObjectByName('COL_Latch');
+      const ndc = latch.getWorldPosition(world.camera.position.clone()).project(world.camera);
+      const rect = world.renderer.domElement.getBoundingClientRect();
+      return [rect.left + ((ndc.x + 1) / 2) * rect.width, rect.top + ((1 - ndc.y) / 2) * rect.height];
+    });
+    await page.mouse.move(at[0], at[1]);
     await page.mouse.down();
-    await page.mouse.move(x + 80, y - 40, { steps: 12 });
-    await page.waitForTimeout(150);
-    const held = await probe();
-    const moved = Math.hypot(...held.local.map((v, i) => v - rest.local[i]));
-    expect(moved, 'gear should follow the dragged mouse').toBeGreaterThan(0.01);
-
     await page.mouse.up();
-    // The settle takes 0.35 s of frame time; software rendering under load can be a few frames per second, so poll.
-    const drift = async () => {
-      const back = await probe();
-      return Math.hypot(...back.local.map((v, i) => v - rest.local[i]));
-    };
-    await expect.poll(drift, { message: 'gear should settle back to its rest pose', timeout: 10_000 }).toBeLessThan(0.002);
+    await expect.poll(async () => (await state()).mode, { message: 'the latch press opens the trunk', timeout: 15_000 }).toBe('town');
+    expect((await state()).letter).toBe('letter_1');
   });
 });

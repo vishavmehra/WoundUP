@@ -32,7 +32,7 @@ import { createWakeUniforms, installWakeShading } from './wake-shader';
 
 export { makeCarriable } from './carry';
 export { MACHINE_SNAP_PART, PLOTS, WAKE_GROUP, WAKE_SOURCES } from './layout';
-export { buildMachine } from './machines';
+export { BLUEPRINT_SOCKET_IDS, buildMachine } from './machines';
 export { createRig, createRotor } from './motion';
 export type { MachineRig, Rotor } from './motion';
 export { TownRuntime } from './runtime';
