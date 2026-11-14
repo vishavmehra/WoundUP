@@ -5,7 +5,8 @@
  * finished machine to the town the same way (`createRig`, `createRotor`).
  *
  * Which node turns with which socket (MACHINE_SLOT_MAPPINGS): Windmill sails and millstone; Carousel platform, and with it the
- * poles, horses, column, canopy and lamps; Music Box cylinder, arbor, gears, governor, spring and key.
+ * poles, horses, column, canopy and lamps; Music Box cylinder, arbor, gears, governor, spring and key (the key turns with the
+ * spring it is fitted to: it is not a node of the solver's graph, so it has no speed of its own).
  */
 import { Quaternion } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
@@ -38,6 +39,21 @@ const CAROUSEL = {
   horseY: 0.006,
   horseTravel: 0.006,
 } as const;
+
+/**
+ * Degrees to turn the parts of the pinion shafts from the pose their sockets seat them in so the teeth of each gear pair
+ * interlock. The gear GLBs and the case sockets were authored without a common tooth phase: seated as they are, the 12T
+ * governor pinion cuts 3.2 mm into the 16T wheel and the 10T spring pinion 0.6 mm into the 20T wheel. The angles are the middle of
+ * the clear window found by ray casting the real GLBs (tests/town/machine-motion.test.ts measures it again, so a changed gear or
+ * socket fails there). The parts of one shaft share the angle, so the shaft stays rigid. Remove it when the sockets carry the phase.
+ */
+const MUSIC_BOX_REST_PHASE_DEG: Readonly<Record<string, number>> = {
+  spring_pinion: 3.1,
+  main_spring: 3.1,
+  winding_key: 3.1,
+  governor_pinion: 9.6,
+  governor: 9.6,
+};
 
 const MUSIC_BOX_PARTS: ReadonlyArray<readonly [socket: string, path: string, turns: boolean]> = [
   ['Arbor', `${SHARED}shaft/shaft_short.glb`, true],
@@ -152,21 +168,24 @@ export async function buildMusicBox(source: ModelSource, registry: MaterialRegis
   box.updateMatrixWorld(true);
   const rig = createRig('music_box', box);
 
-  const turning: Array<{ node: Object3D; slot: string }> = [];
+  const turning: Array<{ node: Object3D; slot: string; socketName: string }> = [];
   for (const [socketName, path, turns] of MUSIC_BOX_PARTS) {
     const socket = find(box, `SOCKET_${socketName}`);
     const part = await a.seatAt(box, socketName, path);
     if (!part || !socket || !turns) continue;
     const slot = (socket.userData.wu as { slot?: string } | undefined)?.slot ?? socketName.toLowerCase();
-    turning.push({ node: part, slot });
+    turning.push({ node: part, slot, socketName });
   }
   await addHandle(a, box);
 
-  for (const { node, slot } of turning) {
+  // The key sits on the mainspring's arbor and unwinds with it: it takes the speed of the spring's slot.
+  const springSlot = turning.find((t) => t.socketName === 'Spring')?.slot;
+  for (const { node, slot, socketName } of turning) {
     // A part that states `wu.movingNode` turns only that child (the governor's weights); its frame stays put.
     const moving = wuField(node, 'movingNode');
     const target = (typeof moving === 'string' ? node.getObjectByName(moving) : null) ?? node;
-    const rotor = createRotor(target, slot, { axis: axisOfGlb(target) });
+    const phase = ((MUSIC_BOX_REST_PHASE_DEG[slot] ?? 0) * Math.PI) / 180;
+    const rotor = createRotor(target, socketName === 'Key' ? (springSlot ?? slot) : slot, { axis: axisOfGlb(target), phase });
     rig.rotors.push(rotor);
     if (slot === 'cylinder') rig.melody = rotor;
   }

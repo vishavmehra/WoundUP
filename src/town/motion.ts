@@ -32,18 +32,25 @@ export interface Rotor {
   theta: number;
 }
 
+/**
+ * `phase` (radians, about the rotor's own axis) turns the rest pose away from the pose the socket seated the part in, without
+ * touching `theta`: it is how a gear is brought into mesh with its neighbour (the teeth were not authored in phase).
+ */
 export function createRotor(
   node: Object3D,
   socketId: string,
-  options: { axis?: Axis; sign?: 1 | -1; mode?: 'absolute' | 'overlay' } = {},
+  options: { axis?: Axis; sign?: 1 | -1; mode?: 'absolute' | 'overlay'; phase?: number } = {},
 ): Rotor {
+  const axis = options.axis ?? 'z';
+  const rest = node.quaternion.clone();
+  if (options.phase) rest.multiply(_spin.setFromAxisAngle(AXES[axis], options.phase));
   return {
     node,
     socketId,
-    axis: options.axis ?? 'z',
+    axis,
     sign: options.sign ?? 1,
     mode: options.mode ?? 'absolute',
-    rest: node.quaternion.clone(),
+    rest,
     theta: 0,
   };
 }
@@ -137,9 +144,13 @@ export const advance = (theta: number, omega: number, dt: number): number => the
 /** Phase of horse `index` of `count`: phases evenly apart (120 degrees for three). */
 export const horsePhase = (index: number, count: number): number => (index * 2 * Math.PI) / count;
 
-/** Height offset of a horse: one rise and fall per platform turn, ±amplitude. */
+/**
+ * Height offset of a horse: one rise and fall per platform turn, ±amplitude, `phase` late. This is the profile the solver gives
+ * the horse's pin-driven follower (`followerPose`, content/blueprints/carousel.ts `horseProfile`), evaluated in closed form so
+ * no per-frame solve is needed; tests/town/machine-motion.test.ts compares the two.
+ */
 export function horseBob(theta: number, phase: number, amplitude: number): number {
-  return amplitude * Math.sin(theta + phase);
+  return amplitude * Math.sin(theta - phase);
 }
 
 /** Scale factor of a twinkling lamp: 1 ± amplitude. */
