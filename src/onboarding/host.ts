@@ -141,8 +141,8 @@ export function createGuideHost(game: GameplayView): GuideHost {
           step.part.getWorldPosition(out.from);
           step.socket.getWorldPosition(out.to);
           out.ghostSource = step.part;
-          out.radius = 0.022;
-          out.toRadius = 0.026;
+          out.radius = 0.016;
+          out.toRadius = 0.018;
           return finish(out, true);
         }
         case 'wind': {
@@ -161,7 +161,7 @@ export function createGuideHost(game: GameplayView): GuideHost {
           const plot = PLOTS[MACHINE_PLOT[carried.rig.machineId]];
           carried.rig.root.getWorldPosition(out.from);
           game.town.town.group.localToWorld(out.to.set(plot.x, PAD_TOP_M, plot.z));
-          out.radius = 0.05;
+          out.radius = 0.035;
           return finish(out, true);
         }
         case 'xray': {
@@ -177,7 +177,7 @@ export function createGuideHost(game: GameplayView): GuideHost {
           if (!build) return false;
           build.machine.object.getWorldPosition(out.from);
           out.from.y += build.blueprint.housing.xray.top;
-          out.radius = 0.06;
+          out.radius = 0.035;
           break;
         }
       }

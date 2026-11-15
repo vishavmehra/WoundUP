@@ -69,7 +69,7 @@ export interface GuideOptions {
 }
 
 const LAMP = 0xffc66d; // warm lamp glow (CLAUDE.md §8)
-const CREAM_TEAL = 0xcfe6da; // cream (#F2E6CF) cooled towards deep teal (#1F5C5C): a hand that is clearly not the player's
+const CREAM_TEAL = 0xc2e2d4; // cream (#F2E6CF) cooled towards deep teal (#1F5C5C): a hand that is clearly not the player's
 const BEAM = 0x6fc3b8;
 const HAND_OPACITY = 0.55;
 const _anchor = new Vector3();
