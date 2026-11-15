@@ -18,8 +18,10 @@ belfry_vane   64 x 16 x 31 mm. A hub (8 mm bore, blind) with a turned collar and
               turns about local +Z at +0.48 rad/s. COL_Grab sphere r 16 mm at the arrow's centre; PIV_Axis on the bore axis.
 
 Model space (glTF Y-up, millimetres): origin at the centre of the floor-contact face, +Y up, +Z towards the player. The works: spring arbor S (-5, 59), second
-axle C (-5, 100), the vertical shaft on x -5, z 11.7 from y 104 to 284 (the bevel cones meet at (-5, 100, 11.7)). Parts seat along -Z (or -Y for the shaft
-line), so no stud has a cap.
+axle C (-5, 100), the vertical shaft on x -5, z 11.7 from y 104 to 284. The two axes cross at (-5, 100, 11.7), the apex of the rule; the bevel pair is NOT seated at it:
+the library gear_bevel_12 has teeth that dig 0.95 mm into the other gear's root at every phase when both cones touch, so each gear sits further out along its own axis
+(BEVEL_A_OUT_MM back along -Z, BEVEL_B_OUT_MM up along +Y, measured over tooth phases on the real GLBs by blender/scripts/bevel_fit.py). Parts seat along -Z (or -Y for the
+shaft line), so no stud has a cap.
 """
 from __future__ import annotations
 
@@ -50,6 +52,10 @@ S_AX = (-5.0, 59.0)
 C_AX = (-5.0, 100.0)
 SHAFT_X, SHAFT_Z = -5.0, 11.7
 Z_PLATE = -23.0
+# How far each bevel gear sits out from the apex (-5, 100, 11.7) along its own axis, away from it, millimetres. Found with blender/scripts/bevel_fit.py: with both at
+# 0 the pair crosses at every phase (deepest 0.95 mm); at 1.0 and 2.4 it clears all the way round a tooth pitch with 0.42 mm to spare, and the 20T behind bevel A is 1.5 mm off.
+BEVEL_A_OUT_MM = 1.0
+BEVEL_B_OUT_MM = 2.4
 
 
 def m(v):
@@ -131,7 +137,7 @@ def build_body():
 
     # --- hardware the parts seat on ---------------------------------------------------------------------------------
     put(bm, zring(S_AX[0], S_AX[1], Z_PLATE - 0.4, Z_PLATE + 0.6, 4.7, 7.6), AB)        # Boss_S
-    put(bm, zstud(C_AX[0], C_AX[1], Z_PLATE - 0.2, 6.2, 3.7), AB)                       # Stud_C (stops 1.5 mm short of the bevel's front face, clear of the lower bevel's hub)
+    put(bm, zstud(C_AX[0], C_AX[1], Z_PLATE - 0.2, 6.2, 3.7), AB)                       # Stud_C (stops 0.5 mm short of bevel A's front face, clear of the lower bevel's hub)
     put(bm, zring(C_AX[0], C_AX[1], Z_PLATE - 0.3, Z_PLATE + 0.5, 3.6, 6.4), AB)
     put(bm, box((-20.0, 128.2, -23.2), (16.5, 134.0, 1.6), 0.5), AB)                    # Mount_Foot: the bearing's bracket, foot towards the plate
     put(bm, box((12.6, 99.0, 0.0), (16.4, 134.2, 4.0), 0.4), AB)                        # Seat_BevelB: hanger from the bracket ...
@@ -147,7 +153,7 @@ def build_base(entry, p):
     bm, n_blocks = build_body()
     root = finish(entry, bm, "Belfry_Plinth", MATS)
     root["wu"] = dict(id=entry["id"], family=FAMILY, sizeMm=[76.0, 276.0, 58.0], blocks=n_blocks, studC=list(C_AX), bossS=list(S_AX),
-                      shaftAxisMm=dict(x=SHAFT_X, z=SHAFT_Z, yFrom=104.0, yTo=284.0), apexMm=[SHAFT_X, C_AX[1], SHAFT_Z],
+                      shaftAxisMm=dict(x=SHAFT_X, z=SHAFT_Z, yFrom=104.0, yTo=284.0), apexMm=[SHAFT_X, C_AX[1], SHAFT_Z], bevelOutMm=dict(a=BEVEL_A_OUT_MM, b=BEVEL_B_OUT_MM),
                       features=dict(Mount_Foot="y 128.2-134.0, z -23.2 to 1.6", Seat_BevelB="hanger x 12.6-16.4 and shelf y 99-102.8, z 9-15",
                                     Seat_Flywheel="arm and horseshoe y 160-167.4", Bush_Cap="y 273.4-275.9 on the cap, ri 5.1", BellHooks="cheeks z +-(11.8-14.6) round the gudgeon pins, x 15.4-24.6"),
                       note="proposal: docs/blueprints/BELFRY_BLUEPRINT.md; sockets of section 7.1")
@@ -167,8 +173,8 @@ def build_base(entry, p):
         ("Spring", "spring", 2, (-5.0, 59.0, -0.8), "spring", ["spring_standard", "spring_worn"], "spring_standard", I, ["pinion"]),
         ("Key", "key", 3, (-5.0, 59.0, 6.2), "winding_key", ["winding_key"], "winding_key", I, ["spring"]),
         ("GearDrive", "drive_gear", 4, (-5.0, 100.0, -14.4), "spur_gear", ["spur_gear"], "gear_spur_20_m1", I, ["pinion"]),
-        ("BevelB", "bevel_b", 5, (-5.0, 110.0, 11.7), "bevel_gear", ["gear_bevel_12"], "gear_bevel_12", RX, []),
-        ("BevelA", "bevel_a", 6, (-5.0, 100.0, 1.7), "bevel_gear", ["gear_bevel_12"], "gear_bevel_12", I, ["drive_gear", "bevel_b"]),
+        ("BevelB", "bevel_b", 5, (-5.0, 110.0 + BEVEL_B_OUT_MM, 11.7), "bevel_gear", ["gear_bevel_12"], "gear_bevel_12", RX, []),
+        ("BevelA", "bevel_a", 6, (-5.0, 100.0, 1.7 - BEVEL_A_OUT_MM), "bevel_gear", ["gear_bevel_12"], "gear_bevel_12", I, ["drive_gear", "bevel_b"]),
         ("BearingFoot", "bearing_foot", 7, (-5.0, 128.0, 11.7), "structural", ["bearing_pillow_block"], "bearing_pillow_block", RX, []),
         ("Flywheel", "flywheel", 8, (-5.0, 175.0, 11.7), "flywheel", ["flywheel_standard"], "flywheel_standard", RX, []),
         ("Shaft", "shaft", 9, (-5.0, 194.0, 11.7), "shaft", ["shaft_long"], "shaft_long", RX, ["bevel_b", "bearing_foot", "flywheel"]),

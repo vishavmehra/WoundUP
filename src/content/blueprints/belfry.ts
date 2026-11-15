@@ -6,9 +6,11 @@
 //                                                                                                          '..pin (profile)..> bell
 //
 // Sign rule (§1): the solver's speed of a socket is about the part's own local +Z, so the sockets joined by a shaft edge share one axis
-// direction. The reduction train turns about Z, towards the player; the bevel pair meets at the apex (-0.5, 10.0, 1.17) cm; the vertical
-// shaft, bevel B, the flywheel and the vane turn about -Y, which is a local +Z turned by `RX_PLUS` below. The shaft is the bell's cam: the
-// pin's profile is 0.12 rad times sin(6 times the shaft angle), six rocks to a turn.
+// direction. The reduction train turns about Z, towards the player; the axes of the bevel pair cross at the apex of the rule (-0.5, 10.0, 1.17)
+// cm, and each gear sits out from it along its own axis (A 1.0 mm back, B 2.4 mm up) because the library `gear_bevel_12` digs 0.95 mm into its
+// partner's root at every phase when both cones touch (blender/scripts/bevel_fit.py: clear over a whole tooth pitch with 0.42 mm to spare out
+// there); the vertical shaft, bevel B, the flywheel and the vane turn about -Y, which is a local +Z turned by `RX_PLUS` below. The shaft is the
+// bell's cam: the pin's profile is 0.12 rad times sin(6 times the shaft angle), six rocks to a turn.
 
 import { MACHINE_TARGET_SPECS } from '../../sim';
 import type { FollowerProfile, MechanicalConnection } from '../../sim';
@@ -43,8 +45,8 @@ const sockets: readonly SocketDefinition[] = [
   socket('spring', 'spring', 'Spring', SPRING_IDS, [-0.005, 0.059, -0.0008], ['pinion']),
   socket('key', 'winding_key', 'Key', [KEY], [-0.005, 0.059, 0.0062], ['spring']),
   socket('drive_gear', 'spur_gear', 'GearDrive', SPUR_GEAR_IDS, [-0.005, 0.1, -0.0144], ['pinion']),
-  socket('bevel_b', 'bevel_gear', 'BevelB', [BEVEL], [-0.005, 0.11, 0.0117], [], RX_PLUS),
-  socket('bevel_a', 'bevel_gear', 'BevelA', [BEVEL], [-0.005, 0.1, 0.0017], ['drive_gear', 'bevel_b']),
+  socket('bevel_b', 'bevel_gear', 'BevelB', [BEVEL], [-0.005, 0.1124, 0.0117], [], RX_PLUS), // 2.4 mm up the axis from the apex (10.0 cm)
+  socket('bevel_a', 'bevel_gear', 'BevelA', [BEVEL], [-0.005, 0.1, 0.0007], ['drive_gear', 'bevel_b']), // 1.0 mm back along -Z from the apex (z 1.17 cm)
   socket('bearing_foot', 'structural', 'BearingFoot', [BEARING], [-0.005, 0.128, 0.0117], [], RX_PLUS),
   socket('flywheel', 'flywheel', 'Flywheel', [partId('flywheel_standard')], [-0.005, 0.175, 0.0117], [], RX_PLUS),
   // The shaft goes in from above through the cap, the flywheel, the bearing and bevel B's bore, so it waits for all three.

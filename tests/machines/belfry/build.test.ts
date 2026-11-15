@@ -11,10 +11,11 @@ import { BELFRY_MODEL_PATHS, buildBelfry, tollIndex } from '../../../src/machine
 import { MAX_WIND_UNITS } from '../../../src/sim';
 import { bakeRig } from '../../../src/town/bake';
 import { buildMachine } from '../../../src/town/machines';
-import { stepRig } from '../../../src/town/motion';
+import { applyRotor, stepRig } from '../../../src/town/motion';
 import type { MachineRig } from '../../../src/town/motion';
 import type { ModelSource } from '../../../src/town/scene';
 import { fs, libraryRegistry, repoUrl } from '../../town/helpers';
+import { clearance, collectTriangles, surfaceCrossings } from '../clock-tower/intersect';
 
 const override = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env?.WU_MODELS_DIR;
 const dir = override ? new URL(`file:///${override.replace(/\\/g, '/').replace(/\/?$/, '/')}`) : repoUrl('public/assets/models/');
@@ -158,6 +159,27 @@ describe.skipIf(!present)('the finished Belfry from the real GLBs', () => {
     expect(tolls).toEqual([]);
     expect(rotor(rig, 'shaft').theta).toBe(0);
   });
+
+  it('turns the bevel pair through a whole tooth pitch without the gears crossing: the sockets sit the pair out from the apex because gear_bevel_12 digs 0.95 mm into its partner at the apex', async () => {
+    const rig = await buildBelfry(source, libraryRegistry());
+    const a = rotor(rig, 'bevel_a');
+    const b = rotor(rig, 'bevel_b');
+    const pitch = TAU / 12;
+    const SAMPLES = 12;
+    let tightest = Infinity;
+    for (let k = 0; k < SAMPLES; k++) {
+      a.theta = (-pitch * k) / SAMPLES; // the solver's signs: A at -0.48 rad/s, B at +0.48, each about its own +Z
+      b.theta = (pitch * k) / SAMPLES;
+      applyRotor(a);
+      applyRotor(b);
+      const ta = collectTriangles(a.node);
+      const tb = collectTriangles(b.node);
+      expect(ta.length, 'bevel A is drawn').toBeGreaterThan(0);
+      expect(surfaceCrossings(ta, tb), `crossings at ${k}/${SAMPLES} of a pitch`).toBe(0);
+      tightest = Math.min(tightest, clearance(ta, tb, 0.003), clearance(tb, ta, 0.003));
+    }
+    expect(tightest).toBeGreaterThan(0.0003); // the real GLBs measure 0.38 mm (blender/previews/belfry/fit_check.txt); the town renders no teeth through each other
+  }, 60000);
 
   it('bakes the housing and the still parts and leaves the moving ones alone, with the same picture', async () => {
     const rig = await runningBelfry();

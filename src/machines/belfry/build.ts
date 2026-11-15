@@ -6,7 +6,9 @@
 //
 // Tooth phase: seen from the front, the pinion has a tooth straight up at rest and the 20T above it must have a gap straight down, which is
 // half a pitch (9 degrees) of turn; the two bevels meet along the generatrix that leaves the apex up and towards the player, a tooth of A
-// against a gap of B, half a pitch (15 degrees) of turn on B. gen_gear_spur.py and gen_bevel_gear.py put tooth 0 on +X.
+// against a gap of B, half a pitch (15 degrees) of turn on B. gen_gear_spur.py and gen_bevel_gear.py put tooth 0 on +X. The pair does not sit at the
+// apex: the library bevel digs 0.95 mm into its partner there at every phase, so the blueprint seats A 1.0 mm back and B 2.4 mm up their axes (clear
+// over a whole pitch with 0.42 mm to spare; blender/scripts/bevel_fit.py, and the test of this folder). The 15 degrees is the cleanest phase, not a need.
 import { sampleFollowerProfile } from '../../sim';
 import { BELFRY, BELFRY_BELL_PROFILE, BELFRY_ROCKS_PER_TURN } from '../../content/blueprints';
 import type { MaterialRegistry } from '../../materials';

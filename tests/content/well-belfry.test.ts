@@ -220,8 +220,8 @@ describe('the Belfry (BELFRY_BLUEPRINT)', () => {
       ['spring', 'spring', [-0.005, 0.059, -0.0008], ['pinion']],
       ['key', 'winding_key', [-0.005, 0.059, 0.0062], ['spring']],
       ['drive_gear', 'spur_gear', [-0.005, 0.1, -0.0144], ['pinion']],
-      ['bevel_b', 'bevel_gear', [-0.005, 0.11, 0.0117], []],
-      ['bevel_a', 'bevel_gear', [-0.005, 0.1, 0.0017], ['drive_gear', 'bevel_b']],
+      ['bevel_b', 'bevel_gear', [-0.005, 0.1124, 0.0117], []],
+      ['bevel_a', 'bevel_gear', [-0.005, 0.1, 0.0007], ['drive_gear', 'bevel_b']],
       ['bearing_foot', 'structural', [-0.005, 0.128, 0.0117], []],
       ['flywheel', 'flywheel', [-0.005, 0.175, 0.0117], []],
       ['shaft', 'shaft', [-0.005, 0.194, 0.0117], ['bevel_b', 'bearing_foot', 'flywheel']],
@@ -239,20 +239,28 @@ describe('the Belfry (BELFRY_BLUEPRINT)', () => {
     }
   });
 
-  it('holds the sign rule of section 1 over the socket table: shaft edges share an axis, spur meshes are parallel, both bevel cones meet at one apex', () => {
+  it('holds the sign rule of section 1 over the socket table: shaft edges share an axis, spur meshes are parallel, both bevel axes cross at one apex, with the gears sat out from it', () => {
     const socket = (id: string) => BELFRY.sockets.find((s) => s.id === id)!;
     /** The direction of the socket's local +Z in the machine frame. */
     const zOf = (id: string): number[] => {
       const [x, y, z, w] = socket(id).rotation!;
       return [2 * (x * z + w * y), 2 * (y * z - w * x), 1 - 2 * (x * x + y * y)];
     };
-    const near = (a: number[], b: number[]): void => a.forEach((v, k) => expect(v).toBeCloseTo(b[k], 5));
+    const near = (a: readonly number[], b: readonly number[]): void => a.forEach((v, k) => expect(v).toBeCloseTo(b[k], 5));
     for (const c of BELFRY.connections.filter((x) => x.type === 'shaft')) near(zOf(c.from), zOf(c.to));
     near(zOf('pinion'), zOf('drive_gear')); // the spur mesh: parallel axes
-    // Bevel gear: the cone's apex is 10 mm ahead of the origin along local +Z (gen_bevel_gear.py).
-    const apex = (id: string): number[] => socket(id).position!.map((p, k) => p + 0.01 * zOf(id)[k]);
-    near(apex('bevel_a'), apex('bevel_b'));
-    expect(apex('bevel_a')[2]).toBeCloseTo(0.0117, 6); // the shaft's z
+    // Bevel gear: the cone's apex is 10 mm ahead of the origin along local +Z (gen_bevel_gear.py). The two axes cross at the apex of the rule, (-5, 100, 11.7) mm,
+    // and each gear sits out from it along its own axis (A 1.0 mm, B 2.4 mm, away from the crossing), so each cone's apex is that far short of the crossing:
+    // the library gear's teeth dig 0.95 mm into the partner's root when both cones touch (blender/scripts/bevel_fit.py clears the pair at these distances).
+    const crossing = [-0.005, 0.1, 0.0117];
+    const OUT = { bevel_a: 0.001, bevel_b: 0.0024 } as const;
+    for (const id of ['bevel_a', 'bevel_b'] as const) {
+      const origin = socket(id).position!;
+      // the origin lies on the gear's own axis through the crossing, 10 mm (the cone height) plus OUT behind it ...
+      near(origin, crossing.map((c, k) => c - (0.01 + OUT[id]) * zOf(id)[k]));
+      // ... so the cone's apex is OUT short of the crossing
+      near(origin.map((p, k) => p + 0.01 * zOf(id)[k]), crossing.map((c, k) => c - OUT[id] * zOf(id)[k]));
+    }
     // The vertical axis points down: turning +0.48 about local +Z is turning the vane about -Y.
     expect(zOf('shaft')[1]).toBeCloseTo(-1, 6);
   });
