@@ -21,7 +21,7 @@
  * The daily repair (ADR-027) is a build that starts from the town's "Repair" medallion: the same housing, tray and run as a story repair,
  * and `session.dailyRepairVerified` instead of a letter when it runs correctly.
  */
-import { AdditiveBlending, createSystem, DistanceGrabbable, Grabbed, Mesh, MeshBasicMaterial, OneHandGrabbable, PlaneGeometry, Quaternion, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, createSystem, DistanceGrabbable, Grabbed, Mesh, MeshBasicMaterial, OneHandGrabbable, PlaneGeometry, Quaternion, Vector3, VisibilityState } from '@iwsdk/core';
 import type { Entity, Object3D, World } from '@iwsdk/core';
 import { bindClockTowerAudio } from './audio';
 import type { AudioEngine } from './audio';
@@ -670,6 +670,8 @@ export class Gameplay {
       town: this.town,
       stage: this.stage,
       townScale: () => this.townScale,
+      // The stage root is hidden until the table (or the stand) is chosen, and a 2D page has no hands to teach: no lesson before both hold.
+      presenting: () => this.stage.visible && this.world.visibilityState.peek() !== VisibilityState.NonImmersive,
       build: () => this.build,
       carried: () => this.carried,
       windUnits: () => this.windUnits,

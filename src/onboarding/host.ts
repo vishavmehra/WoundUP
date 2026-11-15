@@ -45,6 +45,8 @@ export interface GameplayView {
   /** The stage root: the UI's spots (the latch, the letter, the bench) are in its frame. */
   readonly stage: Object3D;
   townScale(): number;
+  /** In an immersive session with the stage placed: the only time the ghost hands have anything to show. */
+  presenting(): boolean;
   build(): BuildView | null;
   carried(): CarriedView | null;
   windUnits(): number;
@@ -56,6 +58,8 @@ export interface GameplayView {
 export const variantNow = (): Variant => (isRayModeOn() ? 'ray' : isGazeAiming() ? 'gaze' : 'hands');
 
 export function createGuideHost(game: GameplayView): GuideHost {
+  /** Whether a build has a winding key for a hand to turn: fixed for the life of a build, so asked once (the loop runs `lesson` every frame). */
+  const keyByHand = new WeakMap<BuildView, boolean>();
   const pressable = (name: string): Object3D | undefined => game.ui.pressables().find((p) => p.name === name && p.active)?.object;
 
   /** The loose tray part to pick up next and the socket it goes in, or null. Sockets are taken in blueprint order, once what they stand on is seated. */
@@ -75,6 +79,7 @@ export function createGuideHost(game: GameplayView): GuideHost {
 
   return {
     lesson(): LessonId | null {
+      if (!game.presenting()) return null;
       const view = game.ui.currentView;
       if (!view || view.panel !== 'none') return null; // a panel is up (pause, restart, gift): nothing is taught under it
       const local = game.ui.localFlow;
@@ -90,7 +95,8 @@ export function createGuideHost(game: GameplayView): GuideHost {
           if (local.result) return view.xrayHint ? 'xray' : null; // a run that did not work out: the lens slip is up, so is the palm lesson
           const build = game.build();
           if (!build) return null;
-          const byHand = build.blueprint.sockets.some((s) => s.family === 'winding_key' && !(s.id in build.fixed));
+          let byHand = keyByHand.get(build);
+          if (byHand === undefined) keyByHand.set(build, (byHand = build.blueprint.sockets.some((s) => s.family === 'winding_key' && !(s.id in build.fixed))));
           return byHand && game.windUnits() === 0 ? 'wind' : 'run';
         }
         case 'place':

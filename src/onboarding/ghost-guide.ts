@@ -1,5 +1,5 @@
 import { AssetManager } from '@iwsdk/core';
-import { AdditiveBlending, Color, CylinderGeometry, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, Vector3 } from 'three';
+import { AdditiveBlending, Color, CylinderGeometry, Matrix4, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, Vector3 } from 'three';
 import type { Object3D } from 'three';
 import type { LessonId } from '../game/content';
 import { GhostPreview } from '../interaction/ghost';
@@ -56,6 +56,11 @@ export const makeTargets = (): GuideTargets => ({ from: new Vector3(), to: new V
 export interface GuideOptions {
   /** The world scene: the guide's objects are in world space, unscaled by the table. */
   scene: Object3D;
+  /**
+   * The stage root, which every target stands in and which moves (the table anchor is followed every frame, a recentre moves the stand): the
+   * targets are found once per showing and kept in this frame, so a showing follows the town instead of pointing where it used to be.
+   */
+  frame?: Object3D;
   host: GuideHost;
   tracker: OnboardingTracker;
   /** Writes the head's world position into `out`. */
@@ -73,6 +78,7 @@ const CREAM_TEAL = 0xc2e2d4; // cream (#F2E6CF) cooled towards deep teal (#1F5C5
 const BEAM = 0x6fc3b8;
 const HAND_OPACITY = 0.55;
 const _anchor = new Vector3();
+const _inverse = new Matrix4();
 const _quat = new Quaternion();
 const _dir = new Vector3();
 const _start = new Vector3();
@@ -81,8 +87,10 @@ const Y_AXIS = new Vector3(0, 1, 0);
 export class GhostGuide {
   readonly tracker: OnboardingTracker;
   private readonly targets = makeTargets();
+  /** `targets` in the stage's frame, as found when the showing began. */
+  private readonly local = makeTargets();
   private readonly sample = makeSample();
-  private readonly handMaterial = new MeshBasicMaterial({ color: new Color(CREAM_TEAL), transparent: true, opacity: HAND_OPACITY, depthWrite: false });
+  private readonly handMaterial = new MeshBasicMaterial({ color: new Color(CREAM_TEAL), transparent: true, opacity: HAND_OPACITY, depthWrite: false, depthTest: false });
   private readonly pulses: Mesh[];
   private readonly beam: Mesh;
   private rig: HandRig | null = null;
@@ -206,11 +214,44 @@ export class GhostGuide {
     if (!this.opt.host.resolve(cue.lesson, this.variant, this.targets)) return false;
     const source = this.targets.ghostSource;
     if (source && this.gesture === 'carry') this.preview = new GhostPreview(source, this.opt.scene);
+    this.toLocal();
     return true;
+  }
+
+  /** Keeps the found targets in the stage's frame (`GuideOptions.frame`). */
+  private toLocal(): void {
+    const { frame } = this.opt;
+    const { targets, local } = this;
+    local.from.copy(targets.from);
+    local.to.copy(targets.to);
+    local.axis.copy(targets.axis);
+    if (!frame) return;
+    frame.updateWorldMatrix(true, false);
+    _inverse.copy(frame.matrixWorld).invert();
+    local.from.applyMatrix4(_inverse);
+    local.to.applyMatrix4(_inverse);
+    local.axis.transformDirection(_inverse);
+  }
+
+  /** Puts the kept targets where the stage is now, and the head where the player's is now. */
+  private toWorld(): void {
+    const { frame } = this.opt;
+    const { targets, local } = this;
+    targets.from.copy(local.from);
+    targets.to.copy(local.to);
+    targets.axis.copy(local.axis);
+    if (frame) {
+      frame.updateWorldMatrix(true, false);
+      targets.from.applyMatrix4(frame.matrixWorld);
+      targets.to.applyMatrix4(frame.matrixWorld);
+      targets.axis.transformDirection(frame.matrixWorld);
+    }
+    this.opt.head(targets.head);
   }
 
   private show(cue: Cue): void {
     this.opt.keepAwake?.();
+    this.toWorld();
     const { targets, sample } = this;
     const length = lessonSeconds(cue.lesson);
     sampleScript(this.variant, this.gesture, cue.t, targets, sample);

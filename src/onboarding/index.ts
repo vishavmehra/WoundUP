@@ -17,6 +17,7 @@ export function installOnboarding(game: GameplayView, keepAwake: () => void): Gh
   const tracker = new OnboardingTracker(game.session.save.learned);
   const guide = new GhostGuide({
     scene: game.world.scene,
+    frame: game.stage,
     host: createGuideHost(game),
     tracker,
     head: (out) => game.world.player.head.getWorldPosition(out),
