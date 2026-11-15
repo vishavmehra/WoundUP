@@ -6,7 +6,7 @@ import { setRayModeFlag } from './gaze-state.js';
  * Ray interaction mode (PRODUCT_SPEC §16, F17): the accessibility option for a player who cannot, or would rather not, reach into the scene.
  * IWSDK already gives each hand a far ray (`MultiPointer`: touch, then near grab, then ray) and a pinch acts on what the ray hovers, so this
  * needs no pointer of its own: it only has to make every part answer to rays, which `GrabModeSystem` does when it hears the pointer-mode flag
- * change (a part holds one grab component, and \`OneHandGrabbable\` denies ray pointers, ADR-024). From there the gaze-mode rules apply unchanged
+ * change (a part holds one grab component, and `OneHandGrabbable` denies ray pointers, ADR-024). From there the gaze-mode rules apply unchanged
  * because they hang on the flag, not on the pointer: a held pinch takes a seated part out, a tap on the key winds one unit (no twist is needed),
  * the carried machine is dragged to its plot, and the UI plaques and the lens are ray targets already.
  */
