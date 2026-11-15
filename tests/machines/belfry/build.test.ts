@@ -188,8 +188,8 @@ describe.skipIf(!present)('the finished Belfry from the real GLBs', () => {
     const before = new Box3().setFromObject(rig.root, true);
     const meshesBefore = drawn(rig.root).length;
     const baked = bakeRig(rig);
-    // Nothing is left to merge: the casing (one mesh per material, faded by X-ray) never merges with the mechanism, and the handle and the
-    // bearing are alone in their materials. The bake must still never add a draw.
+    // Little is left to merge: the casing is one mesh per material already, and the handle and the bearing are alone in their materials
+    // (what they share with the casing is baked once combined and once split, the split hidden until X-ray). The bake must still never add a draw.
     expect(drawn(rig.root).length).toBeLessThanOrEqual(meshesBefore);
     for (const merged of baked.merged) expect(merged.userData.bakedFrom as string[], merged.name).not.toContain('ClockBell_Bell'); // the bell is never merged away
     rig.root.updateWorldMatrix(true, true);

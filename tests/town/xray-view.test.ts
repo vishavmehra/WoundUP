@@ -3,8 +3,14 @@ import type { Material } from 'three';
 import type { Entity } from '@iwsdk/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setXRayLens, writeXRayFlag } from '../../src/interaction/xray-state';
-import { BLUEPRINT_SOCKET_IDS, buildMachine } from '../../src/town/machines';
+import { BELFRY_BELL_NODE, buildBelfry } from '../../src/machines/belfry/build';
+import { buildClockTower } from '../../src/machines/clock-tower/build';
+import { CLOCK_TOWER_NODE } from '../../src/machines/clock-tower/rig';
+import { buildWell, WELL_NODE } from '../../src/machines/well/build';
+import { bakeRig } from '../../src/town/bake';
+import { BLUEPRINT_SOCKET_IDS, buildCarousel, buildMachine, buildMusicBox, buildWindmill } from '../../src/town/machines';
 import { createRig, createRotor } from '../../src/town/motion';
+import type { MachineRig } from '../../src/town/motion';
 import { TownRuntime } from '../../src/town/runtime';
 import { isXRayShell, XRAY_FADE_S, XRAY_GLOW, XRAY_OPACITY, XRAY_SHELL, XRayShell, XRayView, xrayMovers, xrayZoneOf } from '../../src/town/xray-view';
 import { libraryRegistry, syntheticTown } from './helpers';
@@ -27,6 +33,22 @@ const box = (name: string, material: MeshStandardMaterial): Mesh => {
 const flag = (active: boolean, root: Object3D | null = null): void => writeXRayFlag(active, root ? ({ object3D: root } as unknown as Entity) : null);
 const run = (view: XRayView, seconds: number): void => {
   for (let t = 0; t < seconds - 1e-9; t += FRAME) view.update(FRAME);
+};
+
+/** The meshes of `root` a frame would draw: visible, with every ancestor visible and a visible material (the colliders' proxies are not). */
+const drawnMeshes = (root: Object3D): Mesh[] => {
+  const found: Mesh[] = [];
+  root.traverseVisible((n) => {
+    const mesh = n as Mesh;
+    if (mesh.isMesh && !Array.isArray(mesh.material) && mesh.material.visible) found.push(mesh);
+  });
+  return found;
+};
+
+const nodesOf = (root: Object3D): number => {
+  let n = 0;
+  root.traverse(() => n++);
+  return n;
 };
 
 afterEach(() => {
@@ -468,31 +490,29 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
     });
   }
 
-  // The batching merges the casing apart from the mechanism: no merged mesh has casing and mechanism sources, and the casing's are flagged.
+  // While X-ray shows, the batching's split meshes draw: no drawn mesh has casing and mechanism sources, and the casing's are flagged or named.
   for (const id of MACHINES) {
-    it(`${id}: every drawn mesh is all casing (flagged or named) or all mechanism, whatever the batching merged into it`, async () => {
+    it(`${id}: while X-ray shows, every drawn mesh is all casing (flagged or named) or all mechanism, whatever the batching merged into it`, async () => {
       const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
       if (!rig) throw new Error(`no ${id}`);
       const prefixes = XRAY_SHELL[id];
+      const shell = new XRayShell(rig.root, prefixes);
+      shell.setAmount(1);
       const named = (name: string): boolean => prefixes.some((p) => name.startsWith(p));
       let casing = 0;
       let flagged = 0;
-      rig.root.traverse((n) => {
-        const mesh = n as Mesh;
-        if (!mesh.isMesh) return;
-        for (let up: Object3D | null = mesh; up; up = up.parent) if (!up.visible) return; // the Clock Tower's hidden originals draw nothing
+      for (const mesh of drawnMeshes(rig.root)) {
         const sources = (mesh.userData.bakedFrom as string[] | undefined) ?? [mesh.name];
         const fromCasing = sources.filter(named).length;
         expect(fromCasing === 0 || fromCasing === sources.length, `${id}: ${mesh.name} merges ${sources.join(', ')}`).toBe(true);
         expect(isXRayShell(mesh, prefixes), `${id}: ${mesh.name}`).toBe(fromCasing > 0);
+        expect(mesh.userData.xrayCombined, `${id}: ${mesh.name} is the combined bake, which is hidden while X-ray shows`).toBeUndefined();
         if (fromCasing > 0) casing++;
-        if (mesh.userData.xrayShell === true) {
-          flagged++;
-          expect(sources.length, `${id}: ${mesh.name} is a merge`).toBeGreaterThan(1);
-        }
-      });
+        if (mesh.userData.xrayShell === true) flagged++;
+      }
       expect(casing, `${id}: casing meshes drawn`).toBeGreaterThan(0);
       if (id !== 'music_box' && id !== 'well' && id !== 'belfry') expect(flagged, `${id}: merged casing meshes`).toBeGreaterThan(0);
+      shell.dispose();
     });
   }
 
@@ -520,19 +540,21 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
     if (!rig) throw new Error('no carousel');
     const platform = rig.rotors.map((r) => r.node).find((node) => node.name === 'Scene');
     if (!platform) throw new Error('no platform rotor');
-    const canopy: Mesh[] = [];
+    const fromCanopy: Mesh[] = []; // every mesh under the rotor with canopy sources: the combined ones that draw now, and the split ones
     platform.traverse((n) => {
       const mesh = n as Mesh;
       const from = mesh.userData.bakedFrom as string[] | undefined;
-      if (mesh.isMesh && from?.some((name) => name.startsWith('CarouselCanopy_'))) canopy.push(mesh);
+      if (mesh.isMesh && from?.some((name) => name.startsWith('CarouselCanopy_'))) fromCanopy.push(mesh);
     });
-    expect(canopy.length, 'merged meshes with canopy sources, under the rotor').toBeGreaterThan(0);
-    for (const mesh of canopy) expect(mesh.userData.xrayShell, mesh.name).toBe(true);
+    const canopy = fromCanopy.filter((m) => m.userData.xrayShell === true);
+    expect(canopy.length, 'merged casing meshes with canopy sources, under the rotor').toBeGreaterThan(0);
+    for (const mesh of fromCanopy) expect(mesh.userData.xrayShell === true || mesh.userData.xrayCombined === true, `${mesh.name}: flagged casing, or the combined bake`).toBe(true);
 
     const before = new Map(canopy.map((m) => [m, m.material]));
     const shell = new XRayShell(rig.root, XRAY_SHELL.carousel, () => xrayMovers(rig));
     shell.setAmount(1);
     for (const mesh of canopy) {
+      expect(mesh.visible, `${mesh.name} draws while X-ray shows`).toBe(true);
       const material = mesh.material as MeshStandardMaterial;
       expect(material, mesh.name).not.toBe(before.get(mesh));
       expect(material.transparent, mesh.name).toBe(true);
@@ -551,6 +573,14 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
       const prefixes = XRAY_SHELL[id];
       const movers = xrayMovers(rig);
       expect(movers.length, `${id} moving nodes`).toBeGreaterThan(0);
+      const all: Mesh[] = [];
+      rig.root.traverse((n) => {
+        if ((n as Mesh).isMesh) all.push(n as Mesh);
+      });
+      const before = new Map(all.map((m) => [m, m.material]));
+      const shell = new XRayShell(rig.root, prefixes, () => movers);
+      shell.setAmount(1);
+      // What glows is what draws while X-ray shows (the split meshes, not the combined ones) under a moving node and is not casing.
       const expected = new Set<Mesh>();
       for (const node of movers) {
         node.traverse((n) => {
@@ -559,14 +589,6 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
         });
       }
       expect(expected.size, `${id} meshes that glow`).toBeGreaterThan(0);
-
-      const all: Mesh[] = [];
-      rig.root.traverse((n) => {
-        if ((n as Mesh).isMesh) all.push(n as Mesh);
-      });
-      const before = new Map(all.map((m) => [m, m.material]));
-      const shell = new XRayShell(rig.root, prefixes, () => movers);
-      shell.setAmount(1);
       for (const mesh of expected) {
         const material = mesh.material as MeshStandardMaterial;
         expect(material, mesh.name).not.toBe(before.get(mesh));
@@ -608,4 +630,97 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
     if (!rig) throw new Error('no clock tower');
     expect(xrayZoneOf(rig.root).top).toBeGreaterThan(0.15);
   });
+});
+
+describe.skipIf(!modelsPresent)('the two bakes of a finished machine, on the real GLBs: combined in normal play, split while X-ray shows', () => {
+  const registry = libraryRegistry();
+  /** Each machine as its builder returns it (unbaked), with the names its own runtime keeps (`KEEP_BY_NAME`, town/machines.ts). */
+  const LOOSE: Record<(typeof MACHINES)[number], readonly [() => Promise<MachineRig>, readonly string[]]> = {
+    music_box: [() => buildMusicBox(realSource, registry), []],
+    carousel: [() => buildCarousel(realSource, registry), []],
+    windmill: [() => buildWindmill(realSource, registry), []],
+    clock_tower: [() => buildClockTower(realSource, registry), Object.values(CLOCK_TOWER_NODE)],
+    well: [() => buildWell(realSource, registry), Object.values(WELL_NODE)],
+    belfry: [() => buildBelfry(realSource, registry), Object.values(BELFRY_BELL_NODE)],
+  };
+
+  for (const id of MACHINES) {
+    it(`${id}: draws the combined meshes, shows the split ones with the casing see-through and the mechanism solid, and swaps back when X-ray is off and settled`, async () => {
+      // What the batching drew before it told the casing apart (no casing prefixes: everything merged per material): the normal-play draw count to hold.
+      // (The Well's and the Belfry's casing was kept as loose meshes before that, two more draws each, so this is at most what the main branch draws.)
+      const [build, keep] = LOOSE[id];
+      const loose = await build();
+      bakeRig({ ...loose, machineId: 'none' } as unknown as MachineRig, keep);
+      const baseline = drawnMeshes(loose.root).length;
+
+      const rig = await buildMachine(id, realSource, registry, BLUEPRINT_SOCKET_IDS);
+      if (!rig) throw new Error(`no ${id}`);
+      const prefixes = XRAY_SHELL[id];
+      const all: Mesh[] = [];
+      rig.root.traverse((n) => {
+        if ((n as Mesh).isMesh) all.push(n as Mesh);
+      });
+      const combined = all.filter((m) => m.userData.xrayCombined === true);
+      const split = all.filter((m) => m.userData.xraySplit === true);
+      expect(combined.length, `${id} combined meshes`).toBeGreaterThan(0);
+      expect(split.length, `${id}: a casing and a mechanism mesh for each combined one`).toBe(2 * combined.length);
+      const before = new Map(all.map((m) => [m, m.material]));
+      const nodes = nodesOf(rig.root);
+
+      // Normal play: only the combined meshes draw, and there are no more draw calls than the plain bake has.
+      expect(drawnMeshes(rig.root).length, `${id} meshes drawn in normal play`).toBe(baseline);
+      for (const m of combined) expect(m.visible, m.name).toBe(true);
+      for (const m of split) expect(m.visible, m.name).toBe(false);
+
+      const view = new XRayView();
+      const remove = view.add({ root: rig.root, prefixes, lens: () => false, moving: () => xrayMovers(rig) });
+      view.update(FRAME);
+      expect(view.busy, 'idle without the flag').toBe(false);
+      for (const m of combined) expect(m.visible, m.name).toBe(true);
+
+      // X-ray starts: the first frame of the fade already draws the split meshes.
+      flag(true, rig.root);
+      view.update(FRAME);
+      expect(view.busy).toBe(true);
+      for (const m of combined) expect(m.visible, `${m.name} is hidden as soon as X-ray fades`).toBe(false);
+      for (const m of split) expect(m.visible, `${m.name} draws as soon as X-ray fades`).toBe(true);
+      run(view, XRAY_FADE_S + 0.1);
+      expect(view.busy).toBe(false);
+      const shown = drawnMeshes(rig.root);
+      expect(shown.length, `${id} meshes drawn while X-ray shows: one more for each combined mesh`).toBe(baseline + combined.length);
+      let faded = 0;
+      let solid = 0;
+      for (const m of shown) {
+        const material = m.material as MeshStandardMaterial;
+        if (isXRayShell(m, prefixes)) {
+          faded++;
+          expect(material.opacity, m.name).toBeCloseTo(XRAY_OPACITY, 6);
+          expect(material.transparent, m.name).toBe(true);
+          expect(material.depthWrite, m.name).toBe(false);
+        } else {
+          solid++;
+          expect(material.opacity, m.name).toBe((before.get(m) as MeshStandardMaterial).opacity);
+          expect(material.transparent, m.name).toBe((before.get(m) as MeshStandardMaterial).transparent);
+        }
+      }
+      expect(faded, `${id}: drawn casing meshes`).toBeGreaterThan(0);
+      expect(solid, `${id}: drawn mechanism meshes`).toBeGreaterThan(0);
+
+      // X-ray stops: the split meshes stay while the casing is still fading in, and the combined ones come back when it is fully opaque again.
+      flag(false);
+      run(view, 0.1);
+      expect(view.busy).toBe(true);
+      for (const m of split) expect(m.visible, `${m.name} still draws while the casing is not opaque`).toBe(true);
+      run(view, XRAY_FADE_S + 0.1);
+      expect(view.busy).toBe(false);
+      for (const m of combined) expect(m.visible, m.name).toBe(true);
+      for (const m of split) expect(m.visible, m.name).toBe(false);
+      expect(drawnMeshes(rig.root).length, `${id} meshes drawn once X-ray is off`).toBe(baseline);
+      for (const m of all) expect(m.material, `${m.name} has the shared material it was built with`).toBe(before.get(m));
+      expect(nodesOf(rig.root), 'the swap adds and removes no node').toBe(nodes);
+
+      remove();
+      for (const m of combined) expect(m.visible, m.name).toBe(true);
+    });
+  }
 });
