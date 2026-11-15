@@ -20,21 +20,27 @@ import {
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- reaches into the ?debug world handle */
 
-/** Music Box sockets in blueprint (dependency) order: the empty on the case, and the start of the part id that the blueprint intends there. */
+/**
+ * The 12 big parts of the Music Box in the order of its stages (INTRICATE_ASSEMBLY_DESIGN §8.1, ADR-050): the empty on the case, and the start of the part id the
+ * blueprint intends there. Each stage's tray opens when the stage before it closes, so this is the only order the armed sockets accept.
+ */
 export const MUSIC_BOX_SOCKETS: ReadonlyArray<readonly [socket: string, part: string]> = [
   ['SOCKET_BracketL', 'bracket_support'],
   ['SOCKET_BracketR', 'bracket_support'],
   ['SOCKET_Arbor', 'shaft_short'],
-  ['SOCKET_Cylinder', 'cylinder_music_box'],
-  ['SOCKET_Comb', 'comb_music_box'],
-  ['SOCKET_GearB', 'gear_spur_20_m1'],
   ['SOCKET_GearC', 'gear_spur_16_m1'],
-  ['SOCKET_Spring', 'spring_standard'],
-  ['SOCKET_GearA', 'gear_spur_10_m1'],
+  ['SOCKET_Cylinder', 'cylinder_music_box'],
+  ['SOCKET_GearB', 'gear_spur_20_m1'],
+  ['SOCKET_Comb', 'comb_music_box'],
   ['SOCKET_Governor', 'governor_standard'],
   ['SOCKET_GearD', 'gear_spur_12_m1'],
+  ['SOCKET_Spring', 'spring_standard'],
+  ['SOCKET_GearA', 'gear_spur_10_m1'],
   ['SOCKET_Key', 'winding_key'],
 ];
+
+/** The three levels of the first-build card (ADR-050). */
+export type Level = 'relaxed' | 'standard' | 'master';
 
 const add = (a: Vec3, b: Vec3): Vec3 => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
 const sub = (a: Vec3, b: Vec3): Vec3 => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
@@ -49,8 +55,27 @@ const noBeat: Beat = () => undefined;
 
 // ---- The story steps up to the workbench (UI presses through the debug helper: a hand never presses these in the specs) -------------
 
-/** Latch -> lid opens -> town shows -> envelope -> Accept -> parcel -> housing and 12 parts on the bench. Debug-helper presses. */
-export async function openTrunkAndSetBench(page: Page, beat: Beat = noBeat): Promise<void> {
+/**
+ * The first deep build asks for a level before the parcel opens (the card stands over the closed parcel, modal). Presses `level` when the card comes up and
+ * does nothing when it does not (a later letter, a build with no stages): the answer is saved, so the card is a once-only step. Debug-helper press.
+ */
+export async function answerDifficultyCard(page: Page, level: Level = 'relaxed'): Promise<boolean> {
+  const shown = await page
+    .waitForFunction(
+      (name) => (window as any).__wu.ui.pressables().some((p: any) => p.name === name && p.active),
+      `UI_Difficulty_${level}`,
+      { timeout: 4_000, polling: 100 },
+    )
+    .then(
+      () => true,
+      () => false,
+    );
+  if (shown) await press(page, `UI_Difficulty_${level}`);
+  return shown;
+}
+
+/** Latch -> lid opens -> town shows -> envelope -> Accept -> level card -> parcel -> housing and the first stage's parts on the bench. Debug-helper presses. */
+export async function openTrunkAndSetBench(page: Page, beat: Beat = noBeat, level: Level = 'relaxed'): Promise<void> {
   await beat('frozen-trunk');
   await press(page, 'trunk', 'COL_Latch');
   await page.waitForFunction(() => (window as any).__wu.ui.localFlow.trunk === 'opening', null, { timeout: 15_000, polling: 20 });
@@ -68,6 +93,7 @@ export async function openTrunkAndSetBench(page: Page, beat: Beat = noBeat): Pro
   await frames(page, 10);
   await beat('letter');
   await press(page, 'UI_Accept');
+  await answerDifficultyCard(page, level);
   await whenActive(page, 'parcel');
   await frames(page, 30);
   await beat('parcel');
@@ -89,15 +115,18 @@ export const whenActive = (page: Page, name: string, timeout = 30_000): Promise<
     { timeout, polling: 100 },
   );
 
-/** The tray's parts pop in 0.12 s apart: wait until every part is at full size (a grab collider is sized against the part's scale). */
-export async function waitForPartsPopped(page: Page): Promise<void> {
+/**
+ * The tray's parts pop in 0.12 s apart: wait until `count` parts stand in the scene and every one is at full size (a grab collider is sized against the part's scale).
+ * The first stage's bag of the deep build is 2 parts; a repair's bench has 12.
+ */
+export async function waitForPartsPopped(page: Page, count = 2): Promise<void> {
   await page.waitForFunction(
-    () => {
+    (n) => {
       const w = (window as any).__world;
       const parts = w.getSceneObject('stage').children.filter((c: any) => w.entityManager.getEntityByIndex(c.entityIdx)?.getComponents().some((x: any) => x.id === 'SnapPart'));
-      return parts.length >= 12 && parts.every((p: any) => p.scale.x > 0.99);
+      return parts.length >= n && parts.every((p: any) => p.scale.x > 0.99);
     },
-    null,
+    count,
     { timeout: 30_000, polling: 100 },
   );
   await frames(page, 10);
@@ -127,6 +156,58 @@ export const listParts = (page: Page): Promise<ListedPart[]> =>
 
 export const seatedCount = async (page: Page): Promise<number> => (await gameState(page)).build?.seated ?? 0;
 
+/**
+ * The deep build's stages seated by the ?debug helper, as a player who knows the machine would, until every socket is full (mode Wind): each pass seats what the director
+ * has armed, then the next stage's bag opens and the game seats Relaxed's hardware a few frames later. DEBUG HELPER (a hand does none of this).
+ */
+export async function seatAllByHelper(page: Page, passes = 60): Promise<void> {
+  for (let pass = 0; pass < passes; pass++) {
+    if ((await gameState(page)).mode === 'wind') return;
+    await page.evaluate(() => (window as any).__wu.seatAll());
+    await frames(page, 25);
+  }
+  await waitForMode(page, 'wind', 30_000);
+}
+
+/** World position of the empty of blueprint socket `id` on the bench machine, or null (a hardware seat exists only while its carrier is seated). DEBUG HELPER. */
+export const socketPosition = (page: Page, id: string): Promise<Vec3 | null> => page.evaluate((i) => (window as any).__wu.socketAt(i) as Vec3 | null, id);
+
+/**
+ * The caddy piece of `partPrefix` that a hand can take: it has rolled up to its bin's mouth (it carries ReturnsToRest and the grab from then on) and is at full size.
+ * A bin makes the next piece 0.25 s after the one before it was seated. Throws after 20 s.
+ */
+export async function waitForLivePiece(page: Page, partPrefix: string, timeout = 20_000): Promise<ListedPart> {
+  const until = Date.now() + timeout;
+  for (;;) {
+    for (const part of await listParts(page)) {
+      if (!part.name.startsWith(partPrefix) || part.snapped) continue;
+      if ((await hasComponent(page, part, 'ReturnsToRest')) && (await partPose(page, part)).scale > 0.99) {
+        await frames(page, 4);
+        return part;
+      }
+    }
+    if (Date.now() > until) throw new Error(`no live caddy piece starting with ${partPrefix} after ${timeout} ms`);
+    await frames(page, 6);
+  }
+}
+
+/**
+ * The unseated part whose id starts with `partPrefix`, full size and at rest. A stage's tray opens a moment after the stage before it closes (the bag is made, then
+ * pops in), so this waits for it. Throws after 20 s.
+ */
+export async function waitForTrayPart(page: Page, partPrefix: string, timeout = 20_000): Promise<ListedPart> {
+  const until = Date.now() + timeout;
+  for (;;) {
+    const part = (await listParts(page)).find((p) => p.name.startsWith(partPrefix) && !p.snapped);
+    if (part && (await partPose(page, part)).scale > 0.99) {
+      await frames(page, 4);
+      return part;
+    }
+    if (Date.now() > until) throw new Error(`no unseated part starting with ${partPrefix} in the tray after ${timeout} ms`);
+    await frames(page, 6);
+  }
+}
+
 export interface SeatReport {
   part: PartHandle;
   socket: string;
@@ -135,6 +216,8 @@ export interface SeatReport {
   grabbed: boolean;
   snapped: boolean;
   seatedAfter: number;
+  /** Where the part lay (tray compartment, bin mouth) before the hand took it. */
+  home: Vec3;
 }
 
 /**
@@ -149,13 +232,14 @@ export async function seatByHand(
   beat: Beat = noBeat,
   /** Where on the part to pinch, relative to its grab collider (metres): away from a bigger collider that overlaps it. */
   bias: Vec3 = { x: 0, y: 0, z: 0 },
+  /** The socket's position when it is not a named empty of the case (a hardware seat on a seated part: `socketPosition`), and whether the piece is a caddy piece. */
+  target?: { at: Vec3; hardware: boolean },
 ): Promise<SeatReport> {
-  const parts = await listParts(page);
-  const part = parts.find((p) => p.name.startsWith(partPrefix) && !p.snapped);
-  if (!part) throw new Error(`no unseated part starting with ${partPrefix} in the tray`);
+  const part = target?.hardware ? await waitForLivePiece(page, partPrefix) : await waitForTrayPart(page, partPrefix);
   const pose = await partPose(page, part);
+  const home = pose.origin;
   pose.grab = add(pose.grab, bias);
-  const socketAt = await nodePosition(page, socket);
+  const socketAt = target?.at ?? (await nodePosition(page, socket));
   const offset = sub(pose.grab, pose.origin); // the grip rides on the collider; the origin follows with this offset
   const carry = add(socketAt, offset);
 
@@ -177,7 +261,7 @@ export async function seatByHand(
   await frames(page, 8);
   const snapped = await hasComponent(page, part, 'SnappedTo');
   await beat('snapped');
-  return { part, socket, releasedAt, grabbed, snapped, seatedAfter: await seatedCount(page) };
+  return { part, socket, releasedAt, grabbed, snapped, seatedAfter: await seatedCount(page), home };
 }
 
 /** Builds the whole Music Box with one hand, in blueprint order. Returns one report per part. */
@@ -287,6 +371,85 @@ export async function repairWornSpringByHand(page: Page, hand: Hand, beat: Beat 
   return { seatedAtStart, seatedAfterPull, reseated };
 }
 
+// ---- The deep build (ADR-050) ---------------------------------------------------------------------------------------------------
+
+export interface DeepStep {
+  socketId: string;
+  partId: string;
+  hardware: boolean;
+  /** Wall-clock seconds of the scripted hand, from the step being asked for to the piece being counted. */
+  seconds: number;
+  grabbed: boolean;
+  snapped: boolean;
+  /** Distance of the piece from its socket when the hand let go, metres. */
+  releasedAt: number;
+}
+
+export interface DeepBuild {
+  level: Level;
+  steps: DeepStep[];
+  /** One pinch per placement (a pick and a release). */
+  pinches: number;
+  bigParts: number;
+  hardware: number;
+  /** Wall-clock seconds from the first step to the machine being complete (mode Wind). Scripted hands move at fixed speeds: this is not a human's time. */
+  seconds: number;
+  /** Placements by hand that the director refused or that missed (a step run again). */
+  retries: number;
+}
+
+/**
+ * Builds the whole Music Box with a HAND, one step after another as the director asks (`__wu.state().bench.next`): every big part from the tray, and in Standard and
+ * Master every pin, washer, bush, screw, collar and clip from the caddy. The hardware of Relaxed is the game's. Returns one entry per placement. Real emulated hand input;
+ * the only debug helpers are the reads of which socket is next and where it is.
+ */
+export async function assembleDeepByHand(
+  page: Page,
+  hand: Hand,
+  level: Level,
+  beat: (name: string, index: number) => Promise<void> | void = noBeat,
+  /** Called after every placement that counted (a probe of the scene: draw calls, live grabbables). */
+  afterStep: (index: number) => Promise<void> | void = () => undefined,
+  maxSteps = 60,
+): Promise<DeepBuild> {
+  const steps: DeepStep[] = [];
+  const started = Date.now();
+  let retries = 0;
+  for (let n = 0; steps.length < maxSteps; ) {
+    const st = (await page.evaluate(() => (window as any).__wu.state())) as { mode: string; bench: { next: string | null; nextPart: string | null; complete: boolean } | null };
+    if (st.mode === 'wind' || st.bench?.complete) break;
+    if (!st.bench?.next || !st.bench.nextPart) {
+      await frames(page, 6); // a stage is closing, its bag is arriving
+      continue;
+    }
+    const { next: socketId, nextPart: partId } = st.bench;
+    const at = await socketPosition(page, socketId);
+    if (!at) {
+      await frames(page, 6);
+      continue;
+    }
+    const hardware = isHardwarePart(partId);
+    const t0 = Date.now();
+    const r = await seatByHand(page, hand, socketId, partId, (name) => beat(name, n), { x: 0, y: 0, z: 0 }, { at, hardware });
+    const step: DeepStep = { socketId, partId, hardware, seconds: (Date.now() - t0) / 1000, grabbed: r.grabbed, snapped: r.snapped, releasedAt: r.releasedAt };
+    if (!r.snapped) {
+      retries++;
+      if (retries > 20) throw new Error(`the hand missed ${socketId} ${retries} times`);
+      await frames(page, 30);
+      continue;
+    }
+    steps.push(step);
+    await afterStep(n);
+    n++;
+  }
+  const hardwareCount = steps.filter((s) => s.hardware).length;
+  return { level, steps, pinches: steps.length + retries, bigParts: steps.length - hardwareCount, hardware: hardwareCount, seconds: (Date.now() - started) / 1000, retries };
+}
+
+/** The catalogue ids of the hardware the Music Box uses (family `fastener`), by the asset stem they start with. */
+const HARDWARE_STEMS = ['pin_taper_2', 'pin_dowel_3', 'collar_set_8', 'washer_plain_8', 'bush_split_8', 'screw_slot_m3', 'clip_angle_small'];
+export const isHardwarePart = (partId: string): boolean => HARDWARE_STEMS.some((stem) => partId.startsWith(stem));
+
 // ---- Wind -----------------------------------------------------------------------------------------------------------------------
 
 /** Wrist roll about the key's axis (the case's +X): the fingers point along -X, the palm direction turns by `theta` radians about X. */
@@ -318,7 +481,8 @@ export async function windByHand(
   const units: number[] = [];
   let grabbedAtPinch: string[] = [];
   for (let g = 0; g < grabs; g++) {
-    await hand.place(add(K, { x: 0.08, y: 0, z: 0 }), 'index-tip', rollOf(0));
+    // The fingertip comes down onto the key from above. From the right it crosses the Run plaque (which stands 1.7 cm in front of that line once the key has turned) within the 2 cm a poke needs, and presses it.
+    await hand.place(add(K, { x: 0, y: 0.05, z: 0 }), 'index-tip', rollOf(0));
     await frames(page, 2);
     await hand.glide(K, 0.4, 'index-tip', rollOf(0));
     await hand.pinch(1, 0.15);
@@ -477,6 +641,7 @@ export async function playLetterByHelper(page: Page, fault?: string): Promise<st
   await whenActive(page, 'UI_Accept');
   await frames(page, 10);
   await press(page, 'UI_Accept');
+  await answerDifficultyCard(page, 'relaxed'); // the first deep build (Letter 1) asks; every other letter does not
   await whenActive(page, 'parcel');
   await frames(page, 20);
   await press(page, 'parcel');

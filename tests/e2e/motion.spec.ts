@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openTrunkAndSetBench, playLetterByHelper, runMachine, windByHelper } from './support/flow';
+import { openTrunkAndSetBench, playLetterByHelper, runMachine, seatAllByHelper, windByHelper } from './support/flow';
 import {
   checkCarousel,
   checkMusicBox,
@@ -35,7 +35,7 @@ test.describe.serial('machines in the town (letters played by the debug helper)'
     await openGame(page);
     await Hand.enable(page); // the game is hands-only: the headset shows hands, not the emulator's two controller models
     await openTrunkAndSetBench(page);
-    await page.evaluate(() => (window as any).__wu.seatAll());
+    await seatAllByHelper(page); // DEBUG HELPER: seat the stages quickly
     await waitForMode(page, 'wind');
     await windByHelper(page, 8);
     await runMachine(page);
@@ -89,7 +89,7 @@ test.describe.serial('machines in the town (letters played by the debug helper)'
   test('Music Box running on the bench, helper-built: every turning part turns at the solver speed (control for the hand flow)', async ({ page }) => {
     await openGame(page);
     await openTrunkAndSetBench(page);
-    await page.evaluate(() => (window as any).__wu.seatAll());
+    await seatAllByHelper(page); // DEBUG HELPER: seat the stages quickly
     await waitForMode(page, 'wind');
     await windByHelper(page, 8);
     await runMachine(page);
@@ -104,7 +104,7 @@ test.describe.serial('machines in the town (letters played by the debug helper)'
     await openGame(page);
     await Hand.enable(page);
     await openTrunkAndSetBench(page);
-    await page.evaluate(() => (window as any).__wu.seatAll());
+    await seatAllByHelper(page); // DEBUG HELPER: seat the stages quickly
     await waitForMode(page, 'wind');
     await windByHelper(page, 8);
     await runMachine(page);

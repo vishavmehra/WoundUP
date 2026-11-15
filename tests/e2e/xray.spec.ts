@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { carryToPlot, openTrunkAndSetBench, runMachine, whenActive, windByHelper } from './support/flow';
+import { answerDifficultyCard, carryToPlot, openTrunkAndSetBench, runMachine, seatAllByHelper, whenActive, windByHelper } from './support/flow';
 import { frames, gameState, GPU_ARGS, Hand, openGame, press, pressWhenReady, requireDevRuntime, waitForMode, type Vec3 } from './support/xr';
 
 /**
@@ -100,7 +100,7 @@ test.describe('X-ray (IWER)', () => {
     await Hand.enable(page);
     await openTrunkAndSetBench(page);
     const hand = new Hand(page, 'right');
-    await page.evaluate(() => (window as any).__wu.seatAll()); // DEBUG HELPER: seat the 12 parts quickly
+    await seatAllByHelper(page); // DEBUG HELPER: seat the stages quickly
     await waitForMode(page, 'wind');
     await settle(page);
 
@@ -181,7 +181,7 @@ test.describe('X-ray (IWER)', () => {
     await Hand.enable(page);
     await openTrunkAndSetBench(page);
     const hand = new Hand(page, 'right');
-    await page.evaluate(() => (window as any).__wu.seatAll());
+    await seatAllByHelper(page); // DEBUG HELPER: seat the stages quickly
     await waitForMode(page, 'wind');
     await windByHelper(page, 8);
     await runMachine(page);
@@ -301,6 +301,7 @@ async function playStory(page: Page, fault?: string, hooks: { bench?: () => Prom
   await whenActive(page, 'UI_Accept');
   await frames(page, 10);
   await press(page, 'UI_Accept');
+  await answerDifficultyCard(page, 'relaxed'); // the first deep build asks for a level
   await whenActive(page, 'parcel');
   await frames(page, 20);
   await press(page, 'parcel');
@@ -312,7 +313,7 @@ async function playStory(page: Page, fault?: string, hooks: { bench?: () => Prom
   }
   for (let pass = 0; pass < 40; pass++) {
     if ((await gameState(page)).mode === 'wind') break;
-    await page.evaluate(() => (window as any).__wu.seatAll());
+    await seatAllByHelper(page); // DEBUG HELPER: seat the stages quickly
     await frames(page, 45);
   }
   await waitForMode(page, 'wind', 60_000);

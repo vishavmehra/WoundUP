@@ -69,6 +69,8 @@ export interface BenchOptions {
   readonly untrack: (part: PartInstance) => void;
   /** True while a hand holds a part. */
   readonly anyHeld: () => boolean;
+  /** A part was seated and its own hardware seats are bound: the game loop checks again whether the machine is complete (a unit put back with its pieces on it is). */
+  readonly onSeated: () => void;
   /** The Helper is quiet: no build or wind in progress, or a panel up. */
   readonly quiet: () => boolean;
 }
@@ -93,6 +95,8 @@ export class Bench implements DirectorHost, HelperWorld {
   private ended = false;
   private traysMade = 0;
   private readonly unsubscribe: () => void;
+  /** What the director is told each frame, reused: nothing is allocated per frame. */
+  private readonly frame = { held: false, panelOpen: false };
 
   constructor(private readonly opt: BenchOptions) {
     this.socketById = new Map(opt.blueprint.sockets.map((s) => [s.id, s] as const));
@@ -167,6 +171,7 @@ export class Bench implements DirectorHost, HelperWorld {
     const object = entity.object3D;
     if (object) this.opt.feedback.onSnap(partVoice(partId), object);
     this.director.snapped(socketId, this.opt.assembly());
+    this.opt.onSeated();
   }
 
   /** A part left `socketId`: the hardware seats it carries stop being sockets of the machine (the pieces stay on it). */
@@ -193,7 +198,21 @@ export class Bench implements DirectorHost, HelperWorld {
     if (this.ended) return;
     if (this.wantedDirty && !this.opt.ui.benchMoving()) this.applyWanted();
     this.dispenser.update(dt);
-    this.director.update(dt, { held: this.opt.anyHeld(), panelOpen: this.opt.quiet() });
+    this.frame.held = this.opt.anyHeld();
+    this.frame.panelOpen = this.opt.quiet();
+    this.director.update(dt, this.frame);
+  }
+
+  /** `?debug`: where the part `partId` lies when at rest (its tray compartment), in world space, written into `out`. False when there is no such part. */
+  restOf(partId: string, out: Vector3): boolean {
+    for (const part of this.byEntity.values()) {
+      const home = part.partId === partId ? this.rest.get(part.object) : undefined;
+      if (!home) continue;
+      out.set(home.x, home.y, home.z);
+      part.object.parent?.localToWorld(out);
+      return true;
+    }
+    return false;
   }
 
   /** `?debug`: what each bin of the caddy holds, how many pieces are left, and whether a piece waits at its mouth or is rolling there. */

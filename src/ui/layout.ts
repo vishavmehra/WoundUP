@@ -97,6 +97,8 @@ export const BUILD_ZONE = { halfX: 0.065, halfZ: 0.065, height: 0.13 } as const;
  * design's numbers (12.5 x 5.0 cm stand, 16.2 x 4.2 cm caddy) and a held part's height above them.
  */
 export const CADDY_ZONE = { halfX: 0.081, z0: 0.055, z1: 0.097, height: 0.065 } as const;
+/** Where `fastener_caddy.glb` stands, bench-local metres (its origin is the centre of its base): centred on the build zone, in the middle of its front strip. A child of the bench root. */
+export const CADDY_AT = { x: BENCH.build.x, y: BENCH.top, z: (CADDY_ZONE.z0 + CADDY_ZONE.z1) / 2 } as const;
 export const STAND_ZONE = { halfX: 0.0625, z0: -0.105, z1: -0.055, height: 0.09 } as const;
 
 /**

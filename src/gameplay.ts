@@ -56,14 +56,13 @@ import type { LidHinge } from './town/motion';
 import { XRAY_SHELL, xrayZoneOf } from './town/xray-view';
 import { HELPER_COPY } from './ui';
 import type { FlowEvent, FlowUi } from './ui';
-import { BENCH, benchPoint } from './ui/layout';
+import { BENCH, benchPoint, CADDY_AT } from './ui/layout';
 import { placeTrayParts } from './tray-layout';
 
 /** A finished machine keeps running after it is placed for at most this long (the Music Box plays one cylinder turn), seconds. */
 const PLACED_RUN_CAP_S = 16;
-/** The fastener caddy (ADR-050): a child of the bench, in the build zone's front strip (INTRICATE_ASSEMBLY_DESIGN §3.3), bench-local metres. */
+/** The fastener caddy (ADR-050): a child of the bench, in the build zone's front strip (INTRICATE_ASSEMBLY_DESIGN §3.3, `CADDY_AT`). */
 const CADDY_MODEL_PATH = 'tockton/workshop/fastener_caddy.glb';
-const CADDY_AT = { x: BENCH.build.x, y: BENCH.top, z: 0.076 } as const;
 /** After Run the power path walks the machine for this long before the lid shuts for the reveal (design §10.4), seconds. */
 const REVEAL_AFTER_S = 0.8;
 const Z_AXIS = new Vector3(0, 0, 1);
@@ -535,8 +534,12 @@ export class Gameplay {
         const i = build.parts.indexOf(part);
         if (i >= 0) build.parts.splice(i, 1);
       },
-      anyHeld: () => build.parts.some((p) => p.entity.hasComponent(Grabbed)),
-      quiet: () => this.session.mode !== 'build' && this.session.mode !== 'wind' ? true : this.ui.panelOpen(),
+      anyHeld: () => {
+        for (const part of build.parts) if (part.entity.hasComponent(Grabbed)) return true;
+        return false;
+      },
+      onSeated: () => this.checkComplete(),
+      quiet: () => (this.session.mode !== 'build' && this.session.mode !== 'wind') || this.ui.panelOpen(),
     });
     this.feedbackFor().reset();
     return true;
@@ -895,7 +898,8 @@ export class Gameplay {
         const build = this.build;
         if (!build) return 0;
         if (this.bench) {
-          // The intricate build: one armed step after another (a stage's tray opens as the stage before it closes, so call it again until it returns 0).
+          // The intricate build: one armed step after another. A stage's tray opens when the stage before it closes and the game seats Relaxed's hardware a few frames
+          // later, so call it again (`seatAllByHelper` in tests/e2e/support/flow.ts does) until the machine is complete.
           let n = 0;
           while (this.bench.debugSeatNext()) n++;
           return n;
@@ -907,6 +911,11 @@ export class Gameplay {
       },
       /** The intricate build's bench (the director, the dispenser, the Helper), or null. */
       bench: (): Bench | null => this.bench,
+      /** World position of the tray compartment a part (by id) was made to lie in: where it returns to when let go. Null when the bench has no such part. */
+      homeOf: (partId: string): { x: number; y: number; z: number } | null => {
+        const home = this.bench?.restOf(partId, _at);
+        return home ? { x: _at.x, y: _at.y, z: _at.z } : null;
+      },
       /** World position of the empty of blueprint socket `id` on the bench machine (a hardware seat only exists while its carrier is seated), or null. */
       socketAt: (id: string): { x: number; y: number; z: number } | null => {
         const node = this.build?.machine.sockets.get(id)?.getValue(Socket, 'node') as Object3D | undefined;

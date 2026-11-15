@@ -218,18 +218,19 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
   await shot('06', 'music-box-blueprint', 'Parcel open: the blueprint sheet for the Music Box with its 12 numbered slots.', 'debug helper', async () => {
     const s = await gameState(page);
     const view = await page.evaluate(() => Boolean((window as any).__wu.ui.currentView?.blueprint));
-    expect(s.build).toMatchObject({ blueprint: 'music_box', parts: 12, seated: 0 });
+    expect(s.build).toMatchObject({ blueprint: 'music_box' }); // the intricate build (ADR-050): the first stage's parts are out, the game seats the spring's anchor
+    expect(s.build?.parts).toBeGreaterThanOrEqual(2);
     expect(view).toBe(true);
-    return 'blueprint visible, 12 slots, 0 seated';
+    return 'blueprint visible, 12 slots, the first stage open';
   });
   await aimAt(page, 'tray', 0.2, 0.22);
-  await shot('07', 'parts-tray', 'The 12 parts of the Music Box lying in the tray.', 'debug helper', async () => {
+  await shot('07', 'parts-tray', "The first stage's parts of the Music Box lying in the tray (the later stages' parts arrive as each stage closes, ADR-050).", 'debug helper', async () => {
     const parts = await page.evaluate(() => {
       const w = (window as any).__world;
       return w.getSceneObject('stage').children.filter((c: any) => w.entityManager.getEntityByIndex(c.entityIdx)?.getComponents().some((x: any) => x.id === 'SnapPart')).length as number;
     });
-    expect(parts).toBe(12);
-    return '12 parts in the scene, all at full size';
+    expect(parts).toBeGreaterThanOrEqual(2);
+    return `${parts} parts in the scene`;
   });
 
   // ---- 8 to 10: grab, snap, completed assembly (a hand does all of it) ------------------------------------------------------------

@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4173;
+// `WU_E2E_PORT` moves the preview server: a worktree's run must not meet another checkout's server on 4173 (`reuseExistingServer` would use it, with its build).
+const PORT = Number((globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env?.WU_E2E_PORT ?? 4173);
 // Served under a sub-path on purpose: ACCEPTANCE APP-08 (the build must work from any base path, not only the domain root).
 const BASE = '/wound-up/';
 
