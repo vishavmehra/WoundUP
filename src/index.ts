@@ -18,6 +18,7 @@ import { installRenderBudget, type RenderBudget } from './render-budget.js';
 import { StageSystem } from './stage.js';
 import { machineFrame, stageFrame, type Insets, type StageBox } from './stage-framing.js';
 import { addWorkshopLantern, installTown, loadModel, showGiftPlate } from './town/index.js';
+import { precompileNight } from './town/night.js';
 import { browserShareEnv, installFlowUi, mountGiftViewer, type FlowEvent } from './ui/index.js';
 import { detectXrSupport, enterXR } from './xr-entry.js';
 import { installXrTuning } from './xr-tuning.js';
@@ -108,6 +109,11 @@ async function installGame(
   void addWorkshopLantern(play.ui.benchRoot, loadModel, materials);
   installGameplay(gameWorld, play);
   await play.start();
+  // The first night would compile a shader program for every lit material (the lamp lights): do it now, behind the landing, once the textures are in.
+  const lamps = play.town.town.dressing?.lamps.map((lamp) => lamp.light) ?? [];
+  void texturesReady
+    .then(() => precompileNight(gameWorld.renderer, gameWorld.scene, gameWorld.camera, lamps))
+    .catch((e: unknown) => console.warn('[wound-up] could not prepare the night shaders; the first night may hitch once:', e));
   return play.debug();
 }
 
