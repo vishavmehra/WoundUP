@@ -1,9 +1,10 @@
 import { AssetManager, PokeInteractable, RayInteractable } from '@iwsdk/core';
 import type { Entity, World } from '@iwsdk/core';
-import { CylinderGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from 'three';
+import { CylinderGeometry, Group, Mesh, MeshBasicMaterial, RingGeometry, Vector3 } from 'three';
 import type { Object3D } from 'three';
 import { ENGRAVINGS, type EngravingId, type LetterDef, type MachineId, type RepairDef } from '../game/content.js';
 import { dateKey } from '../game/date.js';
+import type { Difficulty } from '../game/save.js';
 import type { GameSession } from '../game/session.js';
 import type { Mode } from '../game/modes.js';
 import { giftableMachines } from '../game/progression.js';
@@ -14,10 +15,30 @@ import { setupGlbInteraction, type GlbInteraction } from '../interaction/glb-int
 import { applyLibraryMaterials, type MaterialRegistry } from '../materials/index.js';
 import type { SolveResult } from '../sim/index.js';
 import { findHinge, applyHinge, Progress } from './anim.js';
-import { MACHINE_NAMES, SETTING_ROWS, HINTS, XRAY_HINT, describeResult, giftMakeErrorText, windLabel, type ResultHints } from './copy.js';
-import { BENCH, DAILY_SPOT, GIFT_SPOT, LENS_HINT_SPOT, LENS_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
+import { HELPER_COOLDOWN_S, HELPER_HOLD_S, NO_HELPER, STEP_REVEAL_S, assemblyKey, offerGlow, type AssemblyView, type HelperView } from './assembly.js';
+import {
+  DIFFICULTY_CARD,
+  DIFFICULTY_COPY,
+  DIFFICULTY_ORDER,
+  DIFFICULTY_ROW,
+  HELPER_COPY,
+  HINTS,
+  MACHINE_NAMES,
+  MASTER_AVAILABLE,
+  RECOMMENDED_DIFFICULTY,
+  SETTING_ROWS,
+  STEP_SHEET,
+  XRAY_HINT,
+  describeResult,
+  difficultyRowLabel,
+  giftMakeErrorText,
+  nextDifficulty,
+  windLabel,
+  type ResultHints,
+} from './copy.js';
+import { BENCH, DAILY_SPOT, GIFT_SPOT, HELPER_HINT_SPOT, HELPER_SPOT, LENS_HINT_SPOT, LENS_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, STEP_HELP, benchPoint, benchZ, latchSpot } from './layout.js';
 import { createGiftLink, shortLink, showLinkInPage, type GiftHost, type ShareEnv } from './gift-flow.js';
-import { paintBlueprint, paintClosing, paintLetter, paintMedallion, paintPanel, paintSlip, resultSlip, type BlueprintSlot } from './paint.js';
+import { paintBlueprint, paintChoice, paintClosing, paintLetter, paintMedallion, paintPanel, paintSlip, paintStepSheet, resultSlip, type BlueprintSlot } from './paint.js';
 import { PALETTE, ensureFonts } from './palette.js';
 import { Plaque, Surface, domCanvas, type CanvasFactory } from './surface.js';
 import { freshLocal, viewFor, type LocalFlow, type View } from './view.js';
@@ -43,10 +64,25 @@ export type FlowEvent =
   | { type: 'restarted' }
   | { type: 'gift-link'; machineId: MachineId; url: string; delivered: 'copied' | 'shared' | 'shown' }
   /** A sound cue for the audio layer, at the moment of the action (UI_UX_SPEC section 22): the latch, paper, and every other press. */
-  | { type: 'cue'; cue: 'latch' | 'paper' | 'button' };
+  | { type: 'cue'; cue: 'latch' | 'paper' | 'button' }
+  /** The build difficulty was chosen on the first-build card (`first`) or changed in Pause; it is already in the save (ADR-050, design §6). */
+  | { type: 'difficulty'; value: Difficulty; first: boolean }
+  /** The Helper medallion was pressed: a tap, or `long` for a hold in hands mode (design §7.2). The ladder (show, demonstrate, place) is the director's. */
+  | { type: 'helper'; long: boolean };
+
+/** Intricate assembly (ADR-050). Left out, or `enabled: false`: today's build, with no card, Helper, step list or Difficulty row. */
+export interface AssemblyOptions {
+  /** The `INTRICATE_ASSEMBLY` fallback constant of the blueprints. */
+  enabled: boolean;
+  /** Whether the build for this letter has stages (today the Music Box only): the first-build difficulty card is due only before such a build. */
+  deepBuild: (letter: LetterDef | null) => boolean;
+  /** Master is offered only if the 3.8 cm bin-pitch spacing test passes (design §3.5); `false` greys it out with a note. Defaults to `MASTER_AVAILABLE`. */
+  masterAvailable?: boolean;
+}
 
 export interface FlowUiOptions {
   session: GameSession;
+  assembly?: AssemblyOptions;
   /** The stage root's entity. Defaults to the scene node `stage`. */
   stage?: Entity;
   /** Town scale for the session (`StageSystem.townScale`): the trunk and its latch scale with it, the bench never does. */
@@ -94,6 +130,13 @@ const TRAY_RISE = 0.02;
 const SETTING_ROW_Y = 0.1025;
 const SETTING_ROW_STEP = 0.056;
 const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
+/** The pause panel with the Difficulty row (ADR-050): one setting row (0.056) taller. It grows upward, so its bottom edge stays where the small panel's was. */
+const PANEL_TALL = { w: PANEL_SMALL.w, h: PANEL_SMALL.h + SETTING_ROW_STEP } as const;
+/** The first-build difficulty card: three choices (0.23 x 0.07, 0.075 apart) under the title, the note under them. */
+const PANEL_DIFFICULTY = { w: 0.27, h: 0.34 } as const;
+const CHOICE = { w: 0.23, h: 0.07, y0: 0.085, step: 0.075 } as const;
+/** The Helper's offer halo: a lamp-glow ring just outside the medallion's brass rim. */
+const HALO = { inner: 0.0245, outer: 0.034 } as const;
 /** The gift panel's machine selector (centre, metres from the panel's centre): under the two message lines (they end about 9 cm above the centre) and over the first engraving row (its top edge is at 4.3 cm). */
 const GIFT_MACHINE_ROW_Y = 0.066;
 
@@ -117,6 +160,11 @@ const GIFT_MACHINE_ROW_Y = 0.066;
  * that has no letter (the daily repair), which the UI does not start: the integrator calls `session.beginDailyRepair` and then `onModeChange`.
  * The daily repair starts from a brass "Repair" medallion in the town, shown only while `session.dailyRepair(today)` is on offer:
  * pressing it calls `session.beginDailyRepair` and emits `daily-repair`.
+ *
+ * Intricate assembly (ADR-050; pass `assembly` in the options, else none of this exists): `setAssembly(view)` gives the blueprint sheet its stage
+ * list, step and progress dial and shows the Helper medallion (press it: a `helper` event; `setHelper` lights its offer glow and its one-line slip);
+ * the first-build difficulty card stands over the closed parcel until the player answers (`difficulty` event, saved as `settings.difficulty`);
+ * Pause gets a Difficulty row. The UI paints what the director gives it and decides nothing about the ladder, the steps or the offers.
  */
 export class FlowUi {
   private readonly session: GameSession;
@@ -172,9 +220,17 @@ export class FlowUi {
   private dailyMed!: Surface;
   private lensMed!: Surface;
   private lensHint!: Surface;
+  private helperMed!: Surface;
+  private helperHint!: Surface;
+  private helperHalo!: Mesh;
+  private stepHelp!: Plaque;
   private panelGroup!: Group;
   private panelBase!: Surface;
+  private panelTallBase!: Surface;
   private panelGiftBase!: Surface;
+  private panelDifficultyBase!: Surface;
+  private choices!: Plaque[];
+  private difficultyRow!: Plaque;
   private toggles!: Plaque[];
   private machineBtn!: Plaque;
   private chips!: Plaque[];
@@ -185,14 +241,28 @@ export class FlowUi {
   private giftHot!: Hot;
   private dailyHot!: Hot;
   private lensHot!: Hot;
+  private helperHot!: Hot;
+  private stepHelpHot!: Hot;
+  private choiceHots: Hot[] = [];
   /** What the lens medallion was last painted as, so the per-frame check repaints only on a change. */
   private lensLit = false;
   private lensHover = false;
+  private helperHover = false;
+  /** Intricate assembly (ADR-050): the step list the director gave, the Helper's state, and its timers (seconds). */
+  private assembly: AssemblyView | null = null;
+  private helperState: HelperView = NO_HELPER;
+  private helperOfferAge = 0;
+  private helperCooldown = 0;
+  /** Seconds the Helper has been held down, or -1 when it is not. */
+  private helperHold = -1;
+  /** Seconds left of the Master "?" showing the current step. */
+  private stepReveal = 0;
+  private masterOn: boolean;
   private runHot!: Hot;
   private adjustHot!: Hot;
   /** The panel's buttons: live only while the panel shows them. */
   private readonly panelHots: Hot[] = [];
-  private panelKind: 'none' | 'pause' | 'restart' | 'gift' = 'none';
+  private panelKind: View['panel'] = 'none';
   private readonly glbs: GlbInteraction[] = [];
 
   // Content state
@@ -208,6 +278,7 @@ export class FlowUi {
   ) {
     this.world = world;
     this.session = opt.session;
+    this.masterOn = opt.assembly?.masterAvailable ?? MASTER_AVAILABLE;
     this.factory = opt.createCanvas ?? domCanvas;
     this.local = freshLocal();
     // A returning player's town is already out: the introduction plays once (PRODUCT_SPEC §3.2).
@@ -258,7 +329,39 @@ export class FlowUi {
   showBlueprint(view: BlueprintView): void {
     this.blueprint = view;
     this.filled = new Set();
-    if (this.ready) this.paintBlueprint();
+    const had = this.assembly !== null;
+    this.assembly = null; // a build with stages calls `setAssembly` after this
+    this.stepReveal = 0;
+    if (!this.ready) return;
+    if (had) this.sync();
+    else this.paintBlueprint();
+  }
+
+  /**
+   * The step list of a build with stages (ADR-050): the sheet shows its stage rows, the current step and the progress dial, and the Helper
+   * medallion appears with the tray. Call it after `showBlueprint` and again as parts seat and are removed; `null` is the classic sheet.
+   * Ignored while `options.assembly.enabled` is false.
+   */
+  setAssembly(view: AssemblyView | null): void {
+    const was = this.assembly !== null;
+    this.assembly = this.opt.assembly?.enabled === true ? view : null;
+    if (!this.ready) return;
+    if (was !== (this.assembly !== null)) this.sync();
+    else this.paintBlueprint();
+  }
+
+  /** The Helper's glow and slip (design §7.1, §7.3). The director raises `offer` after mistakes or idle time and lowers it on progress. */
+  setHelper(view: HelperView): void {
+    if (view.offer && !this.helperState.offer) this.helperOfferAge = 0;
+    this.helperState = view;
+    if (this.ready) this.showHelper(this.view);
+  }
+
+  /** Master is offered only if the 3.8 cm bin-pitch spacing test passes (design §3.5): `false` greys it out on the card and skips it in Pause. */
+  setMasterAvailable(available: boolean): void {
+    if (this.masterOn === available) return;
+    this.masterOn = available;
+    if (this.ready) this.sync();
   }
 
   /** Ticks a slot on the sheet as a part is seated or removed. */
@@ -324,6 +427,8 @@ export class FlowUi {
     if (Math.abs(yaw - this.facedYaw) > 0.017) this.reface(yaw);
     if (xrayFlag.active !== this.lensLit) this.paintLens(); // X-ray also starts from the palm gesture: the lens shows the real state
     if (this.session.mode === 'pause') return; // a paused game stays as it was, animations included
+    if (this.helperMed.mesh.visible) this.stepHelper(dt);
+    if (this.stepReveal > 0) this.stepRevealing(dt);
     this.stepTrunk(dt);
     if (this.appear.moving || this.flap.moving || this.card.moving) this.stepLetter(dt);
     if (this.slide.moving || this.parcelFlap.moving || this.reveal.moving || this.parcelAway.moving) this.stepBench(dt);
@@ -494,6 +599,44 @@ export class FlowUi {
     this.lensHint.mesh.name = 'UI_XrayHint';
     place(this.lensHint, LENS_HINT_SPOT);
 
+    // The Helper (ADR-050): a medallion above Pause with a halo ring for its offer glow (an opacity, never a repaint), and its one-line slip.
+    this.helperMed = new Surface(f, 0.05, 0.05);
+    this.helperMed.mesh.name = 'UI_Helper';
+    this.helperHalo = new Mesh(new RingGeometry(HALO.inner, HALO.outer, 40), new MeshBasicMaterial({ color: PALETTE.lamp, transparent: true, opacity: 0, depthWrite: false, toneMapped: false }));
+    this.helperHalo.position.z = -0.0005;
+    this.helperHalo.visible = false;
+    this.helperHalo.raycast = () => undefined; // the halo is light, not a target
+    this.helperMed.mesh.add(this.helperHalo);
+    this.disposables.push(() => {
+      this.helperHalo.geometry.dispose();
+      (this.helperHalo.material as MeshBasicMaterial).dispose();
+    });
+    const helperEntity = place(this.helperMed, HELPER_SPOT);
+    this.helperHot = this.hot(helperEntity, () => this.pressHelper(false), (on) => {
+      this.helperHover = on;
+      this.paintHelper();
+    });
+    // A hold in hands mode is the third rung at once (design §7.2); a tap arrives as a click, which IWSDK only sends for a press shorter than 0.8 s.
+    const helperObject = helperEntity.object3D as Object3D;
+    helperObject.addEventListener('pointerdown', () => {
+      if (this.helperHot.active) this.helperHold = 0;
+    });
+    helperObject.addEventListener('pointerup', () => (this.helperHold = -1));
+    helperObject.addEventListener('pointerleave', () => (this.helperHold = -1));
+    this.helperHint = new Surface(f, 0.15, 0.04);
+    this.helperHint.mesh.name = 'UI_HelperHint';
+    place(this.helperHint, HELPER_HINT_SPOT);
+    this.paintHelper();
+
+    // The "?" corner of the sheet (Master): lies flat on the paper, in the page's own plane (layout.ts STEP_HELP).
+    this.stepHelp = new Plaque(f, STEP_HELP.size, STEP_HELP.size);
+    this.stepHelp.mesh.name = 'UI_StepHelp';
+    this.stepHelp.mesh.rotation.x = -Math.PI / 2;
+    this.stepHelp.mesh.position.set(STEP_HELP.x, SHEET_PAPER.y + 0.0015, -STEP_HELP.y);
+    this.stepHelp.mesh.visible = false;
+    this.stepHelp.set(STEP_SHEET.helpLabel);
+    this.stepHelpHot = this.button(this.stepHelp, this.sheet.entity, () => this.showStepNow(), (on) => this.stepHelp.set(STEP_SHEET.helpLabel, on ? 'hover' : 'idle'));
+
     // The run sign: a post, the Run plaque, an Adjust plaque after a failed run, and one slip for the counter or the result.
     this.signGroup = new Group();
     this.signGroup.visible = false;
@@ -521,14 +664,30 @@ export class FlowUi {
     this.panelGroup.visible = false;
     const panelEntity = this.mount(this.panelGroup);
     this.panelBase = new Surface(f, PANEL_SMALL.w, PANEL_SMALL.h);
+    this.panelTallBase = new Surface(f, PANEL_TALL.w, PANEL_TALL.h);
     this.panelGiftBase = new Surface(f, PANEL_GIFT.w, PANEL_GIFT.h);
-    this.panelGroup.add(this.panelBase.mesh, this.panelGiftBase.mesh);
+    this.panelDifficultyBase = new Surface(f, PANEL_DIFFICULTY.w, PANEL_DIFFICULTY.h);
+    this.panelGroup.add(this.panelBase.mesh, this.panelTallBase.mesh, this.panelGiftBase.mesh, this.panelDifficultyBase.mesh);
     this.toggles = SETTING_ROWS.map((row, i) => {
       const p = new Plaque(f, 0.21, 0.032);
       p.mesh.name = `UI_Toggle_${row.key}`;
       p.mesh.position.z = 0.003;
       this.panelGroup.add(p.mesh);
       this.hotButton(p, panelEntity, () => this.toggle(i));
+      return p;
+    });
+    // The Difficulty row of the pause panel, and the three answers of the first-build card (ADR-050).
+    this.difficultyRow = new Plaque(f, 0.21, 0.032);
+    this.difficultyRow.mesh.name = 'UI_Difficulty';
+    this.difficultyRow.mesh.position.z = 0.003;
+    this.panelGroup.add(this.difficultyRow.mesh);
+    this.hotButton(this.difficultyRow, panelEntity, () => this.cycleDifficulty());
+    this.choices = DIFFICULTY_ORDER.map((d, i) => {
+      const p = new Plaque(f, CHOICE.w, CHOICE.h);
+      p.mesh.name = `UI_Difficulty_${d}`;
+      p.mesh.position.set(0, CHOICE.y0 - i * CHOICE.step, 0.003);
+      this.panelGroup.add(p.mesh);
+      this.choiceHots.push(this.hotButton(p, panelEntity, () => this.chooseDifficulty(d)));
       return p;
     });
     this.btnL = new Plaque(f, 0.115, 0.034);
@@ -557,12 +716,15 @@ export class FlowUi {
     });
     this.surfaces.push(this.sheet.overlay, this.cardPaper, this.accept, this.closingCard, this.hint, this.pauseMed, this.giftMed, this.dailyMed, this.lensMed, this.lensHint, this.signSlip, this.runPlaque, this.adjustPlaque);
     this.surfaces.push(this.panelBase, this.panelGiftBase, this.btnL, this.btnR, this.machineBtn, ...this.toggles, ...this.chips);
+    this.surfaces.push(this.helperMed, this.helperHint, this.stepHelp, this.panelTallBase, this.panelDifficultyBase, this.difficultyRow, ...this.choices);
   }
 
   /** A plaque that is a child of the panel group: it is already in the group's tree, so only its entity is created here. */
-  private hotButton(plaque: Plaque, parent: Entity, press: () => void): void {
+  private hotButton(plaque: Plaque, parent: Entity, press: () => void): Hot {
     const entity = this.world.createTransformEntity(plaque.mesh, { parent });
-    this.panelHots.push(this.hot(entity, () => press()));
+    const hot = this.hot(entity, () => press());
+    this.panelHots.push(hot);
+    return hot;
   }
 
   // ---- Sync: the mode state decides what exists (view.ts) ---------------------------------------------------------------
@@ -576,6 +738,8 @@ export class FlowUi {
       giftAvailable: this.session.giftAvailable,
       dailyAvailable: this.session.dailyRepair(dateKey(new Date())) !== null,
       xrayHint: this.session.save.settings.xrayHint,
+      helper: this.assembly !== null,
+      chooseDifficulty: this.assemblyOn() && this.session.save.settings.difficulty === null && (this.opt.assembly?.deepBuild(letter) ?? false),
     });
     const before = this.view;
     this.view = view;
@@ -641,6 +805,8 @@ export class FlowUi {
     this.paintLens();
     this.showXrayHint(view);
     this.showHint(view);
+    this.showHelper(view);
+    this.showStepHelp(view);
 
     // Panels
     this.showPanel(view.panel);
@@ -658,6 +824,8 @@ export class FlowUi {
     if (this.dailyMed.mesh.visible) this.faceHead(this.dailyMed.mesh);
     if (this.lensMed.mesh.visible) this.faceHead(this.lensMed.mesh);
     if (this.lensHint.mesh.visible) this.faceHead(this.lensHint.mesh);
+    if (this.helperMed.mesh.visible) this.faceHead(this.helperMed.mesh);
+    if (this.helperHint.mesh.visible) this.faceHead(this.helperHint.mesh);
     if (this.signGroup.visible) this.faceHead(this.signGroup, true);
     if (this.panelGroup.visible) this.faceHead(this.panelGroup);
   }
@@ -885,7 +1053,10 @@ export class FlowUi {
       for (const hot of this.panelHots) this.setHot(hot, false);
       return;
     }
-    this.panelGroup.position.set(PANEL_SPOT.x, PANEL_SPOT.y, PANEL_SPOT.z);
+    // The pause panel carries the Difficulty row once the level is chosen (ADR-050): one row taller, growing upward so its bottom edge stays put.
+    const tall = kind === 'pause' && this.difficultyRowOn();
+    const shift = tall ? SETTING_ROW_STEP : 0;
+    this.panelGroup.position.set(PANEL_SPOT.x, PANEL_SPOT.y + shift / 2, PANEL_SPOT.z);
     if (was === 'none') this.faceHead(this.panelGroup);
     if (kind === 'gift' && was !== 'gift') {
       // Reopened later: the machines standing in the town may have changed since the last visit.
@@ -893,34 +1064,49 @@ export class FlowUi {
       this.giftState.lines = [];
     }
     const gift = kind === 'gift';
-    this.panelBase.mesh.visible = !gift;
+    this.panelBase.mesh.visible = (kind === 'pause' && !tall) || kind === 'restart';
+    this.panelTallBase.mesh.visible = tall;
     this.panelGiftBase.mesh.visible = gift;
+    this.panelDifficultyBase.mesh.visible = kind === 'difficulty';
     const settings = this.session.save.settings;
     if (kind === 'pause') {
-      const captions = SETTING_ROWS.map((row, i) => ({ y: SETTING_ROW_Y - i * SETTING_ROW_STEP - 0.0235, text: row.hint }));
-      this.panelBase.paint('pause', (c, w, h) => paintPanel(c, w, h, 'Paused', [], 0.2, captions));
+      const rowY = (i: number): number => SETTING_ROW_Y + shift / 2 - i * SETTING_ROW_STEP;
+      const captions = SETTING_ROWS.map((row, i) => ({ y: rowY(i) - 0.0235, text: row.hint }));
+      if (tall) captions.push({ y: rowY(SETTING_ROWS.length) - 0.0235, text: DIFFICULTY_ROW.hint });
+      (tall ? this.panelTallBase : this.panelBase).paint(tall ? 'pause-tall' : 'pause', (c, w, h) => paintPanel(c, w, h, 'Paused', [], 0.2, captions));
       SETTING_ROWS.forEach((row, i) => {
         const on = settings[row.key];
         this.toggles[i].set(`${row.label}: ${on ? 'On' : 'Off'}`, on ? 'on' : 'idle');
-        this.toggles[i].mesh.position.y = SETTING_ROW_Y - i * SETTING_ROW_STEP;
+        this.toggles[i].mesh.position.y = rowY(i);
       });
+      if (tall && settings.difficulty !== null) {
+        this.difficultyRow.set(difficultyRowLabel(settings.difficulty));
+        this.difficultyRow.mesh.position.y = rowY(SETTING_ROWS.length);
+      }
       this.btnL.set('Resume');
       this.btnR.set('Restart chapter');
     } else if (kind === 'restart') {
       this.panelBase.paint('restart', (c, w, h) => paintPanel(c, w, h, 'Start over?', ['This clears your progress.', 'Your settings stay.'], 0.38));
       this.btnL.set('Keep playing');
       this.btnR.set('Restart');
+    } else if (kind === 'difficulty') {
+      this.paintDifficultyCard();
     } else {
       this.paintGiftPanel();
     }
     for (const t of this.toggles) t.mesh.visible = kind === 'pause';
+    this.difficultyRow.mesh.visible = tall;
+    for (const c of this.choices) c.mesh.visible = kind === 'difficulty';
     for (const c of this.chips) c.mesh.visible = gift;
+    this.btnL.mesh.visible = this.btnR.mesh.visible = kind !== 'difficulty';
     // One machine to gift is the usual case and needs no selector; none (a note) or several (a choice) do.
     this.machineBtn.mesh.visible = gift && this.giftState.machines.length !== 1;
-    const row = kind === 'pause' ? -0.1375 : kind === 'restart' ? -0.06 : -0.122;
+    const row = kind === 'pause' ? -0.1375 - shift / 2 : kind === 'restart' ? -0.06 : -0.122;
     this.btnL.mesh.position.set(-0.067, row, 0.003);
     this.btnR.mesh.position.set(0.067, row, 0.003);
     for (const hot of this.panelHots) this.setHot(hot, (hot.entity.object3D as Object3D).visible);
+    // Master stays on the card but is not an answer until its spacing test has passed.
+    if (kind === 'difficulty') this.setHot(this.choiceHots[DIFFICULTY_ORDER.indexOf('master')], this.masterOn);
   }
 
   private panelLeft(): void {
@@ -941,6 +1127,9 @@ export class FlowUi {
         this.local.trunk = 'gone'; // `sync` resets the trunk because the mode is the introduction again
         this.local.result = null;
         this.blueprint = null;
+        this.assembly = null;
+        this.helperState = NO_HELPER;
+        this.stepReveal = 0;
         this.filled = new Set();
         this.opt.onEvent?.({ type: 'restarted' });
         this.sync();
@@ -1027,6 +1216,129 @@ export class FlowUi {
     this.paintGiftPanel();
   }
 
+  // ---- Intricate assembly: difficulty, the Helper, the step sheet's "?" (ADR-050) -------------------------------------------
+
+  private assemblyOn(): boolean {
+    return this.opt.assembly?.enabled === true;
+  }
+
+  /** Pause shows the Difficulty row once there is a level to show; before the first build the card asks instead. */
+  private difficultyRowOn(): boolean {
+    return this.assemblyOn() && this.session.save.settings.difficulty !== null;
+  }
+
+  private paintDifficultyCard(): void {
+    this.panelDifficultyBase.paint('difficulty', (c, w, h) => paintPanel(c, w, h, DIFFICULTY_CARD.title, [], 0, [{ y: -0.13, text: DIFFICULTY_CARD.note }]));
+    DIFFICULTY_ORDER.forEach((d, i) => {
+      const unavailable = d === 'master' && !this.masterOn;
+      const state = unavailable ? 'disabled' : d === RECOMMENDED_DIFFICULTY ? 'on' : 'idle';
+      const face = { copy: DIFFICULTY_COPY[d], recommended: d === RECOMMENDED_DIFFICULTY, note: unavailable ? DIFFICULTY_CARD.masterUnavailable : null };
+      this.choices[i].paint(`${d}|${state}`, (c, w, h) => paintChoice(c, w, h, face, state));
+    });
+  }
+
+  /** An answer on the first-build card: it is saved, the director hears of it, and the card goes. */
+  private chooseDifficulty(value: Difficulty): void {
+    if (this.view?.panel !== 'difficulty' || (value === 'master' && !this.masterOn)) return;
+    if (!this.session.setDifficulty(value)) return;
+    this.cue('button');
+    this.opt.onEvent?.({ type: 'difficulty', value, first: true });
+    this.sync();
+  }
+
+  /** The Pause row: relaxed, standard, master, round again (Master skipped while it is not available). */
+  private cycleDifficulty(): void {
+    const current = this.session.save.settings.difficulty;
+    if (current === null || this.panelKind !== 'pause') return;
+    const value = nextDifficulty(current, this.masterOn);
+    if (!this.session.setDifficulty(value)) return;
+    this.cue('button');
+    this.opt.onEvent?.({ type: 'difficulty', value, first: false });
+    this.sync();
+  }
+
+  private paintHelper(): void {
+    const hover = this.helperHover;
+    this.helperMed.paint(`helper|${hover}`, (c, w) => paintMedallion(c, w, 'helper', HELPER_COPY.label, hover));
+  }
+
+  /** The medallion, its press and its slip follow the view and the director's `HelperView`. */
+  private showHelper(view: View | null): void {
+    const shown = view?.helperButton === true;
+    const free = view?.panel === 'none';
+    this.helperMed.mesh.visible = shown;
+    this.faceIfShown(this.helperMed.mesh, shown);
+    this.setHot(this.helperHot, shown && free && this.helperCooldown <= 0);
+    if (!shown) {
+      this.helperHalo.visible = false;
+      this.helperHold = -1;
+    }
+    const slip = shown && free ? this.helperState.slip : null;
+    this.helperHint.mesh.visible = slip !== null;
+    if (slip !== null) {
+      this.helperHint.paint(`slip|${slip}`, (c, w, h) => paintSlip(c, w, h, slip, '', 'good'));
+      this.faceHead(this.helperHint.mesh);
+    }
+  }
+
+  /** Per frame while the medallion shows: the press dip and cooldown, the hold, and the offer's halo. Allocates nothing. */
+  private stepHelper(dt: number): void {
+    const mesh = this.helperMed.mesh;
+    if (this.helperCooldown > 0) {
+      this.helperCooldown -= dt;
+      if (this.helperCooldown <= 0) {
+        this.helperCooldown = 0;
+        this.showHelper(this.view); // live again
+      }
+    }
+    mesh.scale.setScalar(this.helperCooldown > HELPER_COOLDOWN_S - 0.18 ? 0.88 : 1);
+    (mesh.material as MeshBasicMaterial).opacity = this.helperCooldown > 0 ? 0.6 : 1;
+    if (this.helperHold >= 0) {
+      this.helperHold += dt;
+      if (this.helperHold >= HELPER_HOLD_S && !this.session.save.settings.gazeMode) this.pressHelper(true); // gaze and ray taps only; a hold there means "remove"
+    }
+    const glow = this.helperState.offer && this.helperCooldown <= 0;
+    this.helperHalo.visible = glow;
+    if (glow) {
+      this.helperOfferAge += dt;
+      (this.helperHalo.material as MeshBasicMaterial).opacity = offerGlow(this.helperOfferAge);
+    }
+  }
+
+  /** A press of the medallion: the offer is answered, the medallion rests for `HELPER_COOLDOWN_S`, and the director's ladder takes it from here. */
+  private pressHelper(long: boolean): void {
+    if (this.helperCooldown > 0 || this.view?.helperButton !== true || this.view.panel !== 'none') return;
+    this.helperCooldown = HELPER_COOLDOWN_S;
+    this.helperHold = -1;
+    this.helperState = { ...this.helperState, offer: false }; // before the event, so the director's own `setHelper` in answer wins
+    this.setHot(this.helperHot, false);
+    this.cue('button');
+    this.opt.onEvent?.({ type: 'helper', long });
+  }
+
+  /** Master: the "?" corner is live only while the sheet shows stage names alone. */
+  private showStepHelp(view: View | null): void {
+    const live = view?.blueprint === true && view.panel === 'none' && this.assembly !== null && this.session.save.settings.difficulty === 'master' && this.stepReveal <= 0;
+    this.stepHelp.mesh.visible = live;
+    this.setHot(this.stepHelpHot, live);
+  }
+
+  private showStepNow(): void {
+    if (this.assembly === null || this.session.save.settings.difficulty !== 'master') return;
+    this.cue('button');
+    this.stepReveal = STEP_REVEAL_S;
+    this.paintBlueprint();
+    this.showStepHelp(this.view);
+  }
+
+  private stepRevealing(dt: number): void {
+    this.stepReveal -= dt;
+    if (this.stepReveal > 0) return;
+    this.stepReveal = 0;
+    this.paintBlueprint();
+    this.showStepHelp(this.view);
+  }
+
   // ---- Painting and facing ---------------------------------------------------------------------------------------------
 
   private paintLetter(letter: LetterDef): void {
@@ -1054,6 +1366,13 @@ export class FlowUi {
   private paintBlueprint(): void {
     const b = this.blueprint;
     if (!b) return;
+    const a = this.assembly;
+    if (a) {
+      // A build with stages: Master shows stage names only until the "?" is poked (design §6.1, §7.4).
+      const titlesOnly = this.session.save.settings.difficulty === 'master' && this.stepReveal <= 0;
+      this.sheet.overlay.paint(`${b.title}|${assemblyKey(a, titlesOnly)}`, (c, w, h) => paintStepSheet(c, w, h, b.title, a, titlesOnly));
+      return;
+    }
     const key = `${b.title}|${b.slots.map((s) => s.id).join(',')}|${[...this.filled].sort().join(',')}`;
     this.sheet.overlay.paint(key, (c, w, h) => paintBlueprint(c, w, h, b.title, b.slots, this.filled));
   }

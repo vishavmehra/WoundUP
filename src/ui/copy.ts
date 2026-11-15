@@ -4,7 +4,7 @@
  */
 import type { MachineId, EngravingId } from '../game/content.js';
 import type { GiftError } from '../game/gift.js';
-import type { Settings } from '../game/save.js';
+import type { BooleanSettingKey, Difficulty } from '../game/save.js';
 import type { SolveResult, SolveStatus } from '../sim/index.js';
 
 export const MACHINE_NAMES: Readonly<Record<MachineId, string>> = {
@@ -80,7 +80,7 @@ export function windLabel(units: number, max: number): string {
 }
 
 export interface SettingRow {
-  key: keyof Pick<Settings, 'easySnap' | 'gazeMode' | 'xrayHint' | 'night'>;
+  key: BooleanSettingKey;
   label: string;
   /** One plain sentence under the row (UI_UX_SPEC section 20: explain Easy Snap and gaze mode in plain language). */
   hint: string;
@@ -93,6 +93,72 @@ export const SETTING_ROWS: readonly SettingRow[] = [
   { key: 'xrayHint', label: 'X-ray hint', hint: 'Shows a hint when looking inside a machine can help.' },
   { key: 'night', label: 'Night', hint: 'Dims the room. Lamps and windows light the town.' },
 ];
+
+// ---- Intricate assembly (ADR-050): difficulty, the Helper, the step sheet ----------------------------------------------------
+
+export interface DifficultyCopy {
+  readonly name: string;
+  /** One line on the choice card (design §6.1). */
+  readonly line: string;
+  /** The time, honestly (design §6.1: "about 2 minutes" and "about 5 minutes"). */
+  readonly time: string;
+}
+
+export const DIFFICULTY_COPY: Readonly<Record<Difficulty, DifficultyCopy>> = {
+  relaxed: { name: 'Relaxed', line: 'Pieces come ready-made. Quick.', time: 'about 2 minutes' },
+  standard: { name: 'Standard', line: 'The full workshop. Every pin and washer.', time: 'about 5 minutes' },
+  master: { name: 'Master', line: 'No hints unless you ask.', time: '5 minutes or more' },
+};
+
+/** The order the card lists them and the Pause row cycles through them. */
+export const DIFFICULTY_ORDER: readonly Difficulty[] = ['relaxed', 'standard', 'master'];
+/** The level the card highlights as the recommended one (owner decision, ADR-050). */
+export const RECOMMENDED_DIFFICULTY: Difficulty = 'standard';
+/**
+ * Master ships only if the 3.8 cm bin-pitch spacing test passes (ADR-050 item 3, risk R5). The test has not run, so the flag starts on; if it fails,
+ * the integrator passes `masterAvailable: false` (or calls `FlowUi.setMasterAvailable(false)`) and the card greys Master out with the note below.
+ */
+export const MASTER_AVAILABLE = true;
+
+export const DIFFICULTY_CARD = {
+  title: 'How do you want to build?',
+  recommended: 'Recommended',
+  masterUnavailable: 'Not ready yet. Try Standard.',
+  note: 'You can change this in the pause menu.',
+} as const;
+
+/** The Pause menu's difficulty row and the sentence under it (UI_UX_SPEC section 20: one plain sentence per setting). */
+export const DIFFICULTY_ROW = {
+  label: 'Difficulty',
+  hint: 'How much help the workshop gives while you build.',
+} as const;
+
+export const difficultyRowLabel = (d: Difficulty): string => `${DIFFICULTY_ROW.label}: ${DIFFICULTY_COPY[d].name}`;
+
+/** The next level in the Pause row's cycle; Master is skipped while it is not available. */
+export function nextDifficulty(current: Difficulty, masterAvailable: boolean): Difficulty {
+  const order = masterAvailable ? DIFFICULTY_ORDER : DIFFICULTY_ORDER.filter((d) => d !== 'master');
+  const at = order.indexOf(current);
+  return order[(at + 1) % order.length] ?? 'standard';
+}
+
+/** One-line slips for the Helper (design §7.1, §7.2). The director picks which; the UI only paints it. */
+export const HELPER_COPY = {
+  label: 'Help',
+  offer: 'Need a hand?',
+  demo: 'Watch my hands',
+  place: 'Here, let me.',
+  wind: 'Wind it, then press Run',
+  next: (what: string): string => `Next: ${what}`,
+} as const;
+
+/** The step sheet's words (design §7.4). */
+export const STEP_SHEET = {
+  done: 'Every stage is built.',
+  doneHint: 'Wind it, then press Run.',
+  helpLabel: '?',
+  masterNote: 'Stage names only',
+} as const;
 
 export interface GiftErrorText {
   title: string;

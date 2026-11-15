@@ -45,6 +45,7 @@ describe('SaveV1 basics', () => {
   it('has exactly the fields PRODUCT_SPEC §14 requires', () => {
     expect(Object.keys(freshSave()).sort()).toEqual(['dailyDone', 'letters', 'machines', 'settings', 'townPlaced', 'version']);
     expect(Object.keys(freshSave().settings).sort()).toEqual(['difficulty', 'easySnap', 'gazeMode', 'night', 'xrayHint']);
+    expect(freshSave().settings.difficulty).toBeNull(); // chosen at the first build (ADR-050)
   });
 });
 
@@ -92,6 +93,38 @@ describe('loading', () => {
     expect(r.status).toBe('loaded');
     expect(r.save.letters.letter_1).toBe('available');
     expect(r.save.letters.letter_2).toBe('locked');
+  });
+});
+
+describe('the build difficulty setting (ADR-050)', () => {
+  const withSettings = (settings: unknown) => parseSave(JSON.stringify({ ...valid(), settings }));
+
+  it('is null in a new save and in a save written before it existed, with no version bump', () => {
+    const old = { easySnap: true, gazeMode: false, xrayHint: true, night: false };
+    const r = withSettings(old);
+    expect(r.status).toBe('loaded');
+    expect(r.save.settings).toEqual({ ...old, difficulty: null });
+    expect(SAVE_VERSION).toBe(1);
+  });
+
+  it.each(['relaxed', 'standard', 'master'] as const)('keeps %s across a reload', (level) => {
+    const r = withSettings({ ...DEFAULT_SETTINGS, difficulty: level });
+    expect(r.status).toBe('loaded');
+    expect(r.save.settings.difficulty).toBe(level);
+    expect(parseSave(serializeSave(r.save)).save.settings.difficulty).toBe(level);
+  });
+
+  it('accepts an explicit null and rejects anything that is not a level or null', () => {
+    expect(withSettings({ ...DEFAULT_SETTINGS, difficulty: null }).save.settings.difficulty).toBeNull();
+    for (const bad of ['hard', 'Standard', '', 1, true, {}, []]) {
+      const r = withSettings({ ...DEFAULT_SETTINGS, difficulty: bad });
+      expect(r.status, JSON.stringify(bad)).toBe('corrupt');
+      expect(r.reason).toBe('difficulty is not a known level or null');
+    }
+  });
+
+  it('is never read from a boolean setting key: a level where a flag belongs is still corruption', () => {
+    expect(withSettings({ ...DEFAULT_SETTINGS, night: 'master' }).status).toBe('corrupt');
   });
 });
 
