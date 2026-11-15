@@ -403,7 +403,7 @@ npx @iwsdk/cli browser screenshot --output-file shot.png
 
 Wound Up is released under the [MIT License](LICENSE).
 
-All game code and all 3D models are original to this project. The models are produced by the Blender scripts in `blender/scripts/`. The code and the Blender generators were written with Claude (Anthropic) under the developer's direction.
+All game code and all 3D models are original to this project. The models are produced by the Blender scripts in `blender/scripts/`.
 
 | Third-party material | Licence |
 |---|---|
