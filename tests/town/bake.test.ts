@@ -12,6 +12,7 @@ import { bakeRig, bakeStatic, bakeTown, disposeBaked } from '../../src/town/bake
 import { buildCarousel, buildMachine, buildMusicBox, buildWindmill } from '../../src/town/machines';
 import { createRig, createRotor, stepRig } from '../../src/town/motion';
 import { loadTown } from '../../src/town/scene';
+import { isXRayShell } from '../../src/town/xray-view';
 import type { MachineRig } from '../../src/town/motion';
 import { libraryRegistry } from './helpers';
 import { modelsPresent, realSource } from './real-source';
@@ -147,6 +148,28 @@ describe('bakeStatic', () => {
     expectSamePicture(fingerprint(loose.root), fingerprint(flat.root));
   });
 
+  it('merges the casing apart from the mechanism, even when they share a material, and flags the casing for X-ray', () => {
+    const root = new Group();
+    root.add(box('Case_A', brass, 0), box('Case_B', brass, 0.02), box('Case_C', walnut), box('Bearing', brass, 0.04), box('Bolt', brass, 0.05), box('Pin', walnut, 0.06));
+    const before = fingerprint(root);
+    const baked = bakeStatic(root, { shell: ['Case_'] });
+    const after = fingerprint(root);
+    // One casing and one mechanism mesh of the brass; the walnut ones are alone in their group, so nothing merges there.
+    expect(baked.merged.map((m) => m.name).sort()).toEqual(['Baked_root_Mat_AgedBrass', 'Baked_root_Mat_AgedBrass_Shell']);
+    const shell = baked.merged.find((m) => m.userData.xrayShell === true) as Mesh;
+    expect(shell.userData.bakedFrom).toEqual(['Case_A', 'Case_B']);
+    expect(baked.merged.find((m) => m !== shell)?.userData.xrayShell).toBeUndefined();
+    expect(baked.merged.find((m) => m !== shell)?.userData.bakedFrom).toEqual(['Bearing', 'Bolt']);
+    expect(root.getObjectByName('Case_C')).toBeDefined(); // a lone casing mesh keeps its name, which is how X-ray finds it
+    expect(isXRayShell(shell, ['Case_'])).toBe(true);
+    expect(isXRayShell(baked.merged.find((m) => m !== shell) as Mesh, ['Case_'])).toBe(false);
+    expectSamePicture(before, after);
+    // Without `shell` the two merge together, as before.
+    const plain = new Group();
+    plain.add(box('Case_A', brass), box('Case_B', brass), box('Bearing', brass));
+    expect(bakeStatic(plain).merged).toHaveLength(1);
+  });
+
   it('keeps nodes named in keepNames as separate meshes', () => {
     const root = new Group();
     root.add(box('Roof', brass), box('Wall1', brass), box('Wall2', brass), box('Wall3', brass));
@@ -210,9 +233,13 @@ describe.skipIf(!modelsPresent)('the six finished machines, baked, from the real
       const before = fingerprint(rig.root);
       const baked = bakeRig(rig, keep);
       const after = fingerprint(rig.root);
-      expect(baked.sources, 'meshes merged away').toBeGreaterThan(baked.merged.length);
       expect(after.drawn).toBe(before.drawn - (baked.sources - baked.merged.length));
-      expect(after.drawn).toBeLessThan(before.drawn);
+      // The Belfry has nothing to merge: its casing stays apart from its mechanism (X-ray) and is one mesh per material.
+      if (name === 'belfry') expect(after.drawn).toBeLessThanOrEqual(before.drawn);
+      else {
+        expect(baked.sources, 'meshes merged away').toBeGreaterThan(baked.merged.length);
+        expect(after.drawn).toBeLessThan(before.drawn);
+      }
       expectSamePicture(before, after);
       // Every node the game moves is still in the scene, under the same parent, with its own name.
       for (const rotor of rig.rotors) expect(rig.root.getObjectById(rotor.node.id), `${name} rotor ${rotor.socketId}`).toBeDefined();
@@ -247,7 +274,7 @@ describe.skipIf(!modelsPresent)('the six finished machines, baked, from the real
       if (!outcome.ok) throw new Error(`the ${id} must solve`);
       const loose = await build(realSource, registry);
       const baked = (await buildMachine(id, realSource, registry)) as MachineRig;
-      // The Belfry's only static meshes are its casing (kept whole for X-ray, machines.ts `KEEP_CASING`) and two fittings, so its bake merges nothing.
+      // The Belfry's static meshes are its casing, one mesh per material (nothing to merge), and two fittings, so its bake merges little.
       if (id === 'well') expect(fingerprint(baked.root).drawn, `${id} meshes drawn`).toBeLessThan(fingerprint(loose.root).drawn);
       else expect(fingerprint(baked.root).drawn, `${id} meshes drawn`).toBeLessThanOrEqual(fingerprint(loose.root).drawn);
       expect(baked.moving.map((n) => n.name).sort(), id).toEqual(loose.moving.map((n) => n.name).sort());

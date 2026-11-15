@@ -16,6 +16,11 @@
  * meshes; meshes whose geometry has an attribute the merge does not carry (tangent, a second uv set); meshes placed with a mirror
  * (negative determinant, whose winding a merge would flip); meshes that differ in render order or layers; and groups of one.
  *
+ * Casing and mechanism stay apart. `shell` names the prefixes of the casing meshes (`XRAY_SHELL`, xray-view.ts): the casing meshes of a frame
+ * merge per material among themselves, into meshes flagged `userData.xrayShell = true` (named `..._Shell`), and the other meshes of the
+ * frame merge into their own, so X-ray fades the casing by that flag and the mechanism stays solid even when a trim shares its material
+ * with a bearing. The cost is one draw call per material the casing and the mechanism of one frame have in common.
+ *
  * What changes for callers. The names of merged-away meshes that carried nothing are gone from the scene graph (`getObjectByName` no
  * longer finds them): the merged mesh lists them in `userData.bakedFrom`. A merged-away mesh that carried other nodes (sockets,
  * colliders, a rotor hung on it) leaves an empty group of the same name, transform and data in its place, with those nodes under it.
@@ -36,6 +41,7 @@ import { THEATRE_DOOR_NODE } from '../machines/clock-tower/rig';
 import { mergePieces } from './dressing';
 import type { MachineRig } from './motion';
 import type { Town } from './scene';
+import { isXRayShell, XRAY_SHELL } from './xray-view';
 
 export interface BakeOptions {
   /** Nodes the game moves after the bake: each stays as it is and anchors the merge of everything static under it. */
@@ -44,6 +50,8 @@ export interface BakeOptions {
   leave?: Iterable<Object3D>;
   /** Names of nodes that code finds with `getObjectByName` or whose material or visibility it changes: they stay separate meshes (and anchor their children). */
   keepNames?: Iterable<string>;
+  /** Name prefixes of the casing meshes (`XRAY_SHELL`): they merge only with each other, into meshes flagged `userData.xrayShell`. None: nothing is casing. */
+  shell?: readonly string[];
 }
 
 export interface Baked {
@@ -64,8 +72,8 @@ const _anchorInverse = new Matrix4();
 /** True when `mesh` sits mirrored relative to `anchor` (negative determinant): a merge would turn its faces inside out. */
 const mirrored = (mesh: Object3D, anchor: Object3D): boolean => mesh.matrixWorld.determinant() * anchor.matrixWorld.determinant() < 0;
 
-/** Whether a mesh can be merged, and under which key meshes may share one merged mesh. Null when it cannot. */
-function mergeKey(mesh: Mesh): { material: Material; key: string } | null {
+/** Whether a mesh can be merged, and under which key meshes may share one merged mesh (casing and mechanism never do). Null when it cannot. */
+function mergeKey(mesh: Mesh, casing: boolean): { material: Material; key: string } | null {
   const material = mesh.material;
   if (Array.isArray(material) || !material.visible || material.transparent) return null;
   const flags = mesh as Mesh & { isSkinnedMesh?: boolean; isInstancedMesh?: boolean };
@@ -77,7 +85,7 @@ function mergeKey(mesh: Mesh): { material: Material; key: string } | null {
   const wu = mesh.userData.wu as { type?: unknown } | undefined;
   if (wu?.type === 'collider' || wu?.type === 'socket') return null; // interaction data stays where it is
   const shape = names.map((n) => `${n}${geometry.getAttribute(n).itemSize}`).join(',');
-  const key = `${material.uuid}|${shape}|${mesh.renderOrder}|${mesh.layers.mask}|${mesh.frustumCulled ? 1 : 0}|${mesh.castShadow ? 1 : 0}${mesh.receiveShadow ? 1 : 0}`;
+  const key = `${material.uuid}|${shape}|${mesh.renderOrder}|${mesh.layers.mask}|${mesh.frustumCulled ? 1 : 0}|${mesh.castShadow ? 1 : 0}${mesh.receiveShadow ? 1 : 0}|${casing ? 'shell' : 'part'}`;
   return { material, key };
 }
 
@@ -109,10 +117,11 @@ export function bakeStatic(root: Object3D, options: BakeOptions = {}): Baked {
   const moving = new Set<Object3D>(options.moving ?? []);
   const kept = new Set<string>(options.keepNames ?? []);
   const left = new Set<Object3D>(options.leave ?? []);
+  const shell = options.shell ?? [];
   root.updateWorldMatrix(true, true);
 
   /** Static meshes by the node whose frame they are merged into, then by merge key. */
-  const frames = new Map<Object3D, Map<string, { material: Material; meshes: Mesh[] }>>();
+  const frames = new Map<Object3D, Map<string, { material: Material; casing: boolean; meshes: Mesh[] }>>();
   let skipped = 0;
 
   const walk = (node: Object3D, anchor: Object3D): void => {
@@ -121,12 +130,13 @@ export function bakeStatic(root: Object3D, options: BakeOptions = {}): Baked {
     const here = isMoving ? node : anchor;
     if (!isMoving && node !== root && (node as Mesh).isMesh === true) {
       const mesh = node as Mesh;
-      const found = mergeKey(mesh);
+      const casing = isXRayShell(mesh, shell);
+      const found = mergeKey(mesh, casing);
       if (!found || mirrored(mesh, anchor)) skipped++;
       else {
-        const groups = frames.get(anchor) ?? new Map<string, { material: Material; meshes: Mesh[] }>();
+        const groups = frames.get(anchor) ?? new Map<string, { material: Material; casing: boolean; meshes: Mesh[] }>();
         frames.set(anchor, groups);
-        const group = groups.get(found.key) ?? { material: found.material, meshes: [] };
+        const group = groups.get(found.key) ?? { material: found.material, casing, meshes: [] };
         groups.set(found.key, group);
         group.meshes.push(mesh);
       }
@@ -139,13 +149,14 @@ export function bakeStatic(root: Object3D, options: BakeOptions = {}): Baked {
   let sources = 0;
   for (const [anchor, groups] of frames) {
     _anchorInverse.copy(anchor.matrixWorld).invert();
-    for (const { material, meshes } of groups.values()) {
+    for (const { material, casing, meshes } of groups.values()) {
       if (meshes.length < 2) continue; // nothing to gain
       const pieces = meshes.map((mesh) => ({ geometry: mesh.geometry, matrix: _rel.multiplyMatrices(_anchorInverse, mesh.matrixWorld).clone() }));
       const first = meshes[0];
       const batch = new Mesh(mergePieces(pieces), material);
-      batch.name = `Baked_${anchor.name || 'root'}_${material.name || 'material'}`;
+      batch.name = `Baked_${anchor.name || 'root'}_${material.name || 'material'}${casing ? '_Shell' : ''}`;
       batch.userData.bakedFrom = meshes.map((m) => m.name);
+      if (casing) batch.userData.xrayShell = true; // xray-view.ts fades it by this flag
       batch.renderOrder = first.renderOrder;
       batch.layers.mask = first.layers.mask;
       batch.frustumCulled = first.frustumCulled;
@@ -176,7 +187,8 @@ const bakes = new WeakMap<MachineRig, Baked>();
 /**
  * Bakes a finished machine: every rotor, bobber, pulser and the lid pivot of the rig is a moving node, and so is every node its own
  * updaters move (`rig.moving`: the Well's pump rod, pawl and water disc, the Belfry's bell and clapper). `keepNames` adds the nodes a
- * machine's own runtime finds by name (the Clock Tower's hands, pendulum and bell). Whatever is hidden when the bake runs (the Well's
+ * machine's own runtime finds by name (the Clock Tower's hands, pendulum and bell). The machine's casing (`XRAY_SHELL`) merges apart from its
+ * mechanism, into meshes X-ray fades by flag. Whatever is hidden when the bake runs (the Well's
  * bucket template and its water disc, which an updater shows later) is never merged: the walk skips a hidden node and everything under
  * it. Returns the bake, which is also remembered for `disposeBaked`.
  */
@@ -186,7 +198,7 @@ export function bakeRig(rig: MachineRig, keepNames: Iterable<string> = []): Bake
   for (const bobber of rig.bobbers) moving.push(bobber.node);
   for (const pulser of rig.pulsers) moving.push(pulser.node);
   if (rig.lid) moving.push(rig.lid.pivot);
-  const baked = bakeStatic(rig.root, { moving, keepNames });
+  const baked = bakeStatic(rig.root, { moving, keepNames, shell: XRAY_SHELL[rig.machineId] });
   bakes.set(rig, baked);
   return baked;
 }

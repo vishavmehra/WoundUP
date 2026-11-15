@@ -6,7 +6,7 @@ import { setXRayLens, writeXRayFlag } from '../../src/interaction/xray-state';
 import { BLUEPRINT_SOCKET_IDS, buildMachine } from '../../src/town/machines';
 import { createRig, createRotor } from '../../src/town/motion';
 import { TownRuntime } from '../../src/town/runtime';
-import { XRAY_FADE_S, XRAY_GLOW, XRAY_OPACITY, XRAY_SHELL, XRayShell, XRayView, xrayMovers, xrayZoneOf } from '../../src/town/xray-view';
+import { isXRayShell, XRAY_FADE_S, XRAY_GLOW, XRAY_OPACITY, XRAY_SHELL, XRayShell, XRayView, xrayMovers, xrayZoneOf } from '../../src/town/xray-view';
 import { libraryRegistry, syntheticTown } from './helpers';
 import { modelsPresent, realSource } from './real-source';
 
@@ -445,7 +445,7 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
       rig.root.traverse((n) => {
         if ((n as Mesh).isMesh) all.push(n as Mesh);
       });
-      const casing = all.filter((m) => prefixes.some((p) => m.name.startsWith(p)));
+      const casing = all.filter((m) => isXRayShell(m, prefixes));
       const rest = all.filter((m) => !casing.includes(m));
       expect(casing.length, `${id} casing meshes`).toBeGreaterThan(0);
       expect(rest.length, `${id} mechanism meshes`).toBeGreaterThan(0);
@@ -468,19 +468,81 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
     });
   }
 
-  // The older four keep the merge for the draw-call budget (machines.ts `KEEP_CASING`): their X-ray fades the casing meshes the batching left.
-  for (const id of ['well', 'belfry'] as const) {
-    it(`${id}: the batching merges no casing mesh into the mechanism's brass (X-ray finds the casing by name)`, async () => {
+  // The batching merges the casing apart from the mechanism: no merged mesh has casing and mechanism sources, and the casing's are flagged.
+  for (const id of MACHINES) {
+    it(`${id}: every drawn mesh is all casing (flagged or named) or all mechanism, whatever the batching merged into it`, async () => {
       const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
       if (!rig) throw new Error(`no ${id}`);
-      const merged: string[] = [];
+      const prefixes = XRAY_SHELL[id];
+      const named = (name: string): boolean => prefixes.some((p) => name.startsWith(p));
+      let casing = 0;
+      let flagged = 0;
       rig.root.traverse((n) => {
-        const from = n.userData.bakedFrom as string[] | undefined;
-        if (from) merged.push(...from.filter((name) => XRAY_SHELL[id].some((p) => name.startsWith(p))));
+        const mesh = n as Mesh;
+        if (!mesh.isMesh) return;
+        for (let up: Object3D | null = mesh; up; up = up.parent) if (!up.visible) return; // the Clock Tower's hidden originals draw nothing
+        const sources = (mesh.userData.bakedFrom as string[] | undefined) ?? [mesh.name];
+        const fromCasing = sources.filter(named).length;
+        expect(fromCasing === 0 || fromCasing === sources.length, `${id}: ${mesh.name} merges ${sources.join(', ')}`).toBe(true);
+        expect(isXRayShell(mesh, prefixes), `${id}: ${mesh.name}`).toBe(fromCasing > 0);
+        if (fromCasing > 0) casing++;
+        if (mesh.userData.xrayShell === true) {
+          flagged++;
+          expect(sources.length, `${id}: ${mesh.name} is a merge`).toBeGreaterThan(1);
+        }
       });
-      expect(merged, `${id}: casing meshes merged away`).toEqual([]);
+      expect(casing, `${id}: casing meshes drawn`).toBeGreaterThan(0);
+      if (id !== 'music_box' && id !== 'well' && id !== 'belfry') expect(flagged, `${id}: merged casing meshes`).toBeGreaterThan(0);
     });
   }
+
+  it('the Clock Tower fades its walls and its shell, not only the flag and the window', async () => {
+    const rig = await buildMachine('clock_tower', realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
+    if (!rig) throw new Error('no clock tower');
+    const shell = new XRayShell(rig.root, XRAY_SHELL.clock_tower, () => xrayMovers(rig));
+    shell.setAmount(1);
+    const faded: string[] = [];
+    rig.root.traverse((n) => {
+      const mesh = n as Mesh;
+      if (!mesh.isMesh) return;
+      for (let up: Object3D | null = mesh; up; up = up.parent) if (!up.visible) return;
+      const sources = (mesh.userData.bakedFrom as string[] | undefined) ?? [mesh.name];
+      if (!sources.some((name) => name.startsWith('ClockTowerShell_') || name.startsWith('ClockTowerBaseWalls_'))) return;
+      expect((mesh.material as MeshStandardMaterial).opacity, mesh.name).toBeCloseTo(XRAY_OPACITY, 6);
+      faded.push(mesh.name);
+    });
+    expect(faded.length, `faded meshes made of the shell and the walls: ${faded.join(', ')}`).toBeGreaterThanOrEqual(5);
+    shell.dispose();
+  });
+
+  it('the Carousel canopy fades like the rest of the casing and does not glow with the platform that carries it', async () => {
+    const rig = await buildMachine('carousel', realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
+    if (!rig) throw new Error('no carousel');
+    const platform = rig.rotors.map((r) => r.node).find((node) => node.name === 'Scene');
+    if (!platform) throw new Error('no platform rotor');
+    const canopy: Mesh[] = [];
+    platform.traverse((n) => {
+      const mesh = n as Mesh;
+      const from = mesh.userData.bakedFrom as string[] | undefined;
+      if (mesh.isMesh && from?.some((name) => name.startsWith('CarouselCanopy_'))) canopy.push(mesh);
+    });
+    expect(canopy.length, 'merged meshes with canopy sources, under the rotor').toBeGreaterThan(0);
+    for (const mesh of canopy) expect(mesh.userData.xrayShell, mesh.name).toBe(true);
+
+    const before = new Map(canopy.map((m) => [m, m.material]));
+    const shell = new XRayShell(rig.root, XRAY_SHELL.carousel, () => xrayMovers(rig));
+    shell.setAmount(1);
+    for (const mesh of canopy) {
+      const material = mesh.material as MeshStandardMaterial;
+      expect(material, mesh.name).not.toBe(before.get(mesh));
+      expect(material.transparent, mesh.name).toBe(true);
+      expect(material.opacity, mesh.name).toBeCloseTo(XRAY_OPACITY, 6);
+      expect(material.emissive.r * material.emissiveIntensity, `${mesh.name} does not glow warm`).toBeLessThan(XRAY_GLOW);
+    }
+    shell.setAmount(0);
+    for (const mesh of canopy) expect(mesh.material, mesh.name).toBe(before.get(mesh));
+    shell.dispose();
+  });
 
   for (const id of MACHINES) {
     it(`${id}: the moving mechanism glows warm and solid, the casing does not, and everything is given back`, async () => {
@@ -493,7 +555,7 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
       for (const node of movers) {
         node.traverse((n) => {
           const mesh = n as Mesh;
-          if (mesh.isMesh && mesh.visible && !Array.isArray(mesh.material) && mesh.material.visible && !prefixes.some((p) => mesh.name.startsWith(p))) expected.add(mesh);
+          if (mesh.isMesh && mesh.visible && !Array.isArray(mesh.material) && mesh.material.visible && !isXRayShell(mesh, prefixes)) expected.add(mesh);
         });
       }
       expect(expected.size, `${id} meshes that glow`).toBeGreaterThan(0);
@@ -511,7 +573,7 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
         expect(material.transparent, mesh.name).toBe(false);
         expect(material.emissive.r * material.emissiveIntensity, mesh.name).toBeGreaterThanOrEqual(XRAY_GLOW - 1e-6);
       }
-      for (const m of all) if (!expected.has(m) && !prefixes.some((p) => m.name.startsWith(p))) expect(m.material, m.name).toBe(before.get(m)); // the rest is untouched
+      for (const m of all) if (!expected.has(m) && !isXRayShell(m, prefixes)) expect(m.material, m.name).toBe(before.get(m)); // the rest is untouched
       shell.setAmount(0);
       for (const m of all) expect(m.material, m.name).toBe(before.get(m));
       shell.dispose();
