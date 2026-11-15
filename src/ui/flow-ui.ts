@@ -93,7 +93,7 @@ const TRAY_RISE = 0.02;
 /** The pause panel's first setting plaque (centre, metres from the panel's centre) and the step between rows; a caption sits under each. */
 const SETTING_ROW_Y = 0.1305;
 const SETTING_ROW_STEP = 0.056;
-/** The five-row pause panel grew by one row (0.056) over the four-row one; half of that lifts it so its bottom edge stays clear of the table. */
+/** The panel base (pause and restart share it) grew by one row (0.056) over the four-row one; half of that lifts it so its bottom edge stays where it was, clear of the table. */
 const PAUSE_PANEL_RAISE = 0.028;
 const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
 /** The gift panel's machine selector (centre, metres from the panel's centre): under the two message lines (they end about 9 cm above the centre) and over the first engraving row (its top edge is at 4.3 cm). */
@@ -858,7 +858,8 @@ export class FlowUi {
     const show = view.xrayHint && view.panel === 'none';
     this.lensHint.mesh.visible = show;
     if (!show) return;
-    const text = this.session.save.settings.gazeMode ? XRAY_HINT.gaze : XRAY_HINT.hands;
+    const { gazeMode, rayMode } = this.session.save.settings; // at most one is on (the toggle turns the other off)
+    const text = gazeMode ? XRAY_HINT.gaze : rayMode ? XRAY_HINT.ray : XRAY_HINT.hands;
     this.lensHint.paint(text.hint, (c, w, h) => paintSlip(c, w, h, XRAY_HINT.title, text.hint, 'good'));
     this.faceHead(this.lensHint.mesh);
   }
@@ -887,7 +888,7 @@ export class FlowUi {
       for (const hot of this.panelHots) this.setHot(hot, false);
       return;
     }
-    this.panelGroup.position.set(PANEL_SPOT.x, PANEL_SPOT.y + (kind === 'pause' ? PAUSE_PANEL_RAISE : 0), PANEL_SPOT.z); // the pause panel is the tall one: its bottom edge stays where it was
+    this.panelGroup.position.set(PANEL_SPOT.x, PANEL_SPOT.y + (kind === 'pause' || kind === 'restart' ? PAUSE_PANEL_RAISE : 0), PANEL_SPOT.z); // the gift panel has its own, shorter base
     if (was === 'none') this.faceHead(this.panelGroup);
     if (kind === 'gift' && was !== 'gift') {
       // Reopened later: the machines standing in the town may have changed since the last visit.

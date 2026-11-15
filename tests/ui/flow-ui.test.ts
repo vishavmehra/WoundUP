@@ -442,6 +442,19 @@ describe('FlowUi: the lens and the X-ray hint', () => {
     expect(visible(r, 'UI_XrayHint')).toBe(true);
     expect(texts(r).join(' ')).toContain('Look at the lens, then pinch.');
   });
+
+  it('words the hint for ray mode with the lens, not the palm (a player who points does not owe the palm gesture)', async () => {
+    const r = await rig();
+    await toBench(r);
+    click(r, 'UI_Pause');
+    click(r, 'UI_Toggle_rayMode');
+    click(r, 'UI_PanelLeft');
+    r.ui.onModeChange('wind');
+    r.ui.showResult({ status: 'jams', jamReason: 'module_mismatch' });
+    expect(visible(r, 'UI_XrayHint')).toBe(true);
+    expect(texts(r).join(' ')).toContain('Point at the lens, then pinch.');
+    expect(texts(r).join(' ')).not.toContain('Palm down');
+  });
 });
 
 describe('FlowUi: gaze mode from the pause menu', () => {
