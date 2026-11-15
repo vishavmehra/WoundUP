@@ -7,7 +7,22 @@
  */
 import type { PlotId } from '../game/content';
 import { WAKE_CHIMES } from './notes';
-import { bellVoice, bonkVoice, chimeVoice, makeNoise, pluckVoice, snapVoice, tickVoice, windVoice } from './voices';
+import {
+  bellVoice,
+  bonkVoice,
+  chimeVoice,
+  dialTickVoice,
+  lidThumpVoice,
+  makeNoise,
+  materialSnapVoice,
+  pluckVoice,
+  revealRiseVoice,
+  snapVoice,
+  stageChordVoice,
+  tickVoice,
+  windVoice,
+} from './voices';
+import type { SnapVoice } from './voices';
 
 /** What the town and the interaction layer need from the audio. `AudioEngine` implements it; tests pass a recorder. */
 export interface TownAudio {
@@ -115,6 +130,39 @@ export class AudioEngine implements TownAudio {
   snap(): void {
     const ctx = this.ready();
     if (ctx && this.sfx && this.noise) snapVoice(ctx, this.sfx, this.noise);
+  }
+
+  /**
+   * A part seating, with the sound of its material (`voice`, a catalogue `feedback.voice`). `step` counts the placements of the
+   * current stage before this one, so the pitch climbs a short scale (INTRICATE_ASSEMBLY_DESIGN §10.1).
+   */
+  snapMaterial(voice: SnapVoice, step = 0): void {
+    const ctx = this.ready();
+    if (ctx && this.sfx && this.noise) materialSnapVoice(ctx, this.sfx, this.noise, voice, step);
+  }
+
+  /** The chord that closes stage `index` (0 first) of `total`: a rising scale whose last stage resolves on the home chord. */
+  stageChord(index: number, total: number): void {
+    const ctx = this.ready();
+    if (ctx && this.bells) stageChordVoice(ctx, this.bells, index, total);
+  }
+
+  /** The progress dial advancing one tick. */
+  dialTick(): void {
+    const ctx = this.ready();
+    if (ctx && this.sfx && this.noise) dialTickVoice(ctx, this.sfx, this.noise);
+  }
+
+  /** The Music Box lid shutting. */
+  lidThump(): void {
+    const ctx = this.ready();
+    if (ctx && this.sfx && this.noise) lidThumpVoice(ctx, this.sfx, this.noise);
+  }
+
+  /** The soft rise as the lid lifts and the melody is about to start. */
+  revealRise(): void {
+    const ctx = this.ready();
+    if (ctx && this.bells) revealRiseVoice(ctx, this.bells);
   }
 
   /** A part refused. */
