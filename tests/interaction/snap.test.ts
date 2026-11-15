@@ -1,28 +1,39 @@
 import { describe, expect, it } from 'vitest';
 import { Quaternion, Vector3 } from 'three';
 import {
+  ASSIST_REACH,
+  ASSIST_WINDOW_S,
+  assistedRelease,
   createPick,
   EASY_SNAP_RADIUS_M,
   easeOutCubic,
+  FIRM_UNSNAP_DISTANCE_M,
   isCompatible,
+  isTinyFamily,
   NO_PART,
   pickSocket,
+  RELAXED_EASY_SNAP_RADIUS_M,
+  RELAXED_SNAP_RADIUS_M,
+  SETTLE_OVERSHOOT_M,
   SNAP_RADIUS_M,
   seatedRelative,
+  settleBump,
   shouldUnsnap,
   snapRadius,
+  statusOf,
   swingZToAxis,
   UNSNAP_DISTANCE_M,
 } from '../../src/interaction/snap';
 import type { PartSample, SocketSample } from '../../src/interaction/snap';
 
 const part = (x: number, y = 0, z = 0, id = 'gear_16', family = 'gear', key = 1): PartSample => ({ x, y, z, id, family, key });
-const socket = (x: number, accepts: string[] = ['gear'], occupant = NO_PART, y = 0, z = 0): SocketSample => ({
+const socket = (x: number, accepts: string[] = ['gear'], occupant = NO_PART, y = 0, z = 0, armed = true): SocketSample => ({
   x,
   y,
   z,
   accepts,
   occupant,
+  armed,
 });
 
 describe('radii (INTERACTION_SPEC §8, §9)', () => {
@@ -165,5 +176,72 @@ describe('axis alignment (+Z onto the socket axis)', () => {
     const twist = 2 * Math.atan2(spin.z, spin.w);
     const pureRoll = new Quaternion().setFromAxisAngle(z, twist);
     expect(spin.angleTo(pureRoll)).toBeLessThan(1e-6);
+  });
+});
+
+describe('the radius table of the intricate assembly (design §5.2, ADR-050)', () => {
+  it('is 4 and 7 cm for Standard and Master, 7 and 9 cm for Relaxed, and Standard when no level is given', () => {
+    expect(snapRadius(false, 'standard')).toBe(SNAP_RADIUS_M);
+    expect(snapRadius(true, 'standard')).toBe(EASY_SNAP_RADIUS_M);
+    expect(snapRadius(false, 'master')).toBe(0.04);
+    expect(snapRadius(true, 'master')).toBe(0.07);
+    expect(snapRadius(false, 'relaxed')).toBe(RELAXED_SNAP_RADIUS_M);
+    expect(snapRadius(true, 'relaxed')).toBe(RELAXED_EASY_SNAP_RADIUS_M);
+    expect([RELAXED_SNAP_RADIUS_M, RELAXED_EASY_SNAP_RADIUS_M]).toEqual([0.07, 0.09]);
+    expect(snapRadius(true)).toBe(0.07);
+  });
+
+  it('asks 6 cm of a part inside a finished unit and 3 cm of every other', () => {
+    expect(FIRM_UNSNAP_DISTANCE_M).toBe(0.06);
+    expect(shouldUnsnap(0.05)).toBe(true);
+    expect(shouldUnsnap(0.05, FIRM_UNSNAP_DISTANCE_M)).toBe(false);
+    expect(shouldUnsnap(0.061, FIRM_UNSNAP_DISTANCE_M)).toBe(true);
+  });
+});
+
+describe('arming (design §3.4)', () => {
+  it('rates the right part at an unarmed socket as order, after family and occupied', () => {
+    const p = part(0);
+    expect(statusOf(socket(0), p)).toBe('valid');
+    expect(statusOf(socket(0, ['gear'], NO_PART, 0, 0, false), p)).toBe('order');
+    expect(statusOf(socket(0, ['shaft'], NO_PART, 0, 0, false), p)).toBe('family'); // the wrong part says so first
+    expect(statusOf(socket(0, ['gear'], 7, 0, 0, false), p)).toBe('occupied');
+  });
+
+  it('never snaps to an unarmed socket: an armed one farther away wins, and the unarmed one alone is a reject', () => {
+    const out = createPick();
+    const unarmedNear = socket(0.005, ['gear'], NO_PART, 0, 0, false);
+    const armedFar = socket(0.03);
+    expect(pickSocket(part(0), [unarmedNear, armedFar], 0.04, out)).toBe(true);
+    expect(out).toMatchObject({ index: 1, status: 'valid' });
+    expect(pickSocket(part(0), [unarmedNear], 0.04, out)).toBe(true);
+    expect(out).toMatchObject({ index: 0, status: 'order' });
+  });
+
+  it('lets a part return to the socket it already occupies even when it is not armed', () => {
+    const out = createPick();
+    pickSocket(part(0, 0, 0, 'g', 'gear', 5), [socket(0, ['gear'], 5, 0, 0, false)], 0.04, out);
+    expect(out.status).toBe('valid');
+  });
+});
+
+describe('settle and release assist (design §5.2, §10.1)', () => {
+  it('pushes 0.4 mm past home in the middle of the settle and nothing at either end', () => {
+    expect(SETTLE_OVERSHOOT_M).toBe(0.0004);
+    expect(settleBump(0)).toBeCloseTo(0, 12);
+    expect(settleBump(0.5)).toBeCloseTo(1, 12);
+    expect(settleBump(1)).toBeCloseTo(0, 12);
+    expect(settleBump(-1)).toBe(0);
+    expect(settleBump(2)).toBeCloseTo(0, 12);
+  });
+
+  it('is for tiny parts only, and rescues a release up to 1.5 radii away within 0.15 s of a valid preview', () => {
+    expect(isTinyFamily('fastener')).toBe(true);
+    expect(isTinyFamily('spur_gear')).toBe(false);
+    expect([ASSIST_WINDOW_S, ASSIST_REACH]).toEqual([0.15, 1.5]);
+    expect(assistedRelease(0.1, 0.05, 0.04)).toBe(true);
+    expect(assistedRelease(0.15, 0.06, 0.04)).toBe(true);
+    expect(assistedRelease(0.16, 0.05, 0.04)).toBe(false); // the preview is too old
+    expect(assistedRelease(0.1, 0.061, 0.04)).toBe(false); // the hand drifted too far
   });
 });

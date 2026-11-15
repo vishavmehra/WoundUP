@@ -26,6 +26,14 @@ export const Socket = createComponent('Socket', {
   /** Only the mating axis is fixed on snap and the roll stays as the player left it (glb-reader.ts `wu.orient`). */
   axisOnly: { type: Types.Boolean, default: false },
   occupant: { type: Types.Entity, default: null },
+  /**
+   * Whether the socket may take a part now (INTRICATE_ASSEMBLY_DESIGN §3.4, ADR-050). Only armed sockets preview and snap; a part
+   * released at an unarmed one is rejected with reason `order`. Default true, so a machine with no stages is unchanged. Written by
+   * the game layer (`applyArming` in arming.ts), read by SocketSnapSystem.
+   */
+  armed: { type: Types.Boolean, default: true },
+  /** How far a seated part must be pulled before it comes out, metres: 3 cm, or 6 cm inside a finished unit (`setFirm` in arming.ts). */
+  unsnapM: { type: Types.Float64, default: 0.03 },
 });
 
 /** Tag-with-data set on a part while it sits in a socket. Added and removed by SocketSnapSystem; removing it frees the socket. */
