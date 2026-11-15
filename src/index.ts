@@ -12,6 +12,7 @@ import { GrabModeSystem } from './grab-mode.js';
 import { useSelfHostedHands } from './hands.js';
 import { installInteraction } from './interaction/index.js';
 import { mountLanding, type Landing, type LandingOptions } from './landing/landing.js';
+import { installToneMapping } from './lighting.js';
 import { createMaterialRegistry, type MaterialRegistry } from './materials/index.js';
 import { PartLoader } from './parts/index.js';
 import { installRenderBudget, type RenderBudget } from './render-budget.js';
@@ -166,6 +167,7 @@ try {
     detectXrSupport(),
   ]);
   world = created;
+  installToneMapping(world.renderer); // AgX instead of the scene file's ACES (src/lighting.ts)
   installXrTuning(world, location.search); // multiview off-switch, foveation, framebuffer scale and the 72 Hz request (src/xr-tuning.ts)
   // Landing actions stay disabled until setSupport below, so the preview cannot have started yet.
   const budget = (renderBudget = installRenderBudget(world));

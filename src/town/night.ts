@@ -10,11 +10,11 @@
 import { DirectionalLightComponent, HemisphereLightComponent, IBLGradient } from '@iwsdk/core';
 import type { Entity } from '@iwsdk/core';
 
-/** How each light stands at full night: a fraction of its day intensity, and the colour it moves towards (linear RGB). */
+/** How each light stands at full night: a fraction of its day intensity, and the colour it moves towards. The colours are what the light components hold, which IWSDK reads as sRGB. */
 export const NIGHT_LOOK = {
-  hemisphere: { intensity: 0.55, sky: [0.3, 0.4, 0.66], ground: [0.035, 0.03, 0.06] },
-  directional: { intensity: 0.3, color: [0.55, 0.68, 1.0] },
-  environment: { intensity: 0.45 },
+  hemisphere: { intensity: 0.6, sky: [0.45, 0.55, 0.82], ground: [0.12, 0.1, 0.16] },
+  directional: { intensity: 0.4, color: [0.62, 0.72, 1.0] },
+  environment: { intensity: 0.55 },
 } as const;
 
 interface Day {

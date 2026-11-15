@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { dressingGrid } from '../../src/town/dressing-table';
 import { DRESS_GRID, MAX_SCENERY_BOXES, MAX_WAKE_SOURCES, SCENERY_BOXES, WAKE_SOURCES } from '../../src/town/layout';
 import { FROZEN_RESIDUAL, FROZEN_TINT } from '../../src/town/wake';
-import { constants, createWakeUniforms, installWakeShading, NIGHT_GLOW, patchMaterial, patchWakeShader, WAKE_PROGRAM_KEY } from '../../src/town/wake-shader';
+import { AO_DIRECT_FLOOR, AO_INDIRECT_FLOOR, constants, createWakeUniforms, installWakeShading, NIGHT_GLOW, patchMaterial, patchWakeShader, WAKE_PROGRAM_KEY } from '../../src/town/wake-shader';
 import { libraryRegistry } from './helpers';
 
 const physical = ShaderLib.physical;
@@ -67,6 +67,22 @@ describe('patchWakeShader', () => {
     const text = constants(SCENERY_BOXES, WAKE_SOURCES);
     expect(text).toContain(`vec2( ${DRESS_GRID.x0.toFixed(5)}, ${DRESS_GRID.z0.toFixed(5)} )`);
     expect(text).toContain(`vec2( ${(DRESS_GRID.w * DRESS_GRID.cell).toFixed(5)}, ${(DRESS_GRID.h * DRESS_GRID.cell).toFixed(5)} )`);
+  });
+
+  it('uses the baked vertex colour as occlusion on the light, never as paint on the base colour', () => {
+    expect(fragmentShader).not.toContain('#include <color_fragment>'); // three would multiply COLOR_0 (mean 0.14 to 0.45 in the town) into the albedo
+    const at = (s: string): number => fragmentShader.indexOf(s);
+    expect(at('float wuOccl = vColor.r;')).toBeGreaterThan(at('#include <aomap_fragment>'));
+    expect(at('reflectedLight.directSpecular *= wuOcclDirect;')).toBeLessThan(at('#include <opaque_fragment>'));
+    for (const lit of ['indirectDiffuse *= wuOcclIndirect', 'indirectSpecular *= wuOcclIndirect', 'directDiffuse *= wuOcclDirect', 'directSpecular *= wuOcclDirect']) {
+      expect(fragmentShader, lit).toContain(`reflectedLight.${lit};`);
+    }
+    // a floor above zero: a vertex baked to 0 must never turn black, and the direct light (no shadows in the town) is dimmed less than the indirect
+    expect(AO_INDIRECT_FLOOR).toBeGreaterThan(0.2);
+    expect(AO_DIRECT_FLOOR).toBeGreaterThan(AO_INDIRECT_FLOOR);
+    expect(AO_DIRECT_FLOOR).toBeLessThanOrEqual(1);
+    expect(fragmentShader).toContain(`mix( ${AO_INDIRECT_FLOOR.toFixed(5)}, 1.0, wuOccl )`);
+    expect(fragmentShader).toContain(`mix( ${AO_DIRECT_FLOOR.toFixed(5)}, 1.0, wuOccl )`);
   });
 
   it('works on the standard material program too, and throws on a program it cannot hook', () => {
