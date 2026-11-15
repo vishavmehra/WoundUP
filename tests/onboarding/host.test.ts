@@ -85,3 +85,41 @@ describe('which lesson the situation calls for', () => {
     expect(lessonOf({ mode: 'gift' })).toBeNull();
   });
 });
+
+describe('whether a hand is busy (the guide never interrupts an active grab)', () => {
+  type Fake = { hasComponent: () => boolean };
+  const grabbed = (held: boolean): Fake => ({ hasComponent: () => held });
+
+  function busyOf(parts: Fake[], carried: Fake | null, holder: 'left' | 'right' | null) {
+    let lookups = 0;
+    const game = {
+      world: {
+        getSystem: () => {
+          lookups++;
+          return { getHolderHand: () => holder };
+        },
+      },
+      build: () => ({ parts: parts.map((entity) => ({ entity })) }),
+      carried: () => (carried ? { entity: carried } : null),
+    } as unknown as GameplayView;
+    const host = createGuideHost(game);
+    return { busy: () => host.busy(), lookups: () => lookups };
+  }
+
+  it('is busy while a hand holds a tray part, or the carried machine, by hand or by ray', () => {
+    expect(busyOf([grabbed(false), grabbed(true)], null, 'right').busy()).toBe(true);
+    expect(busyOf([grabbed(false)], grabbed(true), 'left').busy()).toBe(true);
+  });
+
+  it('is not busy when nothing is grabbed, or when the grab has no holder any more', () => {
+    expect(busyOf([grabbed(false), grabbed(false)], grabbed(false), 'right').busy()).toBe(false);
+    expect(busyOf([grabbed(true)], null, null).busy()).toBe(false); // Grabbed is still on the entity but no pointer holds it
+    expect(busyOf([], null, 'right').busy()).toBe(false);
+  });
+
+  it('looks the grab system up once, not every frame', () => {
+    const probe = busyOf([grabbed(false)], null, 'right');
+    for (let i = 0; i < 100; i++) probe.busy();
+    expect(probe.lookups()).toBe(1);
+  });
+});

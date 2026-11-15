@@ -54,12 +54,16 @@ export interface GameplayView {
   assembly(): Assembly;
 }
 
+/** A hand holds `entity` (near, or by a ray). Allocation-free except in IWSDK's own `getHolderHand`, which only runs for a grabbed entity. */
+const isHeld = (grab: GrabSystem, entity: Entity): boolean => entity.hasComponent(Grabbed) && grab.getHolderHand(entity) !== null;
+
 /** Gaze mode and ray mode have their own demonstration (the hand stays still and only pinches); the player's own hands reach. */
 export const variantNow = (): Variant => (isRayModeOn() ? 'ray' : isGazeAiming() ? 'gaze' : 'hands');
 
 export function createGuideHost(game: GameplayView): GuideHost {
   /** Whether a build has a winding key for a hand to turn: fixed for the life of a build, so asked once (the loop runs `lesson` every frame). */
   const keyByHand = new WeakMap<BuildView, boolean>();
+  let grabSystem: GrabSystem | undefined;
   const pressable = (name: string): Object3D | undefined => game.ui.pressables().find((p) => p.name === name && p.active)?.object;
 
   /** The loose tray part to pick up next and the socket it goes in, or null. Sockets are taken in blueprint order, once what they stand on is seated. */
@@ -107,12 +111,12 @@ export function createGuideHost(game: GameplayView): GuideHost {
     },
 
     busy(): boolean {
-      const grab = game.world.getSystem(GrabSystem);
-      if (!grab) return false;
-      const held = (entity: Entity | undefined): boolean => entity !== undefined && entity.hasComponent(Grabbed) && grab.getHolderHand(entity) !== null;
+      grabSystem ??= game.world.getSystem(GrabSystem); // found once: the scan over every system is not for the frame loop
+      if (!grabSystem) return false;
       const build = game.build();
-      if (build) for (const part of build.parts) if (held(part.entity)) return true;
-      return held(game.carried()?.entity);
+      if (build) for (const part of build.parts) if (isHeld(grabSystem, part.entity)) return true;
+      const carried = game.carried();
+      return carried !== null && isHeld(grabSystem, carried.entity);
     },
 
     resolve(lesson: LessonId, variant: Variant, out: GuideTargets): boolean {

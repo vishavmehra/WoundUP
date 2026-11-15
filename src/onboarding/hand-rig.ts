@@ -119,12 +119,13 @@ export class HandRig {
       const f = Math.min(u - 1, 1);
       this.finger(FINGERS.index, lerp(INDEX_PINCH[0], FIST[0], f), lerp(INDEX_PINCH[1], FIST[1], f), lerp(INDEX_PINCH[2], FIST[2], f));
     }
-    for (const name of ['middle', 'ring', 'pinky'] as const) this.finger(FINGERS[name], FIST[0] * shape.rest, FIST[1] * shape.rest, FIST[2] * shape.rest);
+    this.finger(FINGERS.middle, FIST[0] * shape.rest, FIST[1] * shape.rest, FIST[2] * shape.rest);
+    this.finger(FINGERS.ring, FIST[0] * shape.rest, FIST[1] * shape.rest, FIST[2] * shape.rest);
+    this.finger(FINGERS.pinky, FIST[0] * shape.rest, FIST[1] * shape.rest, FIST[2] * shape.rest);
     this.thumb(shape.thumb);
   }
 
   private finger(chain: readonly string[], prox: number, inter: number, dist: number): void {
-    const angles = [0, prox, inter, dist, 0];
     _r.identity();
     let previous: Rest | undefined;
     for (let j = 0; j < chain.length; j++) {
@@ -132,7 +133,8 @@ export class HandRig {
       const bone = this.bones.get(chain[j]) as Object3D;
       if (j === 0) _p.copy(rest.position);
       else _p.add(_o.copy(rest.position).sub((previous as Rest).position).applyQuaternion(_r));
-      _r.multiply(_q.setFromAxisAngle(_axis, angles[j]));
+      // The metacarpal (0) and the tip (4) are rigid; the three joints between them bend.
+      _r.multiply(_q.setFromAxisAngle(_axis, j === 1 ? prox : j === 2 ? inter : j === 3 ? dist : 0));
       bone.position.copy(_p);
       bone.quaternion.copy(_r).multiply(rest.quaternion);
       previous = rest;
