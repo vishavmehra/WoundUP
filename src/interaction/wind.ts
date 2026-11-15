@@ -1,17 +1,17 @@
 import type { Quaternion, Vector3 } from 'three';
+import { MAX_WIND_UNITS as SIM_MAX_WIND_UNITS, WIND_UNIT_ANGLE, windUnitsFromAngle } from '../sim';
 
 /**
  * Winding maths (INTERACTION_SPEC §10; GAMEPLAY_SYSTEMS §10.1): pinch the key, twist the wrist, every 90 degrees adds
  * one wind unit, at most eight. Pure functions and one small state machine, no IWSDK.
- * The rate is the solver's: `floor(angle / 90 degrees + 1e-9)`, capped at 8, as `windUnitsFromAngle` in src/sim/power.ts
- * (tests/interaction/wind.test.ts keeps the two equal). It is restated here because src/sim is on another branch;
- * once the branches meet, `WindTracker.update` can use `Math.min(windUnitsFromAngle(this.peak), this.capacity)` instead.
+ * The rate is the solver's, not a copy of it: `windUnitsFromAngle` in src/sim/power.ts is the single definition (one unit per
+ * 90 degrees, at most 8), so the hand and the solver cannot disagree about what a turn of the key is worth.
  */
 
 /** One wind unit per 90 degrees of wrist twist (INTERACTION_SPEC §10). */
-export const WIND_UNIT_RAD = Math.PI / 2;
+export const WIND_UNIT_RAD = WIND_UNIT_ANGLE;
 /** Maximum wind units (INTERACTION_SPEC §10). */
-export const MAX_WIND_UNITS = 8;
+export const MAX_WIND_UNITS = SIM_MAX_WIND_UNITS;
 /** Twist needed after the pinch before the winding direction is fixed for that grab. Keeps hand tremor from choosing it. Tuning value, not in the spec. */
 export const WIND_LOCK_RAD = (15 * Math.PI) / 180;
 /**
@@ -21,6 +21,17 @@ export const WIND_LOCK_RAD = (15 * Math.PI) / 180;
  * that guarantees at most one unit per frame. Tuning value, not in the spec.
  */
 export const WIND_JUMP_RAD = Math.PI / 3;
+
+/**
+ * A seated key leaves its socket only when the hand carries it this far along the key's axis from where the pinch began, in
+ * metres: a deliberate pull (INTERACTION_SPEC §9, "do not detach a part merely because hand-tracking noise causes a tiny
+ * positional movement"). Twice the 3 cm of an ordinary part, because the wrist twist that winds the key moves the hand a little
+ * and must never take it out. Tuning value, not in the spec.
+ */
+export const KEY_PULL_OUT_M = 0.06;
+
+/** Has the hand pulled the seated key far enough along its axis to take it out? `axialMetres` is signed; either direction counts. */
+export const keyPulledOut = (axialMetres: number): boolean => Math.abs(axialMetres) >= KEY_PULL_OUT_M;
 
 const TAU = Math.PI * 2;
 
@@ -101,7 +112,7 @@ export class WindTracker {
     }
     this.peak = Math.max(this.peak, this.direction * this.total);
 
-    const earned = Math.min(Math.floor(this.peak / WIND_UNIT_RAD + 1e-9), this.capacity) - this.gained;
+    const earned = Math.min(windUnitsFromAngle(this.peak), this.capacity) - this.gained;
     if (earned <= 0) return 0;
     this.gained += earned;
     return earned;

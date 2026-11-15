@@ -58,7 +58,7 @@ describe('buildTown', () => {
     const seen = new Set<unknown>();
     town.group.traverse((o) => {
       const mesh = o as Mesh;
-      if (!mesh.isMesh) return;
+      if (!mesh.isMesh || mesh.parent === town.ambience.group) return; // the ambience's own materials are not scenery proxies (ambience.ts)
       expect(registry.owns(mesh.material as never)).toBe(true);
       seen.add(mesh.material);
     });

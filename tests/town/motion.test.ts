@@ -201,9 +201,9 @@ describe('rig updaters (ADR-048)', () => {
     expect(seen[1]).toEqual(['b', 7, 0]);
   });
 
-  it('starts every rig not bakeable, not restored, with no audio and nothing moving', () => {
+  it('starts every rig not restored, with no audio and nothing moving', () => {
     const rig = createRig('belfry', new Group());
-    expect(rig).toMatchObject({ bakeable: false, restored: false, audio: null, updaters: [], moving: [] });
+    expect(rig).toMatchObject({ restored: false, audio: null, updaters: [], moving: [] });
   });
 });
 

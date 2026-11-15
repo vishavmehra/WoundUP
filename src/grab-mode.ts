@@ -22,6 +22,13 @@ export class GrabModeSystem extends createSystem(
     this.cleanupFuncs.push(onGazeModeChange(() => this.refresh()));
   }
 
+  /** The page got a hand-tracked (emulated) headset after the parts were made: switches every part from the mouse ray to near grab. */
+  useHands(): void {
+    if (this.config.hands.peek()) return;
+    this.config.hands.value = true;
+    this.refresh();
+  }
+
   /**
    * Swaps the grab component of every part that has one. A part without one is left alone: a machine that stands on its plot
    * had its component taken away by the game on purpose. IWSDK builds one grab handle per entity and never rebuilds it, so the

@@ -74,7 +74,7 @@ export const TRAY_POSE: Readonly<Record<string, TrayPose>> = {
   ratchet_wheel: { yawDeg: 0, offset: [0, 0.00312, 0], size: [40, 40] },
   pawl_standard: { yawDeg: 0, offset: [-0.0103, 0.0026, -0.0005], size: [32.6, 13] },
   flywheel_standard: { yawDeg: 0, offset: [0, 0.00662, 0], size: [52, 52] },
-  gear_bevel_12: { yawDeg: 0, offset: [0, 0.006, 0], size: [32.2, 32.2] },
+  gear_bevel_12: { yawDeg: 0, offset: [0, 0.006, 0], size: [32.2, 32.2] }, // also the Clock Tower's decoy bevel gear (Letter 6): 12 mm thick, origin at mid-thickness
   bearing_pillow_block: { yawDeg: 0, offset: [0, 0.01, 0], size: [30, 12] }, // stands as authored, base plate down
   belfry_vane: { yawDeg: 90, offset: [0, 0.004, 0], size: [16.1, 63.8] }, // finial up; turned a quarter so its 6.4 cm arrow runs along the tray
   clock_bell: { yawDeg: 0, offset: [0, 0.028, 0], size: [30, 30] }, // the Belfry's bell, as authored: its origin is the top of the yoke, the body 28 mm below it

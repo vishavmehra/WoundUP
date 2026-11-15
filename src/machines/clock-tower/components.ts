@@ -12,4 +12,9 @@ export const ClockTowerRig = createComponent('ClockTowerRig', {
    * once the tower is placed in the town it stays true (a town machine does not run down, or the hourly bell could never ring).
    */
   powered: { type: Types.Boolean, default: false },
+  /**
+   * Ring the hour once, as soon as the clock starts: for a tower that is only being shown (a gift on the stand, the debug demo), where
+   * nobody waits for the real hour. The game does it itself when the tower is placed on its plot, so it leaves this off.
+   */
+  strikeOnStart: { type: Types.Boolean, default: false },
 });

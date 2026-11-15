@@ -1,170 +1,328 @@
-import { BoxGeometry, Box3, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, Vector3 } from '@iwsdk/core';
+import { BoxGeometry, Box3, Group, Mesh, MeshStandardMaterial, Vector3 } from 'three';
+import type { BufferGeometry, Material, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
-import { bakeStatic } from '../../src/town/bake';
-import { createRig, createRotor } from '../../src/town/motion';
+import { BELFRY, solveAssembly, WELL } from '../../src/content/blueprints';
+import { BELFRY_BELL_NODE, buildBelfry } from '../../src/machines/belfry/build';
+import { buildClockTower } from '../../src/machines/clock-tower/build';
+import { buildWell, WELL_NODE } from '../../src/machines/well/build';
+import { MAX_WIND_UNITS } from '../../src/sim';
+import { ClockTowerNodes, CLOCK_TOWER_NODE, TheatreDoors } from '../../src/machines/clock-tower/rig';
+import { readInteractionNodes } from '../../src/interaction/glb-reader';
+import { bakeRig, bakeStatic, bakeTown, disposeBaked } from '../../src/town/bake';
+import { buildCarousel, buildMachine, buildMusicBox, buildWindmill } from '../../src/town/machines';
+import { createRig, createRotor, stepRig } from '../../src/town/motion';
+import { loadTown } from '../../src/town/scene';
 import type { MachineRig } from '../../src/town/motion';
+import { libraryRegistry } from './helpers';
+import { modelsPresent, realSource } from './real-source';
 
-/** A library-looking material: the name is what the baker groups by. */
-const material = (name: string, vertexColors = false): MeshStandardMaterial => Object.assign(new MeshStandardMaterial(), { name, vertexColors });
-
-function box(name: string, mat: MeshStandardMaterial, x: number, y = 0, z = 0): Mesh {
-  const mesh = new Mesh(new BoxGeometry(0.01, 0.01, 0.01), mat);
-  mesh.name = name;
-  mesh.position.set(x, y, z);
-  return mesh;
+/** What a draw of the scene would show, per material: triangles, world area and world box. Equal before and after a bake. */
+interface Fingerprint {
+  triangles: number;
+  area: number;
+  box: Box3;
 }
 
-/** A small rig: a housing with static meshes of two materials, a turning gear and a sliding rod, a hidden template and a collider proxy. */
-function fixture(): { rig: MachineRig; brass: MeshStandardMaterial; walnut: MeshStandardMaterial; gear: Object3D; rod: Mesh } {
-  const brass = material('Mat_AgedBrass');
-  const walnut = material('Mat_Walnut');
-  const root = new Group();
-  root.add(box('Post_L', walnut, -0.02), box('Post_R', walnut, 0.02), box('Plate', walnut, 0, 0.03), box('Stud', brass, 0, 0.01));
-  const gear = new Group();
-  gear.add(box('Gear_Disc', brass, 0));
-  gear.position.set(0.05, 0.05, 0);
-  root.add(gear);
-  const rod = box('Rod', brass, -0.05, 0.05);
-  root.add(rod);
-  const template = new Group();
-  template.visible = false;
-  template.add(box('Bucket', brass, 0.07));
-  root.add(template);
-  const proxy = new Mesh(new BoxGeometry(1, 1, 1), Object.assign(new MeshBasicMaterial(), { visible: false }));
-  proxy.name = 'COL_Grab_proxy';
-  root.add(proxy);
-  const rig = createRig('well', root);
-  rig.rotors.push(createRotor(gear, 'cam'));
-  rig.moving.push(rod);
-  rig.bakeable = true;
-  return { rig, brass, walnut, gear, rod };
+const _a = new Vector3();
+const _b = new Vector3();
+const _c = new Vector3();
+const _ab = new Vector3();
+const _ac = new Vector3();
+
+function triangleCount(geometry: BufferGeometry): number {
+  return (geometry.index ? geometry.index.count : geometry.getAttribute('position').count) / 3;
 }
 
-const drawn = (root: Object3D): Mesh[] => {
-  const out: Mesh[] = [];
-  root.traverseVisible((n) => {
-    const m = n as Mesh;
-    if (m.isMesh && !Array.isArray(m.material) && m.material.visible !== false) out.push(m);
+function fingerprint(root: Object3D): { drawn: number; byMaterial: Map<string, Fingerprint> } {
+  root.updateWorldMatrix(true, true);
+  const byMaterial = new Map<string, Fingerprint>();
+  let drawn = 0;
+  root.traverse((node) => {
+    const mesh = node as Mesh;
+    if (!mesh.isMesh) return;
+    for (let n: Object3D | null = mesh; n; n = n.parent) if (!n.visible) return;
+    const material = mesh.material as Material;
+    if (!material.visible) return;
+    drawn++;
+    const entry = byMaterial.get(material.uuid) ?? { triangles: 0, area: 0, box: new Box3() };
+    byMaterial.set(material.uuid, entry);
+    const geometry = mesh.geometry;
+    const position = geometry.getAttribute('position');
+    const index = geometry.index;
+    const triangles = triangleCount(geometry);
+    entry.triangles += triangles;
+    for (let t = 0; t < triangles; t++) {
+      const at = (k: number): number => (index ? index.getX(t * 3 + k) : t * 3 + k);
+      _a.fromBufferAttribute(position, at(0)).applyMatrix4(mesh.matrixWorld);
+      _b.fromBufferAttribute(position, at(1)).applyMatrix4(mesh.matrixWorld);
+      _c.fromBufferAttribute(position, at(2)).applyMatrix4(mesh.matrixWorld);
+      entry.area += _ab.subVectors(_b, _a).cross(_ac.subVectors(_c, _a)).length() / 2;
+      entry.box.expandByPoint(_a).expandByPoint(_b).expandByPoint(_c);
+    }
   });
-  return out;
+  return { drawn, byMaterial };
+}
+
+function expectSamePicture(before: ReturnType<typeof fingerprint>, after: ReturnType<typeof fingerprint>): void {
+  expect([...after.byMaterial.keys()].sort()).toEqual([...before.byMaterial.keys()].sort());
+  for (const [key, a] of before.byMaterial) {
+    const b = after.byMaterial.get(key) as Fingerprint;
+    expect(b.triangles).toBe(a.triangles);
+    // The merged vertices are float32 in the frame of their node. A material can have zero area (the ambience quads are
+    // collapsed until the town wakes), so the tolerance has a floor.
+    expect(Math.abs(b.area - a.area)).toBeLessThanOrEqual(Math.max(a.area * 1e-5, 1e-12));
+    for (const corner of ['min', 'max'] as const) for (const axis of ['x', 'y', 'z'] as const) expect(b.box[corner][axis]).toBeCloseTo(a.box[corner][axis], 5);
+  }
+}
+
+const brass = new MeshStandardMaterial({ name: 'Mat_AgedBrass' });
+const walnut = new MeshStandardMaterial({ name: 'Mat_Walnut' });
+const glass = new MeshStandardMaterial({ name: 'Mat_WarmGlass', transparent: true });
+const box = (name: string, material: Material, x = 0, y = 0, z = 0): Mesh => {
+  const geometry = new BoxGeometry(0.01, 0.01, 0.01);
+  geometry.clearGroups(); // BoxGeometry draws six material groups; a GLB primitive has one material and no groups
+  const m = new Mesh(geometry, material);
+  m.name = name;
+  m.position.set(x, y, z);
+  return m;
 };
 
-describe('bakeStatic (ADR-048: the awake town stays under 200 draw calls)', () => {
-  it('merges the static meshes into one mesh per material, and leaves the turning and sliding parts, the hidden template and the proxy alone', () => {
-    const { rig, brass, walnut, gear, rod } = fixture();
-    expect(drawn(rig.root)).toHaveLength(6); // 3 walnut + stud + gear disc + rod
-    const result = bakeStatic(rig);
-    expect(result).toEqual({ removed: 4, made: 2 }); // posts and plate (walnut), the stud (brass)
-    const names = drawn(rig.root).map((m) => m.name).sort();
-    expect(names).toEqual(['Baked_Mat_AgedBrass', 'Baked_Mat_Walnut', 'Gear_Disc', 'Rod']);
-    expect(rig.root.getObjectByName('Baked_Mat_Walnut')).toMatchObject({ material: walnut });
-    expect(rig.root.getObjectByName('Baked_Mat_AgedBrass')).toMatchObject({ material: brass });
-    expect(gear.parent).toBe(rig.root);
-    expect(rod.parent).toBe(rig.root);
-    expect(rig.root.getObjectByName('Bucket')?.visible).toBe(true); // the template group is hidden, not its mesh: it was never drawn and is not baked
-    expect(drawn(rig.root).some((m) => m.name === 'Bucket')).toBe(false);
-    expect(rig.root.getObjectByName('COL_Grab_proxy')).toBeDefined(); // the collider proxy is not drawn and not touched
-    expect(rig.bakeable).toBe(false);
+/** A machine of two brass case meshes, a walnut one, a platform of two brass meshes and a walnut one, and a lone shaft. */
+function makeMachine(): { root: Group; platform: Group; shaft: Mesh } {
+  const root = new Group();
+  root.name = 'Machine';
+  root.position.set(0.3, 0.1, -0.2);
+  root.rotation.y = 0.7;
+  const shaft = box('Shaft', brass, 0.02, 0, 0);
+  const platform = new Group();
+  platform.name = 'Platform';
+  platform.position.set(0, 0.03, 0);
+  platform.add(box('PlatformBrassA', brass, 0.01, 0, 0), box('PlatformBrassB', brass, -0.01, 0, 0.01), box('PlatformWood', walnut, 0, 0.01, 0));
+  root.add(box('CaseA', brass, 0, 0, 0), box('CaseB', brass, 0.03, 0, 0), box('CaseC', walnut, 0, 0, 0.03), box('Pane', glass, 0, 0.02, 0), shaft, platform);
+  const hidden = new Group();
+  hidden.visible = false;
+  hidden.add(box('HiddenA', brass), box('HiddenB', brass));
+  root.add(hidden);
+  const mirror = box('Mirrored', brass);
+  mirror.scale.x = -1;
+  root.add(mirror);
+  return { root, platform, shaft };
+}
+
+describe('bakeStatic', () => {
+  it('merges the static meshes of each moving node into one mesh per material, and leaves the moving nodes alone', () => {
+    const { root, platform, shaft } = makeMachine();
+    const before = fingerprint(root);
+    const baked = bakeStatic(root, { moving: [shaft, platform] });
+    const after = fingerprint(root);
+
+    expect(baked.merged.map((m) => m.name).sort()).toEqual(['Baked_Machine_Mat_AgedBrass', 'Baked_Platform_Mat_AgedBrass']);
+    expect(baked.sources).toBe(4); // CaseA and CaseB; PlatformBrassA and PlatformBrassB
+    expect(baked.skipped).toBe(2); // the transparent pane and the mirrored mesh (the hidden group is not counted: it is not looked into)
+    expect(after.drawn).toBe(before.drawn - 2);
+    expect(root.getObjectByName('Baked_Machine_Mat_AgedBrass')?.userData.bakedFrom).toEqual(['CaseA', 'CaseB']);
+    expect(platform.getObjectByName('Baked_Platform_Mat_AgedBrass')?.parent).toBe(platform);
+    // The moving nodes are the same objects, in place; the walnut meshes were alone in their frame; the others are not mergeable.
+    expect(shaft.parent).toBe(root);
+    expect(platform.parent).toBe(root);
+    for (const name of ['PlatformWood', 'CaseC', 'Pane', 'Mirrored', 'HiddenA', 'Shaft']) expect(root.getObjectByName(name), name).toBeDefined();
+    expect(root.getObjectByName('CaseA')).toBeUndefined();
+    expectSamePicture(before, after);
+
+    baked.dispose();
+    expect(root.getObjectByName('Baked_Machine_Mat_AgedBrass')).toBeUndefined();
+    expect(baked.merged).toHaveLength(0);
   });
 
-  it('keeps every vertex where it was: the baked mesh covers exactly the boxes it replaced, whatever the root\'s own transform', () => {
-    const { rig } = fixture();
-    rig.root.position.set(0.3, 0.1, -0.2);
-    rig.root.scale.setScalar(0.25);
-    rig.root.rotation.y = 0.7;
-    rig.root.updateWorldMatrix(true, true);
-    const staticBefore = new Box3();
-    for (const m of drawn(rig.root).filter((x) => ['Post_L', 'Post_R', 'Plate', 'Stud'].includes(x.name))) staticBefore.union(new Box3().setFromObject(m, true));
-    bakeStatic(rig);
-    rig.root.updateWorldMatrix(true, true);
-    const staticAfter = new Box3();
-    for (const m of drawn(rig.root).filter((x) => x.name.startsWith('Baked_'))) staticAfter.union(new Box3().setFromObject(m, true));
-    for (const k of ['x', 'y', 'z'] as const) {
-      expect(staticAfter.min[k]).toBeCloseTo(staticBefore.min[k], 6);
-      expect(staticAfter.max[k]).toBeCloseTo(staticBefore.max[k], 6);
+  it('the merged meshes follow their moving frame exactly as the loose meshes did', () => {
+    const loose = makeMachine();
+    const flat = makeMachine();
+    bakeStatic(flat.root, { moving: [flat.shaft, flat.platform] });
+    for (const m of [loose, flat]) {
+      m.platform.rotation.y = 1.1;
+      m.shaft.rotation.z = 0.4;
+      m.root.position.x += 0.5;
+      m.root.scale.setScalar(0.4); // the town scale: a machine on its plot is smaller than on the bench
     }
-    const baked = rig.root.getObjectByName('Baked_Mat_Walnut') as Mesh;
-    expect(baked.position.toArray()).toEqual([0, 0, 0]); // in the root's own frame: it moves and scales with the machine
+    expectSamePicture(fingerprint(loose.root), fingerprint(flat.root));
   });
 
-  it("merges, inside a moving node, what moves with it and with nothing else: a carousel's platform, column and canopy, but not its horses or lamps", () => {
-    const brass = material('Mat_AgedBrass');
-    const paint = material('Mat_PaintedWood');
+  it('keeps nodes named in keepNames as separate meshes', () => {
     const root = new Group();
-    const platform = new Group();
-    platform.position.set(0, 0.03, 0);
-    platform.add(box('Deck', paint, 0), box('Column', paint, 0, 0.02), box('Canopy', brass, 0, 0.05));
-    const horse = new Group();
-    horse.add(box('Horse_Body', paint, 0.03), box('Horse_Mane', paint, 0.03, 0.01));
-    const lamp = box('Lamp', brass, -0.03);
-    platform.add(horse, lamp);
-    root.add(platform, box('Base', brass, 0));
-    const rig = createRig('carousel', root);
-    rig.rotors.push(createRotor(platform, 'platform'));
-    rig.bobbers.push({ node: horse, driver: rig.rotors[0], baseY: 0, phase: 0, amplitude: 0.006 });
-    rig.pulsers.push({ node: lamp, phase: 0, amplitude: 0.1, speed: 5, baseScale: 1 });
-    rig.bakeable = true;
-    platform.rotation.y = 0.4; // turned when it is baked: the merge is in the platform's own frame, so the turn does not matter
-    root.updateWorldMatrix(true, true);
-    const before = new Box3();
-    for (const m of drawn(root).filter((x) => ['Deck', 'Column', 'Canopy'].includes(x.name))) before.union(new Box3().setFromObject(m, true));
-    const result = bakeStatic(rig);
-    // the base on its own (root frame); the deck and the column into one mesh of the platform; the horse's body and mane into one mesh of the horse
-    expect(result).toEqual({ removed: 5, made: 3 });
-    expect(drawn(root).map((m) => m.name).sort()).toEqual(['Baked_Mat_AgedBrass', 'Baked_Mat_PaintedWood', 'Baked_Mat_PaintedWood', 'Canopy', 'Lamp']);
-    expect(horse.parent).toBe(platform); // the horse is still its own node on the platform, and the lamp is untouched
-    expect(horse.children.map((c) => c.name)).toEqual(['Baked_Mat_PaintedWood']);
-    expect(lamp.parent).toBe(platform);
-    expect(platform.children.filter((c) => c.name.startsWith('Baked_'))).toHaveLength(1); // Deck and Column are one mesh now
-    root.updateWorldMatrix(true, true);
-    const after = new Box3();
-    for (const m of platform.children.filter((c) => c.name.startsWith('Baked_') || c.name === 'Canopy') as Mesh[]) after.union(new Box3().setFromObject(m, true));
-    expect(after.min.y).toBeCloseTo(before.min.y, 6);
-    expect(after.max.y).toBeCloseTo(before.max.y, 6);
-    platform.rotation.y = 1.5; // and it still turns with everything on it
-    root.updateWorldMatrix(true, true);
-    expect(new Box3().setFromObject(platform, true).getSize(new Vector3()).y).toBeGreaterThan(0);
+    root.add(box('Roof', brass), box('Wall1', brass), box('Wall2', brass), box('Wall3', brass));
+    const baked = bakeStatic(root, { keepNames: ['Roof'] });
+    expect(baked.sources).toBe(3);
+    expect(root.getObjectByName('Roof')).toBeDefined();
+    expect(root.getObjectByName('Wall1')).toBeUndefined();
   });
 
-  it('merges clones of one library material (each mesh of a carried machine has its own) and keeps vertex-colour variants apart', () => {
+  it('does not merge a lone mesh and never disposes a source geometry (the loader shares it between clones)', () => {
     const root = new Group();
-    const a = material('Mat_AgedBrass');
-    const b = a.clone();
-    const c = material('Mat_AgedBrass', true);
-    root.add(box('A', a, 0), box('B', b, 0.02), box('C', c, 0.04));
-    const rig = createRig('belfry', root);
-    rig.bakeable = true;
-    expect(bakeStatic(rig)).toEqual({ removed: 3, made: 2 });
-    expect(drawn(root).map((m) => m.name).sort()).toEqual(['Baked_Mat_AgedBrass', 'Baked_Mat_AgedBrass']);
-    expect(drawn(root).map((m) => (m.material as MeshStandardMaterial).vertexColors).sort()).toEqual([false, true]);
+    const lone = box('Lone', brass);
+    const pair = [box('P1', walnut), box('P2', walnut)];
+    let disposed = 0;
+    for (const mesh of [lone, ...pair]) mesh.geometry.addEventListener('dispose', () => disposed++);
+    root.add(lone, ...pair);
+    const baked = bakeStatic(root);
+    baked.dispose();
+    expect(root.getObjectByName('Lone')).toBe(lone);
+    expect(disposed).toBe(0);
   });
 
-  it('never touches a rig that is not bakeable (the Clock Tower is driven from outside its rig), or an instanced mesh', () => {
-    const { rig } = fixture();
-    rig.bakeable = false;
-    expect(bakeStatic(rig)).toEqual({ removed: 0, made: 0 });
-    expect(drawn(rig.root)).toHaveLength(6);
-    const root = new Group();
-    const instanced = new InstancedMesh(new BoxGeometry(0.01, 0.01, 0.01), material('Mat_Walnut'), 3);
-    instanced.setMatrixAt(0, new Matrix4());
-    root.add(instanced, box('Plate', material('Mat_Walnut'), 0));
-    const other = createRig('belfry', root);
-    other.bakeable = true;
-    expect(bakeStatic(other)).toEqual({ removed: 1, made: 1 });
-    expect(root.children).toContain(instanced);
+  it('a rig steps exactly as before: the merged mesh turns with its rotor', () => {
+    const make = (): MachineRig => {
+      const root = new Group();
+      const wheel = new Group();
+      wheel.add(box('W1', brass, 0.01, 0, 0), box('W2', brass, -0.01, 0, 0), box('W3', walnut, 0, 0.01, 0));
+      root.add(wheel, box('S1', brass), box('S2', brass));
+      const rig = createRig('windmill', root);
+      rig.rotors.push(createRotor(wheel, 'sails', { axis: 'z' }));
+      rig.result = { angularVelocity: { sails: 2.3 } };
+      return rig;
+    };
+    const loose = make();
+    const rig = make();
+    const baked = bakeRig(rig);
+    expect(baked.merged).toHaveLength(2); // the static case pair, and the wheel's brass pair
+    expect(baked.merged.some((m) => m.parent === rig.rotors[0].node)).toBe(true);
+    for (const r of [loose, rig]) for (let f = 1; f <= 8; f++) stepRig(r, 0.05, f * 0.05);
+    expect(rig.rotors[0].node.quaternion.z).not.toBe(0);
+    expectSamePicture(fingerprint(loose.root), fingerprint(rig.root));
+    disposeBaked(rig);
+    expect(baked.merged).toHaveLength(0);
+  });
+});
+
+describe.skipIf(!modelsPresent)('the six finished machines, baked, from the real GLBs', () => {
+  const registry = libraryRegistry();
+  const builders: ReadonlyArray<readonly [string, () => Promise<MachineRig>, readonly string[]]> = [
+    ['music_box', () => buildMusicBox(realSource, registry), []],
+    ['carousel', () => buildCarousel(realSource, registry), []],
+    ['windmill', () => buildWindmill(realSource, registry), []],
+    ['clock_tower', () => buildClockTower(realSource, registry), Object.values(CLOCK_TOWER_NODE)],
+    ['well', () => buildWell(realSource, registry), Object.values(WELL_NODE)],
+    ['belfry', () => buildBelfry(realSource, registry), Object.values(BELFRY_BELL_NODE)],
+  ];
+
+  for (const [name, build, keep] of builders) {
+    it(`${name}: fewer draws, the same triangles, area and box per material`, async () => {
+      const rig = await build();
+      const before = fingerprint(rig.root);
+      const baked = bakeRig(rig, keep);
+      const after = fingerprint(rig.root);
+      expect(baked.sources, 'meshes merged away').toBeGreaterThan(baked.merged.length);
+      expect(after.drawn).toBe(before.drawn - (baked.sources - baked.merged.length));
+      expect(after.drawn).toBeLessThan(before.drawn);
+      expectSamePicture(before, after);
+      // Every node the game moves is still in the scene, under the same parent, with its own name.
+      for (const rotor of rig.rotors) expect(rig.root.getObjectById(rotor.node.id), `${name} rotor ${rotor.socketId}`).toBeDefined();
+      for (const bobber of rig.bobbers) expect(rig.root.getObjectById(bobber.node.id)).toBeDefined();
+      for (const pulser of rig.pulsers) expect(rig.root.getObjectById(pulser.node.id)).toBeDefined();
+      if (rig.lid) expect(rig.root.getObjectById(rig.lid.pivot.id)).toBeDefined();
+      console.info(`[bake] ${name}: ${before.drawn} -> ${after.drawn} meshes drawn, ${baked.skipped} left alone`);
+    });
+  }
+
+  it('a baked machine and a loose one are in the same pose after the same frames', async () => {
+    for (const id of ['music_box', 'carousel', 'windmill'] as const) {
+      const loose = await { music_box: buildMusicBox, carousel: buildCarousel, windmill: buildWindmill }[id](realSource, registry);
+      const baked = (await buildMachine(id, realSource, registry)) as MachineRig;
+      expect(baked.rotors.map((r) => r.socketId)).toEqual(loose.rotors.map((r) => r.socketId));
+      for (const rig of [loose, baked]) {
+        rig.result = { angularVelocity: Object.fromEntries(rig.rotors.map((r, i) => [r.socketId, 1.1 + i * 0.37])) };
+        rig.running = true;
+        for (let f = 1; f <= 30; f++) stepRig(rig, 0.05, f * 0.05);
+      }
+      expectSamePicture(fingerprint(loose.root), fingerprint(baked.root));
+      disposeBaked(baked);
+    }
   });
 
-  it('bakes nothing from a rig with nothing static, and a second call finds nothing left to do', () => {
-    const root = new Group();
-    const gear = new Group();
-    gear.add(box('Disc', material('Mat_AgedBrass'), 0));
-    root.add(gear);
-    const rig = createRig('well', root);
-    rig.rotors.push(createRotor(gear, 'cam'));
-    rig.bakeable = true;
-    expect(bakeStatic(rig)).toEqual({ removed: 0, made: 0 });
-    const { rig: other } = fixture();
-    bakeStatic(other);
-    expect(bakeStatic(other)).toEqual({ removed: 0, made: 0 });
+  it('the Well and the Belfry still move after the bake (the pump rod, the pawl, the bell, the rotors), draw fewer meshes, and are in the pose the loose machine is in', async () => {
+    for (const [id, build, blueprint, nodes] of [
+      ['well', buildWell, WELL, ['Part_Follower', 'Part_Pawl']],
+      ['belfry', buildBelfry, BELFRY, [BELFRY_BELL_NODE.bell, BELFRY_BELL_NODE.striker]],
+    ] as const) {
+      const outcome = solveAssembly(blueprint, blueprint.intended, MAX_WIND_UNITS);
+      if (!outcome.ok) throw new Error(`the ${id} must solve`);
+      const loose = await build(realSource, registry);
+      const baked = (await buildMachine(id, realSource, registry)) as MachineRig;
+      expect(fingerprint(baked.root).drawn, `${id} meshes drawn`).toBeLessThan(fingerprint(loose.root).drawn);
+      expect(baked.moving.map((n) => n.name).sort(), id).toEqual(loose.moving.map((n) => n.name).sort());
+      const rest = nodes.map((name) => {
+        const node = baked.root.getObjectByName(name);
+        expect(node, `${id}: ${name} is still named and in the scene`).toBeDefined();
+        return { name, position: node!.position.clone(), quaternion: node!.quaternion.clone() };
+      });
+      for (const rig of [loose, baked]) {
+        rig.result = outcome.result;
+        rig.running = true;
+        rig.speed = 1;
+        for (let f = 1; f <= 90; f++) stepRig(rig, 1 / 72, f / 72);
+      }
+      const moved = rest.filter(({ name, position, quaternion }) => {
+        const node = baked.root.getObjectByName(name)!;
+        return node.position.distanceTo(position) > 1e-6 || node.quaternion.angleTo(quaternion) > 1e-4;
+      });
+      expect(moved.length, `${id}: at least one of ${nodes.join(', ')} moved`).toBeGreaterThan(0);
+      for (const name of nodes) {
+        const a = baked.root.getObjectByName(name)!;
+        const b = loose.root.getObjectByName(name)!;
+        expect(a.position.distanceTo(b.position), `${id} ${name} position`).toBeLessThan(1e-9);
+        expect(a.quaternion.angleTo(b.quaternion), `${id} ${name} rotation`).toBeLessThan(1e-5);
+      }
+      for (const [i, rotor] of baked.rotors.entries()) expect(rotor.theta, `${id} rotor ${rotor.socketId}`).toBe(loose.rotors[i].theta);
+      disposeBaked(baked);
+    }
+  });
+
+  it('the Clock Tower runtime still finds every node it looks for', async () => {
+    const loose = await buildClockTower(realSource, registry);
+    const baked = (await buildMachine('clock_tower', realSource, registry)) as MachineRig;
+    expect(new ClockTowerNodes().resolve(baked.root)).toEqual(new ClockTowerNodes().resolve(loose.root));
+    for (const name of Object.values(CLOCK_TOWER_NODE)) expect(Boolean(baked.root.getObjectByName(name)), name).toBe(Boolean(loose.root.getObjectByName(name)));
+  });
+
+  it('keeps the interaction empties of a machine: the handle collider and the sockets it exposes', async () => {
+    const loose = await buildMusicBox(realSource, registry);
+    const baked = (await buildMachine('music_box', realSource, registry)) as MachineRig;
+    const empties = (root: Object3D): string[] => {
+      const names: string[] = [];
+      root.traverse((o) => void (/^(COL_|SOCKET_|PIV_)/.test(o.name) && names.push(o.name)));
+      return names.sort();
+    };
+    expect(empties(baked.root)).toEqual(empties(loose.root));
+    expect(empties(baked.root).length).toBeGreaterThan(0);
+  });
+});
+
+describe.skipIf(!modelsPresent)('the town, baked, from the real GLBs', () => {
+  const registry = libraryRegistry();
+
+  it('draws fewer meshes with the same triangles, keeps the doors, the knead clip, the plot sockets and leaves other children of the town group alone', async () => {
+    const town = await loadTown(realSource, registry, true);
+    const stranger = new Group(); // a feature added later: a Well whose bucket the game moves
+    stranger.name = 'Stranger';
+    stranger.add(box('Bucket1', brass), box('Bucket2', brass));
+    town.group.add(stranger);
+    const socketsBefore = readInteractionNodes(town.ground).sockets.map((x) => x.id).sort();
+    const before = fingerprint(town.group);
+    const baked = bakeTown(town);
+    const after = fingerprint(town.group);
+
+    expect(after.drawn).toBeLessThan(before.drawn - 10);
+    expectSamePicture(before, after);
+    expect(readInteractionNodes(town.ground).sockets.map((x) => x.id).sort()).toEqual(socketsBefore);
+    expect(socketsBefore.length).toBeGreaterThan(0);
+    expect(stranger.children.map((c) => c.name)).toEqual(['Bucket1', 'Bucket2']); // untouched
+    expect(new TheatreDoors().resolve(town.theatre)).toEqual([]);
+    const forearms = town.otto.getObjectByName('Otto_Forearms') as Object3D;
+    expect(forearms).toBeDefined();
+    const rest = forearms.position.clone();
+    const knead = town.knead as NonNullable<typeof town.knead>;
+    knead.action.timeScale = 1;
+    knead.mixer.update(0.25);
+    expect(forearms.position.distanceTo(rest), 'the clip still moves the forearms of Otto').toBeGreaterThan(1e-5);
+    console.info(`[bake] town: ${before.drawn} -> ${after.drawn} meshes drawn (dressing included), ${baked.sources} merged into ${baked.merged.length}`);
   });
 });

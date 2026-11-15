@@ -1,7 +1,8 @@
 /**
  * The town's per-frame state and its events, with no ECS: `TownSystem` calls `update` once a frame, and Node tests drive it
  * directly. It owns the wake field and the shader uniforms, steps every registered machine from its solver result, plays the
- * Music Box melody from the cylinder's angle, runs Otto's kneading, and turns "a machine snapped onto its plot" into a wake.
+ * Music Box melody from the cylinder's angle, runs Otto's kneading and the town's ambience (smoke, oven glow, pennants), and turns
+ * "a machine snapped onto its plot" into a wake.
  * Nothing here allocates per frame.
  */
 import { Vector3 } from '@iwsdk/core';
@@ -14,6 +15,7 @@ import { MACHINE_PLOT } from '../game/content';
 import type { MachineId, PlotId } from '../game/content';
 import type { InteractionIntent } from '../interaction/intents';
 import { UNSNAP_DISTANCE_M } from '../interaction/snap';
+import { disposeBaked } from './bake';
 import { machineOfPlot, MAX_WAKE_SOURCES, plotIdFromSocketName } from './layout';
 import { approach, SPIN_EASE_S, stepRig, stepScaler } from './motion';
 import type { MachineRig, Scaler } from './motion';
@@ -21,6 +23,7 @@ import { plotSocket } from './scene';
 import type { Town } from './scene';
 import { WakeField } from './wake';
 import type { WakeUniforms } from './wake-shader';
+import { XRAY_SHELL, XRayView } from './xray-view';
 
 /** What the game layer wants to hear about the town. All optional. */
 export interface TownEvents {
@@ -46,6 +49,9 @@ const NIGHT_EASE_S = 0.8;
 
 export class TownRuntime {
   readonly wake = new WakeField();
+  /** What X-ray does to the picture (xray-view.ts): every registered rig is a machine it can open, and the game adds the bench machine. */
+  readonly xray = new XRayView();
+  private readonly xrayOf = new Map<MachineRig, () => void>();
   private readonly rigs: MachineRig[] = [];
   private readonly scalers: Scaler[] = [];
   /** Machines standing on a plot: they follow the town's scale when the stage changes it (stand to table, a new placement). */
@@ -62,6 +68,8 @@ export class TownRuntime {
   private nightAmount = 0;
   private nightTarget = 0;
   private lightsMoving = false;
+  /** The smoke, the oven glow or a pennant is showing (ambience.ts): it moves for as long as it does, so the town is busy. */
+  private ambienceShowing = false;
   private melodyLevel = 1;
   private readonly playNote = (note: MelodyNote): void => this.audio?.pluck(note.midi, note.velocity, this.melodyLevel);
 
@@ -80,13 +88,19 @@ export class TownRuntime {
   /** Registers a finished machine for animation. */
   addRig(rig: MachineRig): void {
     rig.audio = this.audio;
-    if (!this.rigs.includes(rig)) this.rigs.push(rig);
+    if (this.rigs.includes(rig)) return;
+    this.rigs.push(rig);
+    // The lens opens the machine in the hand; one standing on its plot is opened by the palm only.
+    this.xrayOf.set(rig, this.xray.add({ root: rig.root, prefixes: XRAY_SHELL[rig.machineId] ?? [], lens: () => this.isCarried(rig) }));
   }
 
   removeRig(rig: MachineRig): void {
     const i = this.rigs.indexOf(rig);
     if (i >= 0) this.rigs.splice(i, 1);
+    this.xrayOf.get(rig)?.();
+    this.xrayOf.delete(rig);
     this.release(rig.root);
+    disposeBaked(rig); // the machine is gone for good: its merged geometries go with it
   }
 
   /** How far the town is into the night, 0 (day) to 1 (night). */
@@ -103,9 +117,16 @@ export class TownRuntime {
     }
   }
 
-  /** True while anything the town shows is changing: a ripple, a machine running or easing, a scale ease, the night, Otto. */
+  /** Not standing on a plot: on the bench or in the hand. */
+  private isCarried(rig: MachineRig): boolean {
+    if (this.seated.includes(rig.root)) return false;
+    for (let i = 0; i < this.parked.length; i++) if (this.parked[i].rig === rig) return false;
+    return true;
+  }
+
+  /** True while anything the town shows is changing: a ripple, a machine running or easing, a scale ease, the night, X-ray, Otto. */
   get busy(): boolean {
-    if (this.wake.active || this.scalers.length > 0 || this.nightAmount !== this.nightTarget || this.lightsMoving) return true;
+    if (this.wake.active || this.scalers.length > 0 || this.nightAmount !== this.nightTarget || this.lightsMoving || this.ambienceShowing || this.xray.busy) return true;
     const knead = this.town.knead;
     if (knead && knead.action.timeScale > 0) return true;
     for (let i = 0; i < this.rigs.length; i++) if (this.rigs[i].running || this.rigs[i].speed > 0) return true;
@@ -248,6 +269,14 @@ export class TownRuntime {
       refreshColliderFloor(scaler.node); // the grab colliders keep their 1.2 cm minimum at the new size
     }
     this.knead(dt);
+    this.ambienceShowing = this.town.ambience.update(dt, time, this.wake, this.nightAmount, this.windmillSpeed());
+    this.xray.update(dt);
+  }
+
+  /** The eased run factor of the Windmill in the town, 0 when it is not there. A loop, not `rigOf`, so a frame allocates nothing. */
+  private windmillSpeed(): number {
+    for (let i = 0; i < this.rigs.length; i++) if (this.rigs[i].machineId === 'windmill') return this.rigs[i].speed;
+    return 0;
   }
 
   /**

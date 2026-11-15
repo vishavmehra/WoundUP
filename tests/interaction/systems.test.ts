@@ -1,7 +1,8 @@
-import { Grabbed, GrabSystem, World } from '@iwsdk/core';
+import { Grabbed, GrabSystem, OneHandGrabbable, World } from '@iwsdk/core';
+import { ComponentRegistry } from 'elics';
 import type { Entity } from '@iwsdk/core';
 import { BoxGeometry, Euler, Group, Mesh, MeshBasicMaterial, Object3D, Quaternion, Scene, Vector3 } from 'three';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GrabFeedbackSystem } from '../../src/grab-feedback.js';
 import { ReturnsToRest } from '../../src/returns-to-rest-component.js';
 import { SnapPart, SnappedTo, Socket, WindKey, XRayTarget } from '../../src/interaction/components.js';
@@ -41,7 +42,7 @@ function boot(): { world: World; scene: Scene } {
   const world = new World();
   // Components are module singletons and a component first used in another World keeps that World's type id, which can
   // collide here. Registering them all up front, in one fixed order, gives every test World its own consistent ids.
-  for (const component of [Grabbed, ReturnsToRest, SnapPart, Socket, SnappedTo, WindKey, XRayTarget]) {
+  for (const component of [Grabbed, ReturnsToRest, SnapPart, Socket, SnappedTo, WindKey, XRayTarget, OneHandGrabbable]) {
     world.registerComponent(component);
   }
   const scene = new Scene();
@@ -475,6 +476,119 @@ describe('WindSystem and a held part (INTERACTION_SPEC §18: an active grab wins
     const rig = bootHeld('left');
     twist(rig);
     expect(types()).toEqual(['wind', 'windEnd']);
+  });
+});
+
+describe('WindSystem and a seated key the pinch took (BUG-1: pinch and wrist twist wind it; only a pull along its axis takes it out)', () => {
+  // IWSDK's `Handle` is not exported: the system finds it by its id, and so does this test (the real component, with a stub `instance`).
+  const StubHandle = ComponentRegistry.getById('Handle') as NonNullable<ReturnType<typeof ComponentRegistry.getById>>;
+
+  function bootSeated(units = 0): ReturnType<typeof bootXR> & { key: Entity; save: ReturnType<typeof vi.fn> } {
+    const rig = bootXR();
+    rig.world.registerComponent(StubHandle);
+    rig.world.registerSystem(WindSystem, { priority: 10 });
+    const key = rig.world.createEntity();
+    key.object3D = new Object3D();
+    rig.scene.add(key.object3D);
+    const save = vi.fn();
+    key.addComponent(OneHandGrabbable, {});
+    key.addComponent(StubHandle, { instance: { save } });
+    key.addComponent(SnappedTo);
+    key.addComponent(WindKey, { axis: [0, 1, 0], units });
+    rig.tip.right.position.set(0, 0.005, 0);
+    Object.assign(rig.world, { getSystem: (type: unknown) => (type === GrabSystem ? { getHolderHand: (e: Entity) => (e === key ? 'right' : null) } : undefined) });
+    return { ...rig, key, save };
+  }
+  /** The pinch near-grabs the key (IWSDK's grab runs before this system), then the wrist turns by `degrees`. */
+  const pinchAndTwist = (rig: ReturnType<typeof bootSeated>, degrees: number): void => {
+    grab(rig.key);
+    pinch(rig.world, rig.hands.right, true);
+    for (let a = 10; a <= degrees; a += 10) {
+      rig.hands.right.quaternion.copy(aboutY(a));
+      pinch(rig.world, rig.hands.right, false);
+    }
+  };
+
+  it('holds a seated key where it is for the near grab (no translate, no rotate) and lets it follow the hand again once it is out', () => {
+    const { key } = bootSeated();
+    expect(key.getValue(OneHandGrabbable, 'translate')).toBe(false);
+    expect(key.getValue(OneHandGrabbable, 'rotate')).toBe(false);
+    key.removeComponent(SnappedTo);
+    expect(key.getValue(OneHandGrabbable, 'translate')).toBe(true);
+    expect(key.getValue(OneHandGrabbable, 'rotate')).toBe(true);
+  });
+
+  it('winds although the same pinch holds the key, and the key stays seated', () => {
+    const rig = bootSeated();
+    pinchAndTwist(rig, 190);
+    expect(types()).toEqual(['wind', 'wind']);
+    expect(rig.key.getValue(WindKey, 'units')).toBe(2);
+    expect(rig.key.hasComponent(SnappedTo)).toBe(true);
+    expect(rig.key.object3D!.position.length()).toBe(0);
+    release(rig.world, rig.hands.right);
+    expect(intents[2]).toMatchObject({ type: 'windEnd', units: 2, gained: 2 });
+  });
+
+  it('is not pulled out by the hand moving across the axis or by a pull of less than 6 cm along it', () => {
+    const rig = bootSeated();
+    grab(rig.key);
+    pinch(rig.world, rig.hands.right, true);
+    rig.tip.right.position.set(0.12, 0.005, 0.12); // 17 cm sideways, none along +Y
+    pinch(rig.world, rig.hands.right, false);
+    rig.tip.right.position.set(0, 0.005 + 0.05, 0); // 5 cm along the axis
+    pinch(rig.world, rig.hands.right, false);
+    expect(rig.key.hasComponent(SnappedTo)).toBe(true);
+    expect(rig.save).not.toHaveBeenCalled();
+  });
+
+  it('comes out on a pull of 6 cm along its axis, in the hand, and the handle starts from there', () => {
+    const rig = bootSeated();
+    grab(rig.key);
+    pinch(rig.world, rig.hands.right, true);
+    rig.hands.right.quaternion.copy(aboutY(40)); // a little wind first
+    pinch(rig.world, rig.hands.right, false);
+    rig.tip.right.position.set(0, 0.005 + 0.07, 0.01);
+    pinch(rig.world, rig.hands.right, false);
+
+    expect(rig.key.hasComponent(SnappedTo)).toBe(false);
+    expect(rig.save).toHaveBeenCalledTimes(1);
+    expect(rig.key.getValue(OneHandGrabbable, 'translate')).toBe(true);
+    expect(rig.key.object3D!.position.toArray()).toEqual([0, expect.closeTo(0.07, 6), expect.closeTo(0.01, 6)]); // carried by the fingertip's travel
+    expect(rig.key.object3D!.quaternion.angleTo(new Quaternion())).toBeCloseTo(0, 6); // un-turned
+    expect(types()).toEqual(['windEnd']);
+
+    // The session is over: a further twist of the same pinch winds nothing and does not pull again.
+    rig.hands.right.quaternion.copy(aboutY(200));
+    pinch(rig.world, rig.hands.right, false);
+    expect(types()).toEqual(['windEnd']);
+    expect(rig.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('a full key the pinch holds can still be pulled out, and a pinch that only holds it is silent', () => {
+    const quiet = bootSeated(8);
+    quiet.key.removeComponent(StubHandle);
+    pinchAndTwist(quiet, 100);
+    release(quiet.world, quiet.hands.right);
+    expect(intents).toEqual([]); // nothing wound, nothing ended
+
+    intents.length = 0;
+    const rig = bootSeated(8);
+    grab(rig.key);
+    pinch(rig.world, rig.hands.right, true);
+    rig.tip.right.position.set(0, 0.005 - 0.08, 0); // the other way along the axis
+    pinch(rig.world, rig.hands.right, false);
+    expect(rig.key.hasComponent(SnappedTo)).toBe(false);
+    expect(intents).toEqual([]); // no windEnd for a session that wound nothing
+  });
+
+  it('does not take a key that no grab holds and that is out of reach', () => {
+    const rig = bootSeated();
+    rig.tip.right.position.set(0.1, 0, 0); // 10 cm from the key, and the grab did not take it
+    pinch(rig.world, rig.hands.right, true);
+    rig.hands.right.quaternion.copy(aboutY(100));
+    pinch(rig.world, rig.hands.right, false);
+    release(rig.world, rig.hands.right);
+    expect(intents).toEqual([]);
   });
 });
 

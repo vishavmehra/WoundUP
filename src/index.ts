@@ -20,6 +20,7 @@ import { machineFrame, stageFrame, type Insets, type StageBox } from './stage-fr
 import { addWorkshopLantern, installTown, loadModel, showGiftPlate } from './town/index.js';
 import { browserShareEnv, installFlowUi, mountGiftViewer, type FlowEvent } from './ui/index.js';
 import { detectXrSupport, enterXR } from './xr-entry.js';
+import { installXrTuning } from './xr-tuning.js';
 
 const sceneContainer = document.getElementById('scene-container') as HTMLDivElement;
 const landingRoot = document.getElementById('landing-root') as HTMLElement;
@@ -33,6 +34,14 @@ let giftMachine: StageBox | null = null;
 let giftInsets: Insets | null = null;
 
 const landingOptions: LandingOptions = {
+  // "Play in your browser": offered only where the browser has no WebXR. Loads IWER's emulated Quest 3 on demand (its own chunk).
+  onPlayEmulated: async () => {
+    if (!world) throw new Error('The workshop is still unpacking. Try again in a moment.');
+    await (await import('./emulator/index.js')).startBrowserHeadset();
+    if ((await detectXrSupport()) === 'none') throw new Error('The emulated headset did not answer WebXR.');
+    world.getSystem(GrabModeSystem)?.useHands(); // the parts were given mouse-ray grabbing when the page had no WebXR (ADR-024)
+    landingOptions.previewHint = 'This preview is for looking. Enter mixed reality (emulated) to build the machines with the emulated hands.';
+  },
   // Called synchronously from the click handler: WebXR needs the user gesture.
   onEnterXR: (mode) => {
     if (!world) throw new Error('The workshop is still unpacking. Try again in a moment.');
@@ -157,6 +166,7 @@ try {
     detectXrSupport(),
   ]);
   world = created;
+  installXrTuning(world, location.search); // multiview off-switch, foveation, framebuffer scale and the 72 Hz request (src/xr-tuning.ts)
   // Landing actions stay disabled until setSupport below, so the preview cannot have started yet.
   const budget = (renderBudget = installRenderBudget(world));
   // The shared library materials (ADR-032) go on every GLB built with the library profile. Their textures load in the

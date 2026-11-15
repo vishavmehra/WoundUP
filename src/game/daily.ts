@@ -17,9 +17,10 @@ import { GATES, letterReached } from './progression';
 import type { SaveV1 } from './save';
 
 /**
- * Which repairs the daily pool holds is still for the owner to define (ADR-027). Until then it is every story repair (the Music Box's,
- * the Windmill's, and the Well's and the Belfry's from ADR-048), which gives the pool a fixed, deterministic order. To widen it, append
- * ids to this list.
+ * Which repairs the daily pool holds is still for the owner to define (ADR-027). Until then it is every repair the game has: the two
+ * documented story repairs, the three optional ones (content.ts) and the Well's and the Belfry's (ADR-048), which gives the pool a fixed,
+ * deterministic order. Every one of them is on a socket a hand can reach (tests/content/repairs-extra.test.ts), so no date can offer a
+ * repair that cannot be done. To widen it, append ids to `REPAIR_IDS`.
  */
 export const DAILY_POOL: readonly RepairId[] = REPAIR_IDS;
 

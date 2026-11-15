@@ -13,7 +13,7 @@ import {
   windByHand,
   windByHandAuto,
 } from './support/flow';
-import { frames, gameState, GPU_ARGS, Hand, openGame, partPose, press, requireDevRuntime, waitForMode, type Vec3 } from './support/xr';
+import { frames, gameState, GPU_ARGS, Hand, hasComponent, openGame, partPose, press, requireDevRuntime, waitForMode, type Vec3 } from './support/xr';
 
 /**
  * Hand-driven end-to-end tests in the emulated Quest 3 (IWER). EMULATOR evidence, never headset evidence.
@@ -120,31 +120,79 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
     });
   });
 
-  // BUG-1. A pinch on the seated key near-grabs it (the probe in windByHandAuto sees `winding_key_*` held), and WindSystem.tryStart
-  // begins with `if (this.holdsAPart(hand)) return`, so a full wrist turn winds nothing (units stay 0, all 12 parts stay seated).
-  // `test.fail` keeps the suite green while the bug stands and turns red ("expected to fail but passed") when it is fixed.
-  test.fail('BUG-1 REAL HAND: a pinch on the seated key and a 360 degree wrist twist wind it (expected to FAIL today: the same pinch grabs the key, WindSystem refuses, nothing is wound)', async ({ page }) => {
+  // BUG-1 (fixed). A pinch on the seated key near-grabs it, and WindSystem.tryStart used to refuse a hand that holds a part, so a full
+  // wrist turn wound nothing. Now the key is held in its socket (its grab handle neither moves nor turns it), the wrist winds it, and
+  // only a pull of the fingertip along its axis takes it out (src/interaction/wind-system.ts, tests/interaction/systems.test.ts).
+  test('BUG-1 REAL HAND: a plain pinch on the seated key and a 360 degree wrist twist wind it, and the key stays in its socket', async ({ page }) => {
     const hand = await toBench(page);
     await page.evaluate(() => (window as unknown as { __wu: { seatAll(): number } }).__wu.seatAll()); // DEBUG HELPER: seat the other 11 parts quickly
     await waitForMode(page, 'wind');
     await frames(page, 10);
+    const key = (await listParts(page)).find((p) => p.name.startsWith('winding_key'));
+    if (!key) throw new Error('no winding key');
+    const before = (await partPose(page, key)).origin;
     const report = await windByHand(page, hand, 1, 360);
-    test.info().annotations.push({ type: 'bug-1', description: `grabbed at pinch: ${report.grabbedAtPinch.join(', ') || 'nothing'}; units after the twist: ${report.units.join(',')}; seated after: ${report.seatedAfter} of 12` });
-    expect(report.grabbedAtPinch, 'the pinch must not grab the key it winds').not.toContain('winding_key_polished_brass');
+    const after = (await partPose(page, key)).origin;
+    test.info().annotations.push({ type: 'bug-1', description: `grabbed at pinch: ${report.grabbedAtPinch.join(', ') || 'nothing'}; units after the twist: ${report.units.join(',')}; seated after: ${report.seatedAfter} of 12; key moved ${(Math.hypot(after.x - before.x, after.y - before.y, after.z - before.z) * 1000).toFixed(1)} mm` });
     expect(report.units[0], 'one full wrist turn is at least 3 wind units').toBeGreaterThanOrEqual(3);
-    expect(report.seatedAfter, 'winding leaves all 12 parts seated').toBe(12);
+    expect(report.seatedAfter, 'winding leaves all 12 parts seated, the key included').toBe(12);
+    expect(Math.hypot(after.x - before.x, after.y - before.y, after.z - before.z), 'the key is back in its socket (metres)').toBeLessThan(0.005);
   });
 
-  // BUG-4. The Pause medallion is a ray and poke target that sits 12 cm from the second bracket in the tray (medallion (-0.27, 1.31, -0.35),
-  // bracket grab point (-0.18, 1.24, -0.29)). Pinching that bracket with a hand puts the game in Pause: the panel opens in the middle of the
-  // build, while the part is still grabbed. `test.fail` keeps the suite green while this stands and turns red the day it is fixed.
-  test.fail('BUG-4 REAL HAND: pinching the 12 parts out of the tray never opens the Pause panel (expected to FAIL today: the pinch on the second bracket pauses the game)', async ({ page }) => {
+  // INTERACTION_SPEC section 9 for the key: pinching it winds it, but a deliberate pull of the fingertip along its axis takes it out.
+  test('REAL HAND: a pull of the fingertip 9 cm along the key axis takes the seated key out and the pinch carries it; let go in the air, it returns to the tray and Wind goes back to Build', async ({ page }) => {
+    const hand = await toBench(page);
+    const key0 = (await listParts(page)).find((p) => p.name.startsWith('winding_key'));
+    if (!key0) throw new Error('no winding key');
+    const home = (await partPose(page, key0)).origin;
+    await page.evaluate(() => (window as unknown as { __wu: { seatAll(): number } }).__wu.seatAll()); // DEBUG HELPER: seat the parts quickly
+    await waitForMode(page, 'wind');
+    await frames(page, 10);
+    const K = (await partPose(page, key0)).origin;
+    const axis = await page.evaluate((name) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = (window as any).__world;
+      const node = w.getSceneObject('stage').children.find((c: { name: string }) => c.name.startsWith(name));
+      const a = node.localToWorld(w.camera.position.clone().set(0, 0, 1)).sub(node.getWorldPosition(w.camera.position.clone()));
+      return { x: a.x, y: a.y, z: a.z };
+    }, 'winding_key');
+    await hand.place({ x: K.x + 0.08, y: K.y, z: K.z }, 'index-tip');
+    await frames(page, 2);
+    await hand.glide(K, 0.4, 'index-tip');
+    await hand.pinch(1, 0.15);
+    await frames(page, 3);
+    expect(await grabbedParts(page), 'the pinch took the key').toContain('winding_key_polished_brass');
+    expect(await hasComponent(page, key0, 'SnappedTo'), 'a plain pinch leaves it seated').toBe(true);
+    await hand.glide({ x: K.x + 0.09 * axis.x, y: K.y + 0.09 * axis.y, z: K.z + 0.09 * axis.z }, 0.5, 'index-tip');
+    await frames(page, 4);
+    expect(await hasComponent(page, key0, 'SnappedTo'), 'the pull took it out of its socket').toBe(false);
+    expect((await gameState(page)).build?.seated, 'the game counts 11').toBe(11);
+    const held = (await partPose(page, key0)).origin;
+    expect(Math.hypot(held.x - K.x, held.y - K.y, held.z - K.z), 'the key came out with the hand (metres)').toBeGreaterThan(0.03);
+    await hand.pinch(0, 0.1);
+    await page.waitForFunction(
+      ([x, y, z]) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = (window as any).__world;
+        const node = w.getSceneObject('stage').children.find((c: { name: string }) => c.name.startsWith('winding_key'));
+        const p = node.getWorldPosition(w.camera.position.clone());
+        return Math.hypot(p.x - (x as number), p.y - (y as number), p.z - (z as number)) < 0.005;
+      },
+      [home.x, home.y, home.z] as const,
+      { timeout: 15_000, polling: 100 },
+    );
+    expect((await gameState(page)).mode, 'a missing key sends Wind back to Build').toBe('build');
+  });
+
+  // BUG-4 (fixed). The Pause medallion stood 12 cm from the second bracket in the tray, and the open fingertip of a hand reaching for a part
+  // (about 12 cm past the pinch) pressed it: the Pause panel opened in the middle of the build. Pause and the lens now stand on the
+  // right of the bench, a fingertip's reach beyond the tray and the build zone (src/ui/layout.ts, tests/ui/hot-zones.test.ts).
+  test('BUG-4 REAL HAND: pinching the 12 parts out of the tray never opens the Pause panel', async ({ page }) => {
     const hand = await toBench(page);
     const paused: string[] = [];
     await assembleByHand(page, hand, async (beat, index) => {
       if ((await gameState(page)).mode === 'pause') paused.push(`part ${index} ${beat}`);
     });
-    test.info().annotations.push({ type: 'bug-4', description: `mode was pause at: ${paused.join('; ') || 'no beat'}` });
     expect(paused, 'beats at which the game was paused while a hand built the Music Box').toEqual([]);
   });
 

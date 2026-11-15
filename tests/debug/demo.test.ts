@@ -15,6 +15,7 @@ describe('demoRequest', () => {
     expect(demoRequest('?debug=1&demo=windmill')).toBe('windmill');
     expect(demoRequest('?debug&demo=well')).toBe('well'); // ADR-048
     expect(demoRequest('?debug&demo=belfry')).toBe('belfry');
+    expect(demoRequest('?debug&demo=clock_tower')).toBe('clock_tower');
   });
 
   it("shows the whole town with ?debug&demo=town, which is how the awake town's draw calls are measured", () => {
@@ -28,11 +29,11 @@ describe('demoRequest', () => {
     expect(demoRequest('#demo=music_box')).toBeNull();
   });
 
-  it('starts the game when there is no machine to show, and says why for one that has no finished machine', () => {
+  it('starts the game when there is no machine to show, and says why for one that is not a machine', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     expect(demoRequest('?debug')).toBeNull();
     expect(warn).not.toHaveBeenCalled();
-    expect(demoRequest('?debug&demo=clock_tower')).toBeNull();
+    expect(demoRequest('?debug&demo=bakery')).toBeNull();
     expect(demoRequest('?debug&demo=')).toBeNull();
     expect(warn).toHaveBeenCalledTimes(2);
   });

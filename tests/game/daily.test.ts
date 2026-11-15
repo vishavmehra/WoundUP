@@ -69,9 +69,9 @@ describe('daily repair (ADR-027, ACCEPTANCE_TESTS §5.1)', () => {
     expect(completeDaily(completed, 'not a date')).toBe(completed);
   });
 
-  it("draws only from the repairs the game has, the Well's and the Belfry's among them (ADR-048)", () => {
+  it("draws only from the repairs the game has: the two documented ones, the three optional ones, and the Well's and the Belfry's (ADR-048)", () => {
     expect(DAILY_POOL).toEqual(REPAIR_IDS);
-    expect(DAILY_POOL).toEqual(['worn_spring', 'wrong_gear', 'slow_pump', 'silent_bell']);
+    expect(DAILY_POOL).toEqual(['worn_spring', 'wrong_gear', 'dragging_tune', 'crawling_mill', 'racing_tune', 'slow_pump', 'silent_bell']);
     for (let day = 1; day <= 31; day++) {
       const repair = dailyRepairFor(`2026-12-${String(day).padStart(2, '0')}`);
       expect(repair).not.toBeNull();
@@ -80,23 +80,23 @@ describe('daily repair (ADR-027, ACCEPTANCE_TESTS §5.1)', () => {
   });
 
   it('offers a repair only for a machine that stands in the town, so nobody is asked to repair a Well they have not built (ADR-048)', () => {
-    const atLetter5 = playStory({ clockTower: false }); // Letters 1 to 5 done: the daily repair is unlocked, only the first two machines can break
-    expect(drawablePool(atLetter5)).toEqual(['worn_spring', 'wrong_gear']);
+    const atLetter5 = playStory({ clockTower: false }); // Letters 1 to 5 done: the daily repair is unlocked, only the Music Box and the Windmill can break
+    expect(drawablePool(atLetter5)).toEqual(['worn_spring', 'wrong_gear', 'dragging_tune', 'crawling_mill', 'racing_tune']);
     const seen = new Set<string>();
     for (let day = 1; day <= 28; day++) {
       const offer = dailyOffer(atLetter5, `2027-02-${String(day).padStart(2, '0')}`);
       expect(offer, `day ${day}`).not.toBeNull();
       seen.add((offer as { id: string }).id);
     }
-    expect([...seen].sort()).toEqual(['worn_spring', 'wrong_gear']); // alternate days, as before the Well and the Belfry existed
+    expect([...seen].sort()).toEqual(['crawling_mill', 'dragging_tune', 'racing_tune', 'worn_spring', 'wrong_gear']); // the five that existed before the Well and the Belfry
 
     const withWell = playStory({ clockTower: true, belfry: false });
-    expect(drawablePool(withWell)).toEqual(['worn_spring', 'wrong_gear', 'slow_pump']);
+    expect(drawablePool(withWell)).toEqual(['worn_spring', 'wrong_gear', 'dragging_tune', 'crawling_mill', 'racing_tune', 'slow_pump']);
     const full = playStory();
     expect(drawablePool(full)).toEqual([...REPAIR_IDS]);
     const all = new Set<string>();
     for (let day = 1; day <= 28; day++) all.add((dailyOffer(full, `2027-02-${String(day).padStart(2, '0')}`) as { id: string }).id);
-    expect([...all].sort()).toEqual([...REPAIR_IDS].sort()); // each of the four comes round in turn
+    expect([...all].sort()).toEqual([...REPAIR_IDS].sort()); // each of the seven comes round in turn
   });
 
   it("does not offer the Well's repair on the way to Letter 7, and does once the Well is placed, whichever day it is", () => {
@@ -112,7 +112,7 @@ describe('daily repair (ADR-027, ACCEPTANCE_TESTS §5.1)', () => {
       const b = dailyRepairFor(`2027-02-${String(day + 1).padStart(2, '0')}`);
       expect(a).not.toBe(b);
     }
-    expect(dailyRepairFor('2027-02-01')).toBe(dailyRepairFor('2027-02-05')); // a round of four repairs
+    expect(dailyRepairFor('2027-02-01')).toBe(dailyRepairFor(`2027-02-${String(1 + DAILY_POOL.length).padStart(2, '0')}`)); // the loop is as long as the pool
   });
 
   it('steps correctly across month, year and leap-day boundaries and before 1970', () => {

@@ -1,0 +1,133 @@
+/* "Play in your browser": the room behind the emulated headset and the controls card.
+   The browser has no passthrough, so the app's transparent canvas shows this instead of black: lamplight on a walnut table,
+   in the five bible colours only. IWER sets the container's position, size and stacking; this adds only the paint. */
+
+.wu-emu-room {
+  --emu-walnut: var(--walnut, #5b3a24);
+  --emu-ink: var(--ink, #2a1a0f);
+  --emu-cream: var(--cream, #f2e6cf);
+  --emu-lamp: var(--lamp, #ffc66d);
+  --emu-brass: var(--brass, #c9a227);
+  background:
+    /* the pool of lamplight the town stands in */
+    radial-gradient(50% 40% at 50% 60%, rgba(255, 198, 109, 0.22), rgba(255, 198, 109, 0.07) 58%, transparent 82%),
+    /* the room falling off into shade at the edges */
+    radial-gradient(125% 105% at 50% 48%, transparent 42%, rgba(30, 20, 12, 0.7) 100%),
+    /* the far wall above the table's edge (a thread of lamplight along it), the table below */
+    linear-gradient(to bottom, #2f2318 0, #3f2e20 28%, #5c4128 29.6%, #7a5535 30%, var(--emu-walnut) 33%, #5a3a24 62%, #46301f 100%);
+}
+
+.wu-emu-help {
+  position: absolute;
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  z-index: 6; /* above IWER's app canvas (2), its control layer (3) and its panels (5) */
+  display: grid;
+  justify-items: end;
+  max-width: min(23rem, calc(100% - 1.5rem));
+  color: var(--emu-cream);
+  font: 400 0.9375rem/1.4 var(--sans, "Cabin", system-ui, sans-serif);
+  text-align: left;
+  pointer-events: none;
+}
+.wu-emu-card,
+.wu-emu-tab {
+  pointer-events: auto;
+  border: 0.55em solid transparent;
+  border-image: var(--plaque-ghost) 12 fill stretch;
+  filter: drop-shadow(0 0.4em 0.7em rgba(7, 25, 26, 0.55));
+}
+.wu-emu-card {
+  display: grid;
+  gap: 0.5em;
+  padding: 0.15em 0.35em 0.35em;
+}
+.wu-emu-card[hidden],
+.wu-emu-tab[hidden] {
+  display: none;
+}
+.wu-emu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+.wu-emu-title {
+  margin: 0;
+  font: 400 1.35em/1.1 var(--serif, "Elsie", Georgia, serif);
+  color: var(--emu-lamp);
+  letter-spacing: 0.01em;
+}
+.wu-emu-lede {
+  margin: 0;
+  font-size: 0.95em;
+}
+.wu-emu-steps {
+  display: grid;
+  gap: 0.45em;
+  margin: 0;
+}
+.wu-emu-step {
+  display: grid;
+  gap: 0.05em;
+}
+.wu-emu-term {
+  font-weight: 700;
+  color: var(--emu-brass);
+}
+.wu-emu-text {
+  margin: 0;
+  font-size: 0.92em;
+}
+.wu-emu-x,
+.wu-emu-tab {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.wu-emu-x {
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.5rem -0.6rem -0.5rem 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+}
+.wu-emu-x:hover {
+  background: rgba(242, 230, 207, 0.12);
+}
+.wu-emu-x svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+}
+.wu-emu-tab {
+  min-height: 2.75rem;
+  padding: 0 0.3em;
+  font-weight: 700;
+  font-size: 0.9em;
+}
+.wu-emu-tab:hover {
+  filter: brightness(1.2) drop-shadow(0 0.4em 0.7em rgba(7, 25, 26, 0.55));
+}
+.wu-emu-help :focus-visible {
+  outline: 2px solid var(--emu-lamp);
+  outline-offset: 3px;
+}
+@media (forced-colors: active) {
+  .wu-emu-card,
+  .wu-emu-tab {
+    border: 2px solid CanvasText;
+    border-image: none;
+    background: Canvas;
+  }
+}

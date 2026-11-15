@@ -1,10 +1,12 @@
-// Binds a ClockTowerRuntime to the nodes of the Clock Tower's GLBs. No IWSDK: it works on a loaded glTF scene graph (three only),
+// Binds a ClockTowerRuntime to the nodes of the Clock Tower's GLBs. No IWSDK: it works on a loaded glTF scene graph (three, plus the train's solver ratios from movement.ts),
 // so Vitest runs it in node. Node names are the mesh names of the manifest (`assets/manifest/glb-manifest.json`) and the
 // `PIV_` empties of the generators (`blender/scripts/gen_pendulum.py`, `gen_escapement.py`).
 
 import { Quaternion, Vector3 } from 'three';
 import type { Object3D } from 'three';
 import { THEATRE_DOOR_OPEN_RAD } from './constants.js';
+import { MOVEMENT_PARTS, movementNodeName, trainRatios } from './movement.js';
+import type { TrainSocket } from './movement.js';
 import type { ClockTowerRuntime } from './runtime.js';
 
 export const CLOCK_TOWER_NODE = {
@@ -58,7 +60,14 @@ function restore(hinge: Hinge | null): void {
   hinge.object.position.copy(hinge.restPosition);
 }
 
+/** A part of the going train: it turns by `ratio` times the escape wheel's angle (the solver's speed ratio, signed, times the part's axle direction). */
+interface TrainHinge {
+  readonly hinge: Hinge;
+  readonly ratio: number;
+}
+
 export class ClockTowerNodes {
+  private readonly train: TrainHinge[] = [];
   private pendulum: Hinge | null = null;
   private anchor: Hinge | null = null;
   private escapeWheel: Hinge | null = null;
@@ -107,6 +116,13 @@ export class ClockTowerNodes {
     this.striker = find(n.striker, n.strikerPivot);
     this.minuteUnderHour =
       this.hourHand !== null && this.minuteHand !== null && this.hourHand.object.getObjectById(this.minuteHand.object.id) !== undefined;
+    this.train.length = 0;
+    const ratios = trainRatios();
+    for (const part of MOVEMENT_PARTS) {
+      if (!(part.socket in ratios)) continue; // the cam is not of the train: it follows the hour (`cam` above)
+      const hinge = find(movementNodeName(part.socket));
+      if (hinge) this.train.push({ hinge, ratio: ratios[part.socket as TrainSocket] * part.sign });
+    }
     return missing;
   }
 
@@ -119,6 +135,7 @@ export class ClockTowerNodes {
     restore(this.minuteHand);
     restore(this.bell);
     restore(this.striker);
+    for (let i = 0; i < this.train.length; i++) restore(this.train[i].hinge);
   }
 
   /** Writes the runtime's rotations to the nodes. No allocation. */
@@ -131,6 +148,9 @@ export class ClockTowerNodes {
     turn(this.minuteHand, this.minuteUnderHour ? runtime.minuteHandZ - runtime.hourHandZ : runtime.minuteHandZ);
     turn(this.bell, runtime.bellZ);
     turn(this.striker, runtime.strikerZ);
+    // The escapement regulates the train: every gear, the barrel and the spring advance with the wheel, by the solver's ratios.
+    const wheel = runtime.escapeWheelZ;
+    for (let i = 0; i < this.train.length; i++) turn(this.train[i].hinge, wheel * this.train[i].ratio);
   }
 }
 

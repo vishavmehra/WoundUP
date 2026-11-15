@@ -1,4 +1,4 @@
-// The finished Tockton Well (WELL_FOUNTAIN_BLUEPRINT.md; ADR-048): a `MachineRig` the town can carry, place, bake and gift.
+// The finished Tockton Well (WELL_FOUNTAIN_BLUEPRINT.md; ADR-048): a `MachineRig` the town can carry, place and gift (`buildMachine` bakes its still parts, bake.ts).
 //
 // Everything that moves is driven by the solver's result, never by a clip:
 //  - the spring (with its key), both gears, the cam, the ratchet and both pulleys are rotors of their own sockets (`rig.result.angularVelocity`),
@@ -163,6 +163,5 @@ export async function buildWell(source: ModelSource, registry: MaterialRegistry)
     water.update(dt, pose, -idle.theta * WELL_BELT_RADIUS_M, r.running && r.speed > 0.05);
   });
 
-  rig.bakeable = true;
   return rig;
 }

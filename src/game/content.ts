@@ -1,6 +1,6 @@
 /**
- * Authored Tockton game content: the closed id lists, the six letters and the closing card, the two story repairs and
- * the eight gift engravings. Plain data only, no engine types (DATA_AND_BLUEPRINT_SPEC §11, §14; CLAUDE.md §11).
+ * Authored Tockton game content: the closed id lists, the eight letters and the closing card, the story repairs, the three
+ * optional letters with their repairs and the eight gift engravings. Plain data only, no engine types (DATA_AND_BLUEPRINT_SPEC §11, §14; CLAUDE.md §11).
  *
  * Every id here is stable and is persisted in saves and gift links, so none may be renamed without a migration
  * (DATA_AND_BLUEPRINT_SPEC §4.1). Text on screen comes only from authored tables like these, never from a payload.
@@ -37,7 +37,13 @@ export const MACHINE_PLOT: Readonly<Record<MachineId, PlotId>> = {
 
 // ---- Story repairs (PRODUCT_SPEC §8; GAMEPLAY_SYSTEMS §12) ---------------------------------------------------------
 
-export const REPAIR_IDS = ['worn_spring', 'wrong_gear', 'slow_pump', 'silent_bell'] as const;
+/**
+ * The two documented story repairs, then the three optional ones (owner-approved polish, 2026-11-14), then the Well's and the Belfry's
+ * (ADR-048): all of them are in the daily pool (daily.ts), each drawn once its machine stands in the town. The optional three are on the two
+ * machines whose faulty socket a hand can reach (the Music Box's gears, the Windmill's pinion); the Carousel's and the Clock Tower's gears have
+ * no `SOCKET_` empty yet, so a repair there could not be done (tests/content/repairs-extra.test.ts guards it).
+ */
+export const REPAIR_IDS = ['worn_spring', 'wrong_gear', 'dragging_tune', 'crawling_mill', 'racing_tune', 'slow_pump', 'silent_bell'] as const;
 export type RepairId = (typeof REPAIR_IDS)[number];
 
 /** What the player sees when the fault is present (units: seconds, and a multiple of the intended speed). */
@@ -75,6 +81,35 @@ export const REPAIRS: Readonly<Record<RepairId, RepairDef>> = {
     correctPartId: 'gear_spur_24_m1_brass',
     symptom: { kind: 'speed_ratio', ratio: 24 / 12 },
   },
+  // Optional repairs (see REPAIR_IDS). Each is one wrong spur gear on a socket the player can reach, and each is the solver's own `runs_wrong`:
+  // the cylinder (Music Box) or the millstone (Windmill) leaves its target band, the ratio being what the faulty gear gives over the target speed.
+  // A 24-tooth gear where the 20-tooth cylinder wheel belongs: the cylinder turns at 0.8 x 10/24 = 0.333 rad/s instead of 0.4, so the tune drags.
+  dragging_tune: {
+    id: 'dragging_tune',
+    blueprintId: 'music_box',
+    letterId: 'repair_music_box_drag',
+    faultyPartId: 'gear_spur_24_m1_brass',
+    correctPartId: 'gear_spur_20_m1_brass',
+    symptom: { kind: 'speed_ratio', ratio: 20 / 24 },
+  },
+  // A 10-tooth gear where the 12-tooth windmill pinion belongs: the millstone turns at 1.2 x 10/24 = 0.5 rad/s instead of 0.6, so it crawls.
+  crawling_mill: {
+    id: 'crawling_mill',
+    blueprintId: 'windmill',
+    letterId: 'repair_windmill_crawl',
+    faultyPartId: 'gear_spur_10_m1_brass',
+    correctPartId: 'gear_spur_12_m1_brass',
+    symptom: { kind: 'speed_ratio', ratio: 10 / 12 },
+  },
+  // A 12-tooth gear where the 10-tooth spring pinion belongs: the cylinder turns at 0.8 x 12/20 = 0.48 rad/s instead of 0.4, so the tune races.
+  racing_tune: {
+    id: 'racing_tune',
+    blueprintId: 'music_box',
+    letterId: 'repair_music_box_race',
+    faultyPartId: 'gear_spur_12_m1_brass',
+    correctPartId: 'gear_spur_10_m1_brass',
+    symptom: { kind: 'speed_ratio', ratio: 12 / 10 },
+  },
   // WELL_FOUNTAIN_BLUEPRINT §10.3: a 16-tooth gear where the 10-tooth one belongs, so the cam turns at 1.0 rad/s instead of 1.6 and the
   // pump dribbles. Daily repair only (ADR-048): `letterId` names the Well's letter, which is a build letter, so no letter ever
   // completes it.
@@ -102,7 +137,19 @@ export const REPAIRS: Readonly<Record<RepairId, RepairDef>> = {
 
 /** Story order. Each letter unlocks when the one before it is completed (see progression.ts). */
 export const LETTER_IDS = ['letter_1', 'letter_2', 'letter_3', 'letter_4', 'letter_5', 'letter_6', 'letter_7', 'letter_8'] as const;
-export type LetterId = (typeof LETTER_IDS)[number];
+
+/**
+ * The optional letters (owner-approved polish, 2026-11-14): repairs of machines the player has already placed. They are NOT in the story
+ * chain above: nothing unlocks from them, `storyComplete` and the closing card never wait for them, and a letter of the chain is always
+ * shown before one of these (`optionalLetter` in progression.ts), so they come after Letter 8. Ids carry no number so no later chain letter
+ * can collide with them.
+ */
+export const SIDE_LETTER_IDS = ['repair_music_box_drag', 'repair_windmill_crawl', 'repair_music_box_race'] as const;
+export type SideLetterId = (typeof SIDE_LETTER_IDS)[number];
+
+/** Any letter a save can hold: the chain, then the optional ones. */
+export type LetterId = (typeof LETTER_IDS)[number] | SideLetterId;
+export const ALL_LETTER_IDS: readonly LetterId[] = [...LETTER_IDS, ...SIDE_LETTER_IDS];
 
 /** Locked < available < accepted < completed. Persisted, so never store any other string (SAVE_PERSISTENCE_SPEC §4.2). */
 export const LETTER_STATUSES = ['locked', 'available', 'accepted', 'completed'] as const;
@@ -129,6 +176,8 @@ export interface LetterDef {
   readonly message: string;
   readonly unlock: LetterUnlock;
   readonly objective: LetterObjective;
+  /** True for the letters of `SIDE_LETTER_IDS`, which sit outside the story chain. Absent on the chain's letters. */
+  readonly optional?: true;
 }
 
 export const LETTERS: Readonly<Record<LetterId, LetterDef>> = {
@@ -188,6 +237,32 @@ export const LETTERS: Readonly<Record<LetterId, LetterDef>> = {
     message: "The belfry bell hasn't rung since the night the clock stopped, and the weathervane has forgotten how to turn. Could you wake them both?",
     unlock: { type: 'letter_completed', letterId: 'letter_7' },
     objective: { type: 'build_and_run', blueprintId: 'belfry' },
+  },
+  // The optional letters. Each unlocks when the chain letter that placed its machine (or its sender's own letter) is completed, and each has a
+  // repair for its objective. They arrive after the story, so they come to a player who has finished it and to a returning one alike.
+  repair_music_box_drag: {
+    id: 'repair_music_box_drag',
+    sender: 'Mira',
+    message: 'It plays right through now! But the tune drags, like it is humming in its sleep. Could you wake it a little?',
+    unlock: { type: 'letter_completed', letterId: 'letter_1' },
+    objective: { type: 'repair_fault', repairId: 'dragging_tune' },
+    optional: true,
+  },
+  repair_windmill_crawl: {
+    id: 'repair_windmill_crawl',
+    sender: 'Otto',
+    message: 'The sails turn, but the millstone only crawls. A spoonful of flour an hour! Something inside is too small.',
+    unlock: { type: 'letter_completed', letterId: 'letter_4' },
+    objective: { type: 'repair_fault', repairId: 'crawling_mill' },
+    optional: true,
+  },
+  repair_music_box_race: {
+    id: 'repair_music_box_race',
+    sender: 'Schoolteacher',
+    message: 'The children sing along to the music box, but the tune races ahead and they cannot keep up. Could you slow it down?',
+    unlock: { type: 'letter_completed', letterId: 'letter_3' },
+    objective: { type: 'repair_fault', repairId: 'racing_tune' },
+    optional: true,
   },
 };
 

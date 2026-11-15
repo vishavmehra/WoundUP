@@ -21,6 +21,7 @@ import {
   LETTERS,
   MACHINE_PLOT,
   REPAIRS,
+  SIDE_LETTER_IDS,
   type LetterDef,
   type LetterId,
   type LetterStatus,
@@ -59,7 +60,7 @@ export const GATES = {
 const RANK: Readonly<Record<LetterStatus, number>> = { locked: 0, available: 1, accepted: 2, completed: 3 };
 
 /** The letters up to and without `cut`: the story is one chain, so a machine that is out of the build takes every later letter with it. */
-const before = (cut: LetterId): readonly LetterId[] => LETTER_IDS.slice(0, LETTER_IDS.indexOf(cut));
+const before = (cut: (typeof LETTER_IDS)[number]): readonly LetterId[] => LETTER_IDS.slice(0, LETTER_IDS.indexOf(cut));
 const WITHOUT_TOWER = before('letter_6');
 const WITHOUT_WELL = before('letter_7');
 const WITHOUT_BELFRY = before('letter_8');
@@ -105,7 +106,8 @@ function withMachine(save: SaveV1, record: MachineRecord): SaveV1 {
  */
 export function settle(save: SaveV1, options: ProgressionOptions = DEFAULT_PROGRESSION): SaveV1 {
   let next = save;
-  for (const id of letterSequence(options)) {
+  // The optional letters follow the same rule, and every letter they name is in the chain, so they need no pass of their own order.
+  for (const id of [...letterSequence(options), ...SIDE_LETTER_IDS]) {
     const rule = LETTERS[id].unlock;
     if (next.letters[id] === 'locked' && rule.type === 'letter_completed' && next.letters[rule.letterId] === 'completed') {
       next = withLetter(next, id, 'available');
@@ -176,7 +178,18 @@ export function activeLetter(save: SaveV1, options: ProgressionOptions = DEFAULT
   return id === undefined ? null : LETTERS[id];
 }
 
-/** True once every letter of this build is completed. */
+/**
+ * The optional letter to show when the story has nothing to show: the first of `SIDE_LETTER_IDS` that is available or accepted. Null while
+ * a letter of the chain is open (the chain always comes first, so an optional letter never delays one), and null once they are all done.
+ * `GameSession.letter` asks the chain first, then this.
+ */
+export function optionalLetter(save: SaveV1, options: ProgressionOptions = DEFAULT_PROGRESSION): LetterDef | null {
+  if (activeLetter(save, options) !== null) return null;
+  const id = SIDE_LETTER_IDS.find((l) => save.letters[l] === 'available' || save.letters[l] === 'accepted');
+  return id === undefined ? null : LETTERS[id];
+}
+
+/** True once every letter of the story chain of this build is completed (the optional letters do not count). */
 export function storyComplete(save: SaveV1, options: ProgressionOptions = DEFAULT_PROGRESSION): boolean {
   const sequence = letterSequence(options);
   return save.letters[sequence[sequence.length - 1]] === 'completed';

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Quaternion, Vector3 } from 'three';
+import { windUnitsFromAngle } from '../../src/sim';
 import {
+  KEY_PULL_OUT_M,
+  keyPulledOut,
   MAX_WIND_UNITS,
   twistAbout,
   WIND_JUMP_RAD,
@@ -64,13 +67,14 @@ describe('twistAbout (swing-twist)', () => {
 });
 
 describe('WindTracker (INTERACTION_SPEC §10)', () => {
-  it('earns what the solver credits for the same angle (windUnitsFromAngle in src/sim/power.ts, same rule)', () => {
-    const solver = (angle: number): number => (angle > 0 ? Math.min(8, Math.floor(angle / (Math.PI / 2) + 1e-9)) : 0);
+  it('earns what the solver credits for the same angle (windUnitsFromAngle in src/sim/power.ts: one definition, 90 degrees per unit, at most 8)', () => {
     for (let a = 5; a <= 800; a += 5) {
       const t = new WindTracker(0);
       drive(t, 0, a);
-      expect(t.gained, `${a} degrees`).toBe(solver(deg(a)));
+      expect(t.gained, `${a} degrees`).toBe(windUnitsFromAngle(deg(a)));
     }
+    expect(WIND_UNIT_RAD).toBe(Math.PI / 2);
+    expect(MAX_WIND_UNITS).toBe(8);
   });
 
   it('every 90 degrees adds one unit', () => {
@@ -225,5 +229,17 @@ describe('WindTracker (INTERACTION_SPEC §10)', () => {
     drive(t, -50, 20); // back past the start: the key does not turn the other way
     expect(t.keyAngle).toBe(0);
     expect(WIND_LOCK_RAD).toBeLessThan(WIND_UNIT_RAD);
+  });
+});
+
+describe('keyPulledOut (INTERACTION_SPEC §9: a deliberate pull takes a seated key out, hand-tracking noise does not)', () => {
+  it('needs a pull of 6 cm along the axis, in either direction', () => {
+    expect(KEY_PULL_OUT_M).toBeCloseTo(0.06);
+    expect(keyPulledOut(0)).toBe(false);
+    expect(keyPulledOut(0.03)).toBe(false); // the 3 cm that frees an ordinary part is not enough for the key
+    expect(keyPulledOut(-0.059)).toBe(false);
+    expect(keyPulledOut(0.06)).toBe(true);
+    expect(keyPulledOut(-0.06)).toBe(true);
+    expect(keyPulledOut(0.3)).toBe(true);
   });
 });

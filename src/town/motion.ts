@@ -98,11 +98,10 @@ export interface MachineRig {
   /** Per-machine animation, in order (see `RigUpdater`). */
   readonly updaters: RigUpdater[];
   /**
-   * Nodes the updaters move besides the rotors', bobbers' and pulsers' nodes and the lid. `bakeStatic` (bake.ts) leaves them and everything
-   * under them alone. Only a rig whose `bakeable` is true is ever baked: a machine driven from outside the rig (the Clock Tower) is not.
+   * Nodes the updaters move besides the rotors', bobbers' and pulsers' nodes and the lid. The static batching (`bakeRig`, bake.ts) treats each
+   * as a moving node: it stays as it is and only what is static under it is merged, in its frame.
    */
   readonly moving: Object3D[];
-  bakeable: boolean;
   /** True for a machine a saved game put on its plot (`TownRuntime.placeRig`): its payoff is already complete (the Well's basin is full). */
   restored: boolean;
   /** The town's audio, set when the rig joins the town (`TownRuntime.addRig`), for the sounds of the machine's own motion. */
@@ -150,7 +149,6 @@ export function createRig(machineId: MachineId, root: Object3D): MachineRig {
     pulsers: [],
     updaters: [],
     moving: [],
-    bakeable: false,
     restored: false,
     audio: null,
     lid: null,

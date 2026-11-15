@@ -25,14 +25,15 @@ import { AdditiveBlending, createSystem, DistanceGrabbable, Grabbed, Mesh, MeshB
 import type { Entity, Object3D, World } from '@iwsdk/core';
 import { bindClockTowerAudio } from './audio';
 import type { AudioEngine } from './audio';
-import { getBlueprint, repairStart, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
+import { planBuild } from './build-plan';
+import { getBlueprint, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
 import type { Assembly, MachineBlueprint } from './content/blueprints';
 import { requirePart } from './content/parts';
 import { MACHINE_PLOT, REPAIRS } from './game/content';
 import type { EngravingId, LetterDef, MachineId, PlotId, RepairDef } from './game/content';
 import type { Gift } from './game/gift';
 import type { GameSession } from './game/session';
-import { interactionIntents, Socket, SnappedTo, WindKey } from './interaction';
+import { interactionIntents, Socket, SnappedTo, WindKey, XRayTarget } from './interaction';
 import type { InteractionIntent } from './interaction';
 import { BELFRY_MODEL_PATHS } from './machines/belfry';
 import { CLOCK_TOWER_MODEL_PATHS, ClockTowerRigComponent, ClockTowerSystem, clockTowerEvents, installClockTower, TheatreDoors } from './machines/clock-tower';
@@ -44,13 +45,13 @@ import { MAX_WIND_UNITS } from './sim';
 import type { SolveResult } from './sim';
 import { STAGE_NODE_ID, StageSystem } from './stage';
 import { BLUEPRINT_SOCKET_IDS, buildMachine, loadModel, makeCarriable, PLOTS, TownRuntime } from './town';
-import { bakeStatic } from './town/bake';
 import { PAD_TOP_M } from './town/layout';
 import type { MachineRig } from './town';
 import type { LidHinge } from './town/motion';
+import { XRAY_SHELL, xrayZoneOf } from './town/xray-view';
 import type { FlowEvent, FlowUi } from './ui';
 import { BENCH, benchPoint } from './ui/layout';
-import { dropSeatedByGame, placeTrayParts } from './tray-layout';
+import { placeTrayParts } from './tray-layout';
 
 /** A finished machine keeps running after it is placed for at most this long (the Music Box plays one cylinder turn), seconds. */
 const PLACED_RUN_CAP_S = 16;
@@ -122,6 +123,8 @@ export class Gameplay {
 
   private readonly stage: Object3D;
   private build: Build | null = null;
+  /** Unregisters the bench machine from the X-ray view (town.xray): the lens opens it while it is on the bench. */
+  private xrayBench: (() => void) | null = null;
   private buildToken = 0;
   private windUnits = 0;
   private busy = false;
@@ -187,10 +190,17 @@ export class Gameplay {
       const result = this.solve(blueprint, blueprint.intended, MAX_WIND_UNITS);
       rig.result = result;
       rig.running = result !== null && keepsRunning(record.blueprintId, result); // a saved Windmill or Clock Tower runs again, a saved Music Box waits for its next letter
+      const xray = xrayZoneOf(rig.root); // at the bench scale, before placeRig eases it to the town's
       if (!this.town.placeRig(rig)) continue;
-      bakeStatic(rig); // a machine standing in the town keeps only its moving parts as meshes of their own (ADR-048 draw-call budget)
-      // Nothing carries a restored machine, so the town holds it; the Clock Tower still needs an entity for its rig component.
-      this.placed.set(record.blueprintId, { rig, entity: record.blueprintId === 'clock_tower' ? this.attachTower(rig, null) : null });
+      // Nothing carries a restored machine, so the town holds it; it still needs an entity, for the palm gesture (and the Clock Tower's rig component).
+      let entity: Entity;
+      if (record.blueprintId === 'clock_tower') entity = this.attachTower(rig, null);
+      else {
+        entity = this.world.createEntity();
+        entity.object3D = rig.root;
+      }
+      entity.addComponent(XRayTarget, xray);
+      this.placed.set(record.blueprintId, { rig, entity });
     }
   }
 
@@ -366,25 +376,13 @@ export class Gameplay {
     const at = benchPoint(this.townScale, BENCH.build);
     const machine = await this.loader.spawnMachine(blueprint.id, { parent: this.stage, position: [at.x, at.y, at.z] });
     if (token !== this.buildToken) return machine.dispose();
+    this.xrayBench = this.town.xray.add({ root: machine.object, prefixes: XRAY_SHELL[blueprint.id] ?? [], lens: () => true });
     this.lid = openLid(machine.object);
 
-    // What each socket takes from the player, and what the game seats itself.
-    const start = repair ? repairStart(repair) : undefined;
-    const target: Assembly = start ? start.assembly : {};
-    const trayIds: string[] = [];
-    for (const entry of start ? start.tray : blueprint.tray) for (let i = 0; i < entry.quantity; i++) trayIds.push(entry.partId);
-    const handPlaced = (socketId: string, partId: string): boolean => machine.sockets.has(socketId) && requirePart(partId).grab.enabled;
-    const fixed: Record<string, string> = {};
-    for (const [socketId, partId] of Object.entries(start ? start.assembly : blueprint.intended)) {
-      if (!handPlaced(socketId, partId)) fixed[socketId] = partId;
-    }
-    if (!start) dropSeatedByGame(trayIds, fixed); // a part the game seats itself has no place in the tray
+    // What each socket takes from the player, and what the game seats itself (src/build-plan.ts).
+    const { fixed, seatNow, spawnIds, handBuilt } = planBuild(blueprint, repair, machine.sockets.size, (socketId) => machine.sockets.has(socketId));
     const build: Build = { blueprint, machine, parts: [], fixed, repair, daily: daily?.date ?? null, key: null };
-    const seatNow: Array<[string, string]> = Object.entries(target).filter(([socketId]) => !(socketId in fixed));
-    const spawnIds = [...trayIds.filter((id) => requirePart(id).grab.enabled), ...seatNow.map(([, partId]) => partId)];
-    // Nothing to place by hand (a machine whose sockets no GLB carries yet): there is no tray to show.
-    const handBuilt = machine.sockets.size > 0 || seatNow.length > 0;
-
+    const traySpawned = spawnIds.length - seatNow.length;
     this.build = build;
     if (handBuilt) {
       // Each part lies in the compartment made for it (parts_tray.glb, src/tray-layout.ts), in its final pose from the start: the pose it is
@@ -405,7 +403,7 @@ export class Gameplay {
       }
       this.ui.revealParts(spawned.map((part) => part.object)); // pops them in; it also moves part i to compartment i, so each goes back to its own
       spawned.forEach((part, i) => part.object.position.set(...lies[i].position));
-      if (seatNow.length > 0) this.seat(build, spawned.slice(trayIds.filter((id) => requirePart(id).grab.enabled).length), seatNow);
+      if (seatNow.length > 0) this.seat(build, spawned.slice(traySpawned), seatNow);
     }
     this.ui.showBlueprint({
       title: blueprint.name,
@@ -584,7 +582,6 @@ export class Gameplay {
     if (MACHINE_PLOT[machine] !== plot || !this.session.machinePlaced(machine, plot)) return;
     this.carried = null;
     this.placed.set(machine, { rig: carried.rig, entity: carried.entity });
-    bakeStatic(carried.rig); // its housing and still parts become one mesh per material; the moving parts keep theirs
     // A machine on its plot stays there: nothing carries it off again (it would return to the bench, which is gone).
     carried.entity.removeComponent(OneHandGrabbable);
     carried.entity.removeComponent(DistanceGrabbable);
@@ -630,6 +627,8 @@ export class Gameplay {
     this.seating = null;
     this.lid = null;
     this.buildToken++;
+    this.xrayBench?.(); // the housing gets its shared materials back before it is disposed
+    this.xrayBench = null;
     if (!build) return;
     for (const part of build.parts) part.dispose();
     build.machine.dispose();

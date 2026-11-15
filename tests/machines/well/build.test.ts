@@ -9,7 +9,7 @@ import { solveAssembly, WELL, WELL_PROFILE, WELL_STROKE_M } from '../../../src/c
 import type { TownAudio } from '../../../src/audio/engine';
 import { buildWell, pawlLift, WELL_MODEL_PATHS } from '../../../src/machines/well';
 import { MAX_WIND_UNITS } from '../../../src/sim';
-import { bakeStatic } from '../../../src/town/bake';
+import { bakeRig } from '../../../src/town/bake';
 import { buildMachine } from '../../../src/town/machines';
 import { stepRig } from '../../../src/town/motion';
 import type { MachineRig } from '../../../src/town/motion';
@@ -93,7 +93,7 @@ describe.skipIf(!present)('the finished Well from the real GLBs', () => {
     const rig = await buildWell(source, libraryRegistry());
     expect(rig.rotors.map((r) => r.socketId).sort()).toEqual(['cam', 'cam_gear', 'drive_gear', 'pulley_drive', 'pulley_idle', 'ratchet', 'spring', 'spring']);
     for (const r of rig.rotors) expect(r.axis, r.socketId).toBe('z');
-    expect(rig.bakeable).toBe(true);
+    expect(rig.moving.map((n) => n.name).sort()).toEqual(['Part_Follower', 'Part_Pawl', 'Well_WaterLevel']); // what the updaters move besides the rotors: the baker keeps them whole
     expect(rig.updaters).toHaveLength(3); // the pump, the pawl, the water
   });
 
@@ -230,12 +230,20 @@ describe.skipIf(!present)('the finished Well from the real GLBs', () => {
     const before = new Box3().setFromObject(rig.root, true);
     const meshesBefore = drawn(rig.root).length;
     const movers = [...rig.rotors.map((r) => r.node), find(rig, 'Part_Follower'), find(rig, 'Part_Pawl')];
-    const result = bakeStatic(rig);
-    expect(result.removed).toBeGreaterThan(5);
-    expect(result.made).toBeGreaterThan(0);
-    expect(result.made).toBeLessThanOrEqual(6); // one per library material of the housing and the still parts
-    expect(rig.bakeable).toBe(false);
-    expect(bakeStatic(rig)).toEqual({ removed: 0, made: 0 }); // once
+    const baked = bakeRig(rig);
+    expect(baked.merged.length).toBeGreaterThan(0);
+    expect(baked.sources).toBeGreaterThan(baked.merged.length);
+    const mergedAway = baked.merged.flatMap((m) => m.userData.bakedFrom as string[]);
+    for (const name of ['Part_Follower', 'Part_Pawl', 'Well_WaterLevel']) expect(mergedAway, name).not.toContain(name);
+    // the hidden bucket template is never merged (the instanced buckets draw it), and the water disc is a moving node, hidden or shown
+    const template = find(rig, 'Bucket_Template');
+    const templateMeshes: Mesh[] = [];
+    template.traverse((o) => void ((o as Mesh).isMesh && templateMeshes.push(o as Mesh)));
+    expect(templateMeshes.length).toBeGreaterThan(0);
+    for (const mesh of templateMeshes) {
+      expect(mesh.visible, mesh.name).toBe(false);
+      expect(mergedAway, mesh.name).not.toContain(mesh.name);
+    }
     const meshesAfter = drawn(rig.root).length;
     expect(meshesAfter).toBeLessThan(meshesBefore);
     for (const node of movers) expect(node.parent, node.name).not.toBeNull(); // still in the scene

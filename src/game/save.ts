@@ -8,8 +8,8 @@
  */
 
 import {
+  ALL_LETTER_IDS,
   isOneOf,
-  LETTER_IDS,
   LETTER_STATUSES,
   LETTERS,
   MACHINE_IDS,
@@ -62,7 +62,7 @@ export const DEFAULT_SETTINGS: Settings = { easySnap: false, gazeMode: false, xr
 /** A new player's save: every letter locked, nothing built. A new object on every call. */
 export function freshSave(): SaveV1 {
   const letters = {} as Record<LetterId, LetterStatus>;
-  for (const id of LETTER_IDS) letters[id] = 'locked';
+  for (const id of ALL_LETTER_IDS) letters[id] = 'locked';
   return { version: SAVE_VERSION, townPlaced: false, letters, machines: [], dailyDone: null, settings: { ...DEFAULT_SETTINGS } };
 }
 
@@ -88,17 +88,18 @@ export function validateSave(data: unknown): ValidateResult {
   const townPlaced = data.townPlaced;
   if (typeof townPlaced !== 'boolean') return bad('townPlaced is not a boolean');
 
-  // Letters: only known ids and statuses. A letter missing from the map is simply still locked.
+  // Letters: only known ids and statuses. A letter missing from the map is simply still locked, so a save written before the optional
+  // letters existed loads as it is and finds them locked (the session settles them on load).
   if (!isRecord(data.letters)) return bad('letters is not an object');
   const letters = freshSave().letters as Record<LetterId, LetterStatus>;
   for (const key of Object.keys(data.letters)) {
-    if (!isOneOf(LETTER_IDS, key)) return bad('letters has an unknown id');
+    if (!isOneOf(ALL_LETTER_IDS, key)) return bad('letters has an unknown id');
     const status = data.letters[key];
     if (!isOneOf(LETTER_STATUSES, status)) return bad('letters has an invalid status');
     letters[key] = status;
   }
   // A letter past `locked` needs the letter its unlock rule names to be completed.
-  for (const id of LETTER_IDS) {
+  for (const id of ALL_LETTER_IDS) {
     const rule = LETTERS[id].unlock;
     if (rule.type === 'letter_completed' && letters[id] !== 'locked' && letters[rule.letterId] !== 'completed') return bad('letters out of order');
   }

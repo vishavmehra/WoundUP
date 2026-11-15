@@ -1,4 +1,4 @@
-// The finished Tockton Belfry (BELFRY_BLUEPRINT.md; ADR-048): a `MachineRig` the town can carry, place, bake and gift.
+// The finished Tockton Belfry (BELFRY_BLUEPRINT.md; ADR-048): a `MachineRig` the town can carry, place and gift (`buildMachine` bakes its still parts, bake.ts).
 //
 // Everything that moves is driven by the solver's result: the spring (and its key), the 12T pinion and the 20T gear, bevel A, bevel B, the
 // vertical shaft, the flywheel and the vane are rotors of their own sockets; the bell rocks by the profile of the blueprint's pin edge
@@ -67,6 +67,5 @@ export async function buildBelfry(source: ModelSource, registry: MaterialRegistr
     toll = index;
   });
 
-  rig.bakeable = true;
   return rig;
 }

@@ -1,7 +1,7 @@
 /**
- * Desktop demo view (debug only): `/?debug&demo=music_box` (or `carousel`, `windmill`, `well`, `belfry`) skips the flow and shows that finished
- * machine running, so the way its parts work together can be watched in a plain browser window. `demo=town` puts all six machines on their
- * plots, awake and running, which is how the awake town's draw calls are measured (`window.__world.renderer.info`).
+ * Desktop demo view (debug only): `/?debug&demo=music_box` (or `carousel`, `windmill`, `well`, `belfry`, `clock_tower`) skips the flow and
+ * shows that finished machine running, so the way its parts work together can be watched in a plain browser window. `demo=town` puts all
+ * six machines on their plots, awake and running, which is how the awake town's draw calls are measured (`window.__world.renderer.info`).
  *
  * It is not an animation of its own. The machine is the one the game builds (`buildMachine`), the speeds are the solver's
  * (`solveAssembly` at eight wind units), and the rig is stepped by the town runtime exactly as in play (`stepRig`). All this file
@@ -9,29 +9,30 @@
  *
  * Without `?debug` nothing here is reached (`demoRequest` returns null). It never creates a GameSession, so it reads and writes no
  * save. The Music Box stands on the workbench where the game puts the machine it has just finished; the Carousel, the Windmill, the
- * Well and the Belfry stand on their plots, awake (the Well's basin starts empty so the fill can be watched). The Clock Tower is driven by
- * its own system and is not offered.
+ * Well and the Belfry stand on their plots, awake (the Well's basin starts empty so the fill can be watched), and so does the Clock Tower,
+ * which keeps time by the clock of the page (its pendulum, escapement, hands and the hour that rings as it appears); its train is turned
+ * by the tower's own system, not by the town's rotors.
  */
 import { Box3, createSystem, Vector3 } from '@iwsdk/core';
 import type { Object3D, World } from '@iwsdk/core';
-import { AudioEngine } from '../audio';
+import { AudioEngine, bindClockTowerAudio } from '../audio';
 import { getBlueprint, solveAssembly } from '../content/blueprints';
 import { MACHINE_IDS, MACHINE_PLOT, PLOT_IDS } from '../game/content';
 import type { MachineId } from '../game/content';
+import { clockTowerEvents, startClockTower } from '../machines/clock-tower';
 import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
 import type { RenderBudget } from '../render-budget';
 import { MAX_WIND_UNITS } from '../sim';
 import type { SolveResult } from '../sim';
 import { STAGE_NODE_ID } from '../stage';
-import { bakeStatic } from '../town/bake';
 import { BLUEPRINT_SOCKET_IDS, buildMachine, installTown, loadModel } from '../town';
 import type { MachineRig, TownRuntime } from '../town';
 import { stepRig } from '../town/motion';
 import { BENCH, benchPoint, benchZ } from '../ui/layout';
 
 /** The finished machines `buildMachine` makes. */
-export const DEMO_MACHINES = ['music_box', 'carousel', 'windmill', 'well', 'belfry'] as const;
+export const DEMO_MACHINES = ['music_box', 'carousel', 'windmill', 'well', 'belfry', 'clock_tower'] as const;
 export type DemoMachine = (typeof DEMO_MACHINES)[number];
 /** `?debug&demo=town`: every machine of the game on its own plot. */
 export const DEMO_TOWN = 'town';
@@ -183,6 +184,7 @@ const LOOKS: Readonly<Record<DemoRequest, DemoLook>> = {
   // (Belfry, 30.7 cm) are out of the picture, which is the whole payoff. Scroll to come closer.
   well: { elevationDeg: 24, closeness: 1.1 },
   belfry: { elevationDeg: 14, closeness: 1.12 },
+  clock_tower: { elevationDeg: 10, closeness: 0.85 },
 };
 
 class Demo {
@@ -217,6 +219,7 @@ class Demo {
     const { result, rig } = this.winding;
     const wound = !result.continuous && rig.running ? `, wound to ${MAX_WIND_UNITS}/${MAX_WIND_UNITS}` : ''; // not claimed once the spring is spent
     const lines = [`${this.machine}: solver says "${result.status}"${wound}`];
+    if (this.machine === 'clock_tower') return [...lines, 'keeps time: the pendulum steps the train, the hands show the clock of this page'].join('\n');
     lines.push(result.continuous ? 'driven by the wind' : `spring: ${this.winding.left.toFixed(1)} of ${result.runSeconds.toFixed(1)} s left${rig.running ? '' : ' (run down)'}`);
     for (const [socket, omega] of Object.entries(result.angularVelocity)) {
       if (rig.rotors.some((r) => r.socketId === socket)) lines.push(`${socket}: ${(omega * rig.speed).toFixed(2)} rad/s`);
@@ -277,7 +280,6 @@ async function place(world: World, town: TownRuntime, materials: MaterialRegistr
     if (!town.placeRig(rig)) throw new Error(`The town has no plot for the ${machine}.`);
     town.restore([MACHINE_PLOT[machine]]);
     rig.restored = false; // placeRig says "a saved game put it here": the demo wants to see the Well's basin fill, so it starts empty
-    bakeStatic(rig); // as the game does when a machine stands in the town
   }
   return rig.root;
 }
@@ -303,6 +305,10 @@ export async function installDemo(world: World, materials: MaterialRegistry, tex
     if (!outcome.ok) throw new Error(`The solver rejected the ${id}: ${JSON.stringify(outcome.errors)}`);
     await place(world, town, materials, rig, id, request === 'music_box');
     windings.push(new Winding(rig, outcome.result));
+    if (id === 'clock_tower') {
+      bindClockTowerAudio(audio, clockTowerEvents);
+      startClockTower(world, rig, { strikeOnStart: true }); // a town tower does not run down: its clock runs for as long as the page does
+    }
     if (rig.lid) rig.lid.angle = rig.lid.openRad; // open from the first frame: the mechanism is what there is to see
     stepRig(rig, 0, 0); // poses the open lid before the machine is measured and drawn
     rigs.push(rig);

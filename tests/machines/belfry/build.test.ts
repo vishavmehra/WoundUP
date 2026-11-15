@@ -9,7 +9,7 @@ import { BELFRY, BELFRY_BELL_PROFILE, solveAssembly } from '../../../src/content
 import type { TownAudio } from '../../../src/audio/engine';
 import { BELFRY_MODEL_PATHS, buildBelfry, tollIndex } from '../../../src/machines/belfry';
 import { MAX_WIND_UNITS } from '../../../src/sim';
-import { bakeStatic } from '../../../src/town/bake';
+import { bakeRig } from '../../../src/town/bake';
 import { buildMachine } from '../../../src/town/machines';
 import { stepRig } from '../../../src/town/motion';
 import type { MachineRig } from '../../../src/town/motion';
@@ -104,7 +104,7 @@ describe.skipIf(!present)('the finished Belfry from the real GLBs', () => {
     const rig = await buildBelfry(source, libraryRegistry());
     expect(rig.rotors.map((r) => r.socketId).sort()).toEqual(['bevel_a', 'bevel_b', 'drive_gear', 'flywheel', 'pinion', 'shaft', 'spring', 'spring', 'vane']);
     for (const r of rig.rotors) expect(r.axis, r.socketId).toBe('z'); // every part turns about its own +Z; the sockets stand the vertical ones on end
-    expect(rig.bakeable).toBe(true);
+    expect(rig.moving.map((n) => n.name).sort()).toEqual(['ClockBell_Bell', 'ClockBell_Striker']); // what the bell's updater moves besides the rotors: the baker keeps them whole
   });
 
   it('runs at the solver\'s speeds: the vane at +0.48 rad/s, the reduction the other way at -0.48, a turn of the vane in 13.1 s', async () => {
@@ -165,10 +165,11 @@ describe.skipIf(!present)('the finished Belfry from the real GLBs', () => {
     rig.root.updateWorldMatrix(true, true);
     const before = new Box3().setFromObject(rig.root, true);
     const meshesBefore = drawn(rig.root).length;
-    const result = bakeStatic(rig);
-    expect(result.removed).toBeGreaterThan(5);
-    expect(result.made).toBeGreaterThan(0);
+    const baked = bakeRig(rig);
+    expect(baked.merged.length).toBeGreaterThan(0);
+    expect(baked.sources).toBeGreaterThan(baked.merged.length); // the brass of the plinth, the handle and the bearing: fewer draws
     expect(drawn(rig.root).length).toBeLessThan(meshesBefore);
+    for (const merged of baked.merged) expect(merged.userData.bakedFrom as string[], merged.name).not.toContain('ClockBell_Bell'); // the bell is never merged away
     rig.root.updateWorldMatrix(true, true);
     const after = new Box3().setFromObject(rig.root, true);
     for (const k of ['x', 'y', 'z'] as const) {

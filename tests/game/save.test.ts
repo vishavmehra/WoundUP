@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LETTER_IDS } from '../../src/game/content';
+import { ALL_LETTER_IDS } from '../../src/game/content';
 import {
   DEFAULT_SETTINGS,
   freshSave,
@@ -36,7 +36,7 @@ describe('SaveV1 basics', () => {
     expect(a.townPlaced).toBe(false);
     expect(a.dailyDone).toBeNull();
     expect(a.machines).toEqual([]);
-    expect(Object.keys(a.letters)).toEqual([...LETTER_IDS]);
+    expect(Object.keys(a.letters)).toEqual([...ALL_LETTER_IDS]); // the story's letters, then the optional ones
     expect(a.settings).toEqual(DEFAULT_SETTINGS);
     expect(freshSave()).not.toBe(a);
     expect(freshSave().settings).not.toBe(a.settings);
@@ -112,7 +112,7 @@ describe('the Well and the Belfry in a save (ADR-048)', () => {
     expect(r.save.version).toBe(1);
     expect(r.save.letters).toMatchObject({ letter_5: 'completed', letter_6: 'completed', letter_7: 'locked', letter_8: 'locked' });
     expect(r.save.machines.map((m) => m.blueprintId).sort()).toEqual(['carousel', 'clock_tower', 'music_box', 'windmill']);
-    expect(Object.keys(r.save.letters)).toEqual([...LETTER_IDS]); // the map is whole again
+    expect(Object.keys(r.save.letters)).toEqual([...ALL_LETTER_IDS]); // the map is whole again
   });
 
   it('round-trips both machines on their own plots and rejects each on the other plot', () => {

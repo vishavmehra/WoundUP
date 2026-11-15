@@ -11,11 +11,13 @@
 import { Quaternion } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
 import type { MachineId } from '../game/content';
-import { buildBelfry } from '../machines/belfry/build';
+import { BELFRY_BELL_NODE, buildBelfry } from '../machines/belfry/build';
 import { buildClockTower } from '../machines/clock-tower/build';
-import { buildWell } from '../machines/well/build';
+import { CLOCK_TOWER_NODE } from '../machines/clock-tower/rig';
+import { buildWell, WELL_NODE } from '../machines/well/build';
 import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
+import { bakeRig } from './bake';
 import { axisOfGlb, createRig, createRotor, horsePhase, wuField, type MachineRig, type Rotor } from './motion';
 import type { ModelSource } from './scene';
 
@@ -124,7 +126,6 @@ export async function buildWindmill(source: ModelSource, registry: MaterialRegis
   const rig = createRig('windmill', base);
   if (sails) rig.rotors.push(createRotor(sails, ids.sails, { axis: axisOfGlb(sails) }));
   if (stone) rig.rotors.push(createRotor(stone, ids.millstone, { axis: axisOfGlb(stone) }));
-  rig.bakeable = true; // everything that moves is a rotor: the rest is baked when the machine stands in the town (bake.ts)
   return rig;
 }
 
@@ -165,7 +166,6 @@ export async function buildCarousel(source: ModelSource, registry: MaterialRegis
     const lamp = await a.seatAt(canopy, `Lamp${i}`, `${MODELS}carousel/carousel_lamp.glb`);
     if (lamp) rig.pulsers.push({ node: lamp, phase: i * 1.7, amplitude: 0.18, speed: 5.5, baseScale: 1 });
   }
-  rig.bakeable = true; // the platform carries all that moves; the base is baked when the machine stands in the town (bake.ts)
   return rig;
 }
 
@@ -205,12 +205,11 @@ export async function buildMusicBox(source: ModelSource, registry: MaterialRegis
     const openDeg = (pivot.userData.wu as { openDeg?: number } | undefined)?.openDeg ?? 100;
     rig.lid = { pivot, rest: new Quaternion().copy(pivot.quaternion), openRad: (openDeg * Math.PI) / 180, angle: 0 };
   }
-  rig.bakeable = true; // the rotors and the lid are all that moves; the case and the brackets are baked when the machine stands in the town (bake.ts)
   return rig;
 }
 
-/** Builds the finished machine of `id`, or null for an id this build has no machine for. */
-export function buildMachine(id: MachineId, source: ModelSource, registry: MaterialRegistry, ids?: SocketIds): Promise<MachineRig | null> {
+/** Assembles the finished machine of `id` from its GLBs, or null for an id this build has no machine for. */
+function assemble(id: MachineId, source: ModelSource, registry: MaterialRegistry, ids?: SocketIds): Promise<MachineRig | null> {
   switch (id) {
     case 'windmill':
       return buildWindmill(source, registry, ids);
@@ -227,4 +226,28 @@ export function buildMachine(id: MachineId, source: ModelSource, registry: Mater
     default:
       return Promise.resolve(null);
   }
+}
+
+/**
+ * Names the machine's own runtime finds by `getObjectByName` after the build, per machine, so the static batching leaves them as separate
+ * meshes. The solver-driven machines need none: the rig's rotors, bobbers, pulsers and lid are handed over as they are, and so are the
+ * nodes a machine's own updaters move (`rig.moving`). The Clock Tower's nodes are looked up by `ClockTowerNodes.resolve`; the Well's
+ * and the Belfry's are the housing's anchors and the bell's hinge nodes their builders find by name (the pump rod, pawl and water disc,
+ * the bell and its clapper are in `rig.moving` as well).
+ */
+const KEEP_BY_NAME: Partial<Record<MachineId, readonly string[]>> = {
+  clock_tower: Object.values(CLOCK_TOWER_NODE),
+  well: Object.values(WELL_NODE),
+  belfry: Object.values(BELFRY_BELL_NODE),
+};
+
+/**
+ * Builds the finished machine of `id`, or null for an id this build has no machine for. Its static meshes are baked into one mesh per
+ * library material inside each moving node's frame (bake.ts), a fraction of the draw calls of the loose GLB meshes; the rig's rotors,
+ * bobbers, pulsers and lid are untouched.
+ */
+export async function buildMachine(id: MachineId, source: ModelSource, registry: MaterialRegistry, ids?: SocketIds): Promise<MachineRig | null> {
+  const rig = await assemble(id, source, registry, ids);
+  if (rig) bakeRig(rig, KEEP_BY_NAME[id]);
+  return rig;
 }
