@@ -63,7 +63,9 @@ function fakeScene(assetId: string): Object3D {
     grab.userData.wu = { type: 'collider', shape: 'sphere', purpose: 'grab' };
     body.add(grab);
   }
-  const sockets = BLUEPRINTS.flatMap((b) => b.sockets).filter((s) => s.node !== undefined && (housing ? NESTED[s.node!] === undefined : NESTED[s.node!] === assetId));
+  // Hardware that a part carries (a gear's pin) is an empty of that part's GLB, not of the housing; only the case's own anchor is the housing's (ADR-050).
+  const inHousing = (s: { family: string; carrier?: string }): boolean => s.family !== 'fastener' || s.carrier === undefined;
+  const sockets = BLUEPRINTS.flatMap((b) => b.sockets).filter((s) => s.node !== undefined && (housing ? NESTED[s.node!] === undefined && inHousing(s) : NESTED[s.node!] === assetId));
   const seen = new Set<string>();
   for (const s of sockets) {
     if (seen.has(s.node!)) continue; // bracket_left of both machines would not share a node, but be safe
@@ -220,11 +222,14 @@ describe('PartLoader.spawnPart', () => {
 });
 
 describe('PartLoader.spawnMachine', () => {
-  it('binds all 12 Music Box sockets by blueprint id, accepting catalogue ids (not the asset names of the GLB empties), and adds the X-ray zone', async () => {
+  it("binds the Music Box housing's 13 sockets (the 12 parts and the spring anchor) by blueprint id, accepting catalogue ids (not the asset names of the GLB empties), and adds the X-ray zone", async () => {
     const { world, loader } = setup();
     const machine = await loader.spawnMachine('music_box');
-    expect([...machine.sockets.keys()].sort()).toEqual(MUSIC_BOX.sockets.map((s) => s.id).sort());
-    expect(machine.unbound()).toEqual([]);
+    const carried = MUSIC_BOX.sockets.filter((s) => s.family === 'fastener' && s.carrier !== undefined).map((s) => s.id);
+    expect(carried).toHaveLength(21); // the hardware that sits on a part: bound when the part that carries it is, like the Carousel's lamps
+    expect([...machine.sockets.keys()].sort()).toEqual(MUSIC_BOX.sockets.filter((s) => !carried.includes(s.id)).map((s) => s.id).sort());
+    expect(machine.sockets.size).toBe(13);
+    expect(machine.unbound().sort()).toEqual([...carried].sort());
     const accepts = (id: string): string[] => machine.sockets.get(id)!.getValue(Socket, 'accepts') as string[];
     expect(accepts('cylinder_wheel')).toEqual(MUSIC_BOX.sockets.find((s) => s.id === 'cylinder_wheel')!.acceptedPartIds);
     expect(accepts('cylinder_wheel')).toContain('gear_spur_12_m1_brass');
@@ -247,7 +252,7 @@ describe('PartLoader.spawnMachine', () => {
     town.updateWorldMatrix(true, true);
     const world = new Vector3();
     const worldQuat = new Quaternion();
-    for (const s of MUSIC_BOX.sockets) {
+    for (const s of MUSIC_BOX.sockets.filter((x) => x.position !== undefined)) {
       const node = machine.sockets.get(s.id)!.getValue(Socket, 'node') as Object3D;
       node.getWorldPosition(world);
       const expected = new Vector3(...s.position!).applyMatrix4(town.matrixWorld);

@@ -44,10 +44,15 @@ describe('blueprint data', () => {
     expect(getBlueprint('clock_tower')?.name).toBe('Clock Tower');
   });
 
-  it('gives the Music Box its 12 required sockets, ids unique, every one mapped to a GLB empty', () => {
-    expect(MUSIC_BOX.sockets).toHaveLength(12);
-    expect(MUSIC_BOX.sockets.every((s) => s.required)).toBe(true);
-    expect(new Set(MUSIC_BOX.sockets.map((s) => s.node)).size).toBe(12);
+  it('gives the Music Box its 12 big-part sockets and 22 hardware sockets (ADR-050), all required, ids unique, every one mapped to a GLB empty', () => {
+    const big = MUSIC_BOX.sockets.filter((s) => s.family !== 'fastener');
+    expect(big.map((s) => s.id).sort()).toEqual(
+      ['arbor', 'bracket_left', 'bracket_right', 'comb', 'cylinder', 'cylinder_wheel', 'governor', 'governor_pinion', 'governor_wheel', 'main_spring', 'spring_pinion', 'winding_key'],
+    );
+    expect(MUSIC_BOX.sockets).toHaveLength(34);
+    expect(new Set(MUSIC_BOX.sockets.map((s) => s.id)).size).toBe(34);
+    expect(MUSIC_BOX.sockets.every((s) => s.required && s.node !== undefined)).toBe(true);
+    expect(new Set(big.map((s) => s.node)).size).toBe(12); // the housing's empties are unique; a piece of hardware shares its name with the same piece on another part
     expect(socketIdOfNode(MUSIC_BOX, 'GearA')).toBe('spring_pinion');
     expect(socketIdOfNode(MUSIC_BOX, 'BaseHandle')).toBeUndefined();
   });

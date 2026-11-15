@@ -11,8 +11,9 @@ export * from './registry';
 export * from './repair';
 export * from './rules';
 export * from './solve';
+export * from './steps';
 export * from './types';
-export { validateMachineBlueprint } from './validate';
+export { MAX_HARDWARE_KINDS_PER_STAGE, validateMachineBlueprint } from './validate';
 export { CAROUSEL, HORSE_TRAVEL_M } from './carousel';
 export {
   CLOCK_TOWER,
