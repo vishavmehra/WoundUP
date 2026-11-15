@@ -7,6 +7,7 @@ import { modeState, MODES } from '../../src/game/modes';
 import {
   BENCH,
   BUILD_ZONE,
+  CADDY_AT,
   CADDY_ZONE,
   DAILY_SPOT,
   FINGER_REACH_M,
@@ -30,7 +31,7 @@ import {
   benchZ,
 } from '../../src/ui/layout';
 import { freshLocal, viewFor } from '../../src/ui/view';
-import { PAUSE_BASE, PAUSE_PLAQUES, placePanel } from './panel-geometry';
+import { PAUSE_PANELS, PAUSE_PLAQUES, placePanel } from './panel-geometry';
 
 // BUG-4: the Pause medallion stood 12 cm from the second bracket in the parts tray, and a hand reaching for the bracket (open fingertip
 // about 12 cm past the point where it pinches) pressed it, so the Pause panel opened in the middle of the build. This holds every pressable
@@ -243,6 +244,15 @@ describe('the run sign against the build zone', () => {
     for (const y of [runY, adjustY]) expect(y - RUN_PLAQUE.h / 2, "inside the zone's height").toBeLessThan(BENCH.top + BUILD_ZONE.height);
   });
 
+  it("keeps the Run and Adjust plaques, which turn to face the player, a centimetre clear of the caddy's and the stand's footprints (ADR-050)", () => {
+    // workZones(1) in the stage's frame; the sign's post is bench-local, so its z is measured from the bench's middle at the same scale.
+    for (const zone of workZones(1).filter((b) => b.name === 'fastener caddy' || b.name === 'shaft stand')) {
+      const z = benchZ(1) + SIGN.z;
+      const gap = Math.hypot(Math.max(zone.lo[0] - SIGN.x, 0, SIGN.x - zone.hi[0]), Math.max(zone.lo[2] - z, 0, z - zone.hi[2])) - RUN_PLAQUE.w / 2;
+      expect(gap, zone.name).toBeGreaterThanOrEqual(SIGN_MARGIN_M);
+    }
+  });
+
   it('would have caught the old post, whose Run plaque reached 7.5 mm into the footprint', () => {
     expect(planGapToBuildZone(OLD_SIGN, RUN_PLAQUE.w / 2)).toBeCloseTo(-0.0075, 4);
   });
@@ -410,6 +420,12 @@ function machineBoxes(s: number): Box[] {
   return BENCH_LOCAL_BOXES.map((b) => toBox(b.name, [b.lo[0] + at[0], b.lo[1] + at[1], b.lo[2] + at[2]], [b.hi[0] + at[0], b.hi[1] + at[1], b.hi[2] + at[2]]));
 }
 const keyBox = (s: number): Box => machineBoxes(s)[2];
+/** The fastener caddy's body (the real GLB, 3 cm tall) where it stands on the bench (`CADDY_AT`), in the stage's frame at town scale `s`: it stands in front of the machine, under the pause panel. */
+const caddyBounds = new Box3().setFromObject(await glb('tockton/workshop/fastener_caddy.glb'));
+function caddyBox(s: number): Box {
+  const at = [CADDY_AT.x, CADDY_AT.y, benchZ(s) + CADDY_AT.z] as const;
+  return toBox('caddy', [caddyBounds.min.x + at[0], caddyBounds.min.y + at[1], caddyBounds.min.z + at[2]], [caddyBounds.max.x + at[0], caddyBounds.max.y + at[1], caddyBounds.max.z + at[2]]);
+}
 
 describe('the machine the tests stand on', () => {
   it('has a case 13 x 10 x 9 cm, a lid standing open behind it, and a key on its right wall that the winding_key part fits inside', async () => {
@@ -556,9 +572,9 @@ function segmentHitsBox(a: V, b: V, box: Box, pad: number): boolean {
   return true;
 }
 
-/** What stands between the eye and `p`: the machine (the case, the open lid, the key) or a part of the run sign. Empty when `p` is in the player's view. */
+/** What stands between the eye and `p`: the machine (the case, the open lid, the key), the fastener caddy or a part of the run sign. Empty when `p` is in the player's view. */
 function hiddenBy(eye: V, p: V, s: number): string[] {
-  const hidden = machineBoxes(s)
+  const hidden = [...machineBoxes(s), caddyBox(s)]
     .filter((box) => segmentHitsBox(eye, p, box, 0.005))
     .map((box) => box.name);
   const hit = throughSignPlane(eye, p, s, SIGN);
@@ -577,38 +593,43 @@ const PANEL_OVER_BENCH_M = 0.02;
 const OLD_PANEL = { x: 0, y: 0.2 + 0.028, z: 0.15 }; // the old PANEL_SPOT and the raise the five-row base needed, at full size: what stood behind the machine
 
 describe('the pause panel against the machine on the bench', () => {
-  for (const s of SCALES) {
-    it(`shows every plaque from every seat the placement allows: nothing of the machine or the sign stands between the eyes and any point of it (town scale ${s})`, () => {
-      for (const [height, ahead] of SEATS) {
-        const eye = { x: 0, y: height, z: ahead };
-        for (const plaque of placePanel(eye, PAUSE_PLAQUES)) {
-          for (const [fx, fy] of GRID) {
-            expect(hiddenBy(eye, plaque.at(fx, fy), s), `${plaque.name} (${fx}, ${fy}), eyes ${height}/${ahead}, town scale ${s}`).toEqual([]);
-          }
-        }
-      }
-    });
-
-    it(`keeps every plaque, and the base it stands on, out of the machine and the build zone, and every plaque centre out of a fingertip's reach of them (town scale ${s})`, () => {
-      // The machine itself, which a plaque centre must also stay a fingertip's reach from, and the build zone, the envelope of any machine a hand works on: only to be outside it.
-      const machine = machineBoxes(s);
-      const solids = [...machine, workZones(s).find((b) => b.name === 'build zone') as Box];
-      for (const [height, ahead] of SEATS) {
-        const eye = { x: 0, y: height, z: ahead };
-        for (const item of [...placePanel(eye, PAUSE_PLAQUES), ...placePanel(eye, [PAUSE_BASE])]) {
-          const plaque = item.name !== PAUSE_BASE.name;
-          for (const box of solids) {
+  // Both panels: the five setting rows, and the six once a build difficulty is chosen (ADR-050), which is taller and raised so its bottom stays put.
+  for (const panel of PAUSE_PANELS) {
+    for (const s of SCALES) {
+      it(`shows every plaque from every seat the placement allows: nothing of the machine, the caddy or the sign stands between the eyes and any point of it (${panel.name}, town scale ${s})`, () => {
+        for (const [height, ahead] of SEATS) {
+          const eye = { x: 0, y: height, z: ahead };
+          for (const plaque of placePanel(eye, panel.plaques, panel.spot)) {
             for (const [fx, fy] of GRID) {
-              const centre = fx === 0 && fy === 0;
-              const gap = distanceToBox(item.at(fx, fy), box);
-              expect(gap, `${item.name} (${fx}, ${fy}) to the ${box.name}, eyes ${height}/${ahead}`).toBeGreaterThan(plaque && centre && machine.includes(box) ? PANEL_CLEARANCE_M : 0);
+              expect(hiddenBy(eye, plaque.at(fx, fy), s), `${plaque.name} (${fx}, ${fy}), eyes ${height}/${ahead}, town scale ${s}`).toEqual([]);
             }
           }
         }
-        const [base] = placePanel(eye, [PAUSE_BASE]);
-        expect(Math.min(...base.corners.map((c) => c.y)), `lowest corner of the base, eyes ${height}/${ahead}`).toBeGreaterThanOrEqual(BENCH.top + PANEL_OVER_BENCH_M);
-      }
-    });
+      });
+
+      it(`keeps every plaque, and the base it stands on, out of the machine and the build, caddy and stand zones, and every plaque centre out of a fingertip's reach of the machine (${panel.name}, town scale ${s})`, () => {
+        // The machine itself, which a plaque centre must also stay a fingertip's reach from, and the zones a hand works in on the bench (the build zone, the
+        // envelope of any machine a hand works on, and the caddy and the stand of the Music Box's deep build, ADR-050): only to be outside them.
+        const machine = machineBoxes(s);
+        const solids = [...machine, ...workZones(s).filter((b) => ['build zone', 'fastener caddy', 'shaft stand'].includes(b.name))];
+        expect(solids).toHaveLength(machine.length + 3);
+        for (const [height, ahead] of SEATS) {
+          const eye = { x: 0, y: height, z: ahead };
+          for (const item of [...placePanel(eye, panel.plaques, panel.spot), ...placePanel(eye, [panel.base], panel.spot)]) {
+            const plaque = item.name !== panel.base.name;
+            for (const box of solids) {
+              for (const [fx, fy] of GRID) {
+                const centre = fx === 0 && fy === 0;
+                const gap = distanceToBox(item.at(fx, fy), box);
+                expect(gap, `${item.name} (${fx}, ${fy}) to the ${box.name}, eyes ${height}/${ahead}`).toBeGreaterThan(plaque && centre && machine.includes(box) ? PANEL_CLEARANCE_M : 0);
+              }
+            }
+          }
+          const [base] = placePanel(eye, [panel.base], panel.spot);
+          expect(Math.min(...base.corners.map((c) => c.y)), `lowest corner of the base, eyes ${height}/${ahead}`).toBeGreaterThanOrEqual(BENCH.top + PANEL_OVER_BENCH_M);
+        }
+      });
+    }
   }
 
   it('would have caught the old panel: at full size behind the machine, from the seat the placement aims at, the Resume plaque and the Night row were behind the case and the lid', () => {
@@ -621,6 +642,6 @@ describe('the pause panel against the machine on the bench', () => {
   });
 
   it('keeps every plaque at least as tall as the press distance, at the size the panel is shown', () => {
-    for (const plaque of PAUSE_PLAQUES) expect(Math.min(plaque.w, plaque.h) * PAUSE_PANEL_SCALE, plaque.name).toBeGreaterThanOrEqual(POKE_PRESS_M);
+    for (const panel of PAUSE_PANELS) for (const plaque of panel.plaques) expect(Math.min(plaque.w, plaque.h) * PAUSE_PANEL_SCALE, plaque.name).toBeGreaterThanOrEqual(POKE_PRESS_M);
   });
 });

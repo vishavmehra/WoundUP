@@ -23,6 +23,25 @@ export const PAUSE_PLAQUES: readonly PanelItem[] = [
 /** The walnut base the plaques stand on. */
 export const PAUSE_BASE: PanelItem = { name: 'panel base', x: 0, y: 0, ...PAUSE_PANEL_BASE };
 
+/**
+ * The pause panel once the build difficulty is chosen (ADR-050, flow-ui `showPanel`): a Difficulty row under the five setting rows, the base one row taller,
+ * the rows half a row up and the buttons half a row down inside it, and the panel raised by half a row (at its scale) so its bottom edge stays put.
+ */
+const RAISE = SETTING_ROW_STEP / 2;
+export const PAUSE_PANELS: ReadonlyArray<{ readonly name: string; readonly plaques: readonly PanelItem[]; readonly base: PanelItem; readonly spot: V3 }> = [
+  { name: 'five rows', plaques: PAUSE_PLAQUES, base: PAUSE_BASE, spot: PAUSE_PANEL_SPOT },
+  {
+    name: 'six rows (Difficulty)',
+    plaques: [
+      ...[...SETTING_ROWS.map((row) => row.label), 'Difficulty'].map((name, i): PanelItem => ({ name, x: 0, y: SETTING_ROW_Y + RAISE - i * SETTING_ROW_STEP, ...SETTING_PLAQUE })),
+      { name: 'Resume', x: -PANEL_BUTTON.x, y: PAUSE_BUTTON_ROW_Y - RAISE, w: PANEL_BUTTON.w, h: PANEL_BUTTON.h },
+      { name: 'Restart chapter', x: PANEL_BUTTON.x, y: PAUSE_BUTTON_ROW_Y - RAISE, w: PANEL_BUTTON.w, h: PANEL_BUTTON.h },
+    ],
+    base: { name: 'panel base', x: 0, y: 0, w: PAUSE_PANEL_BASE.w, h: PAUSE_PANEL_BASE.h + SETTING_ROW_STEP },
+    spot: { ...PAUSE_PANEL_SPOT, y: PAUSE_PANEL_SPOT.y + RAISE * PAUSE_PANEL_SCALE },
+  },
+];
+
 export interface PlacedItem {
   readonly name: string;
   readonly centre: V3;
