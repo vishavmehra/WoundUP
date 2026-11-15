@@ -218,13 +218,13 @@ test.describe('saves and gift links written before the intricate build (ADR-050)
   });
 });
 
-test('pictures of the Standard build, for the evidence document (docs/evidence/assembly/deep_*.png)', async ({ page }) => {
+test('pictures of the Standard build, for the evidence document (written to .tmp/evidence/assembly/deep_*.png, not the tracked docs folder)', async ({ page }) => {
   const hand = await toBench(page, 'standard');
   const fs = (await import('node:fs' as string)) as { mkdirSync(p: string, o: object): void };
-  fs.mkdirSync('docs/evidence/assembly', { recursive: true });
+  fs.mkdirSync('.tmp/evidence/assembly', { recursive: true });
   const shot = async (name: string): Promise<void> => {
     await frames(page, 20);
-    await page.screenshot({ path: `docs/evidence/assembly/deep_${name}.png` });
+    await page.screenshot({ path: `.tmp/evidence/assembly/deep_${name}.png` });
   };
   await aimAtTable(page, { x: 0, y: 1.5, z: -0.02 }, 0.0);
   await shot('1_stage1_bench');

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { carryGeometry, listParts, openTrunkAndSetBench, seatedCount, type ListedPart } from './support/flow';
+import { carryGeometry, listParts, openTrunkAndSetBench, seatAllByHelper, seatedCount, type ListedPart } from './support/flow';
 import { frames, gameState, GPU_ARGS, Hand, hasComponent, nodePosition, openGame, partPose, press, requireDevRuntime, waitForMode, type Vec3 } from './support/xr';
 
 /**
@@ -107,9 +107,9 @@ test('RAY MODE (real hand ray): a held pinch takes a seated part out and a tap d
   await rayModeOn(page);
   await openTrunkAndSetBench(page);
   const hand = new Hand(page, 'right');
-  // DEBUG HELPER: seatAll puts the twelve parts in (the ray carrying a part to its socket is the test above). From here a ray does everything.
-  await page.evaluate(() => (window as any).__wu.seatAll());
-  await waitForMode(page, 'wind', 60_000);
+  // DEBUG HELPER: seatAll puts the twelve parts in, stage by stage as the Music Box's deep build opens them (ADR-050; the ray carrying a part to its socket is
+  // the test above). From here a ray does everything.
+  await seatAllByHelper(page);
   await frames(page, 20);
   const seated = await seatedCount(page);
   expect(seated).toBeGreaterThanOrEqual(11);
