@@ -296,7 +296,7 @@ export class AssemblyDirector {
     this.assembly = assembly;
     const current = stepState(this.opt.blueprint, this.plan, assembly, this.onStand).stage;
     const open = Math.min(current, this.plan.stages.length - 1);
-    const next = planStages(this.opt.blueprint, level, { intricate: this.plan.intricate, stand: this.plan.stand });
+    const next = planStages(this.opt.blueprint, level, { intricate: this.plan.intricate, stand: this.plan.stand, noCaddy: this.plan.noCaddy });
     this.plan = mergePlans(this.opt.blueprint, this.plan, next, open);
     this.level = level;
     this.helper.setLevel(level);

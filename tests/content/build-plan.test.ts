@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planBuild } from '../../src/build-plan';
+import { planBuild, withoutCaddy } from '../../src/build-plan';
 import { MUSIC_BOX } from '../../src/content/blueprints';
 import { REPAIRS } from '../../src/game/content';
 
@@ -49,5 +49,26 @@ describe('planBuild with hardware', () => {
     expect(plan.seatNow).toHaveLength(34);
     expect(plan.seatNow.map(([id]) => id)).toEqual(Object.keys(MUSIC_BOX.intended)); // an order every dependency allows
     expect(plan.spawnIds).toHaveLength(35);
+  });
+});
+
+describe('withoutCaddy: the bench with no fastener caddy', () => {
+  it('makes Standard and Master seat every piece of hardware as Relaxed does, and keeps the level', () => {
+    const relaxed = planBuild(MUSIC_BOX, null, 34, () => true, 'relaxed').stages;
+    for (const level of ['standard', 'master'] as const) {
+      const plan = withoutCaddy(MUSIC_BOX, planBuild(MUSIC_BOX, null, 34, () => true, level).stages);
+      expect(plan.difficulty).toBe(level);
+      expect(plan.noCaddy).toBe(true);
+      expect(plan.stages.flatMap((st) => st.bag.hardware)).toEqual([]);
+      expect([...plan.auto].sort()).toEqual([...hardware].sort());
+      expect(plan.bundles).toEqual(relaxed.bundles);
+      expect(plan.atStart).toEqual(relaxed.atStart);
+      expect(plan.stages.map((st) => st.bag.big)).toEqual(relaxed.stages.map((st) => st.bag.big));
+    }
+  });
+
+  it('leaves a plan with no hardware for the hands as it is', () => {
+    const relaxed = planBuild(MUSIC_BOX, null, 34, () => true, 'relaxed').stages;
+    expect(withoutCaddy(MUSIC_BOX, relaxed)).toBe(relaxed);
   });
 });

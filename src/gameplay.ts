@@ -29,7 +29,7 @@ import { AssemblyFeedback } from './assembly/feedback';
 import type { RevealHinge } from './assembly/feedback';
 import { bindClockTowerAudio } from './audio';
 import type { AudioEngine } from './audio';
-import { planBuild } from './build-plan';
+import { planBuild, withoutCaddy } from './build-plan';
 import { getBlueprint, giftPlacements, INTRICATE_ASSEMBLY, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
 import type { Assembly, MachineBlueprint, StagesPlan } from './content/blueprints';
 import { isFastener, requirePart } from './content/parts';
@@ -589,7 +589,7 @@ export class Gameplay {
    * The intricate build's bench (ADR-050, design §3): the caddy on the bench, the director with its stage bags, the dispensers and the Helper. The hardware files
    * are loaded first, so a piece can be made in the very frame the dispenser or the game asks for it. False when the build was replaced while this was loading.
    */
-  private async startDeep(build: Build, plan: StagesPlan, token: number, at: { readonly x: number; readonly y: number; readonly z: number }): Promise<boolean> {
+  private async startDeep(build: Build, asked: StagesPlan, token: number, at: { readonly x: number; readonly y: number; readonly z: number }): Promise<boolean> {
     const { blueprint, machine } = build;
     const hardwareAssets = new Set(Object.values(blueprint.intended).filter(isFastener).map((partId) => requirePart(partId).visual.assetId));
     const [caddy] = await Promise.all([this.loadCaddy(), ...[...hardwareAssets].map((assetId) => this.loader.load(assetId))]);
@@ -598,6 +598,9 @@ export class Gameplay {
       return false;
     }
     this.caddy = caddy;
+    // No caddy, no bins: Standard and Master would wait for hardware nothing hands out, so the game seats it as in Relaxed.
+    const plan = caddy ? asked : withoutCaddy(blueprint, asked);
+    if (plan !== asked) console.warn(`[wound-up] No fastener caddy on the bench: the game seats the hardware at ${asked.difficulty}, as in Relaxed.`);
     // Every big part of the build has its compartment from the start (so the tray never reshuffles as bags open); a stage's parts are made when it opens.
     const bigIds = plan.stages.flatMap((st) => st.bag.big);
     const slots = this.ui.traySlots().map((v) => this.stage.worldToLocal(v));
@@ -636,7 +639,7 @@ export class Gameplay {
     return true;
   }
 
-  /** The fastener caddy on the bench (design §3.3), or null when its file does not load: Relaxed plays without it, the others lose their bins. */
+  /** The fastener caddy on the bench (design §3.3), or null when its file does not load: then every level plays its hardware as Relaxed does (`withoutCaddy`). */
   private async loadCaddy(): Promise<Object3D | null> {
     try {
       const model = await loadModel(CADDY_MODEL_PATH);

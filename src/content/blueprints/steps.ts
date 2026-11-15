@@ -16,6 +16,8 @@ export interface PlanOptions {
   readonly intricate: boolean;
   /** Build units on the shaft stand (P1). False (P0): every stage is built in the housing and no unit is carried. */
   readonly stand?: boolean;
+  /** No caddy on the bench (its file did not load): no bin can hand out hardware, so the game seats it as in Relaxed whatever the level. */
+  readonly noCaddy?: boolean;
 }
 
 /** One stage of a plan: its sockets split into what the player places and what the game seats, and the parts of its bag. */
@@ -41,6 +43,8 @@ export interface StagesPlan {
   readonly difficulty: Difficulty;
   readonly intricate: boolean;
   readonly stand: boolean;
+  /** `PlanOptions.noCaddy`, kept so a plan remade for another level (Pause) still has the game seat the hardware. */
+  readonly noCaddy: boolean;
   /** `with-carrier`: the game seats a piece of hardware as its carrier lands. `at-start`: before the first placement (the fallback). */
   readonly seat: 'with-carrier' | 'at-start';
   readonly stages: readonly StagePlan[];
@@ -76,9 +80,10 @@ export function groupMembers(bp: MachineBlueprint, socketId: string): string[] {
 export function planStages(bp: MachineBlueprint, difficulty: Difficulty, options: PlanOptions): StagesPlan {
   const { intricate } = options;
   const stand = options.stand === true;
+  const noCaddy = options.noCaddy === true;
   const level: Difficulty = intricate ? difficulty : 'relaxed';
   const byId = socketById(bp);
-  const autoIds = level === 'relaxed' ? bp.sockets.filter((s) => s.family === 'fastener').map((s) => s.id) : [];
+  const autoIds = level === 'relaxed' || noCaddy ? bp.sockets.filter((s) => s.family === 'fastener').map((s) => s.id) : [];
   const auto = new Set(autoIds);
   const bundles: Record<string, string[]> = {};
   const atStart: string[] = [];
@@ -110,7 +115,7 @@ export function planStages(bp: MachineBlueprint, difficulty: Difficulty, options
       bag: { big: hand.filter((id) => !isHardware(id)).map(part), hardware: hand.filter(isHardware).map(part) },
     };
   });
-  return { difficulty: level, intricate, stand, seat: intricate ? 'with-carrier' : 'at-start', stages, auto: autoIds, bundles, atStart };
+  return { difficulty: level, intricate, stand, noCaddy, seat: intricate ? 'with-carrier' : 'at-start', stages, auto: autoIds, bundles, atStart };
 }
 
 /** One stage's progress for the step list and the dial. Counts the player's placements only. */

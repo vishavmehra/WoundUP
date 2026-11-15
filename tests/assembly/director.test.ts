@@ -5,6 +5,7 @@ import type { HelperCopy, HelperScene, HelperState, HelperTarget } from '../../s
 import { MUSIC_BOX, planStages, repairStart, stagesOf, WINDMILL } from '../../src/content/blueprints';
 import type { Assembly, StagePlan, StagesPlan } from '../../src/content/blueprints';
 import type { Difficulty } from '../../src/game/content';
+import { withoutCaddy } from '../../src/build-plan';
 
 // The director on the real Music Box (design §8.1, ADR-050): stage by stage, bag by bag, with a fake bench that records what it was asked and seats what
 // it is told to, the way the interaction layer would (a seating comes back as `snapped`).
@@ -602,5 +603,27 @@ describe('the lifecycle', () => {
     expect(defaultLabel(byId('clip_comb_l'))).toBe('left comb clip');
     expect(defaultLabel(byId('screw_clip_r'))).toBe('right comb clip screw');
     expect(defaultLabel(byId('governor_wheel'))).toBe('governor wheel');
+  });
+});
+
+describe('a bench whose caddy did not load (withoutCaddy)', () => {
+  for (const level of ['standard', 'master'] as const) {
+    it(`finishes at ${level}: the player places the 12 big parts and the game seats the hardware, as in Relaxed, even after a level change in Pause`, () => {
+      const bench = new Bench(level, { plan: withoutCaddy(MUSIC_BOX, planStages(MUSIC_BOX, level, { intricate: true })) });
+      bench.begin();
+      bench.tick(0.5);
+      expect(bench.director.difficulty).toBe(level); // the Helper and the rings keep the level
+      expect(bench.director.currentPlan.stages.some((st) => st.bag.hardware.length > 0)).toBe(false); // no bin is asked for a pin
+      bench.place('bracket_left');
+      bench.tick(0.5);
+      bench.director.setDifficulty(level === 'master' ? 'standard' : 'master', { ...bench.assembly }); // Pause, mid-build
+      expect(bench.director.currentPlan.stages.some((st) => st.byHand.some(hardware))).toBe(false); // still the game's hardware
+      expect(1 + bench.buildAll()).toBe(12);
+      expect(bench.director.steps?.complete).toBe(true);
+    });
+  }
+
+  it('would have left a Standard build unfinishable: the plan with a caddy asks a bin for 22 pieces of hardware', () => {
+    expect(planStages(MUSIC_BOX, 'standard', { intricate: true }).stages.flatMap((st) => st.bag.hardware)).toHaveLength(22);
   });
 });

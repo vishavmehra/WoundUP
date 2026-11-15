@@ -67,3 +67,13 @@ export function planBuild(
   const handBuilt = socketCount > 0 || seatNow.length > 0 || (!start && pinchable.length > 0);
   return { fixed, trayIds, seatNow, spawnIds, handBuilt, stages };
 }
+
+/**
+ * The plan for a bench whose fastener caddy did not load: no bin can hand out hardware, so a Standard or Master build would wait for pins that never
+ * come. The game seats the hardware instead, as in Relaxed, and the level stays (the Helper and the rings keep it). The same plan when no hardware was
+ * the player's. The plan remembers it (`noCaddy`), so a level changed in Pause later keeps the hardware the game's.
+ */
+export function withoutCaddy(blueprint: MachineBlueprint, plan: StagesPlan): StagesPlan {
+  if (plan.stages.every((st) => st.bag.hardware.length === 0)) return plan;
+  return planStages(blueprint, plan.difficulty, { intricate: plan.intricate, stand: plan.stand, noCaddy: true });
+}
