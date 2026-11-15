@@ -101,6 +101,16 @@ describe('hands: turn the key', () => {
     expect(at('hands', 'twist', 2.6).shape.index).toBeGreaterThan(0.95); // pinching throughout
   });
 
+  it('keeps the forearm on the key\'s axis, on the side away from the head, so the turn is a roll about the forearm', () => {
+    const tg = targets(); // the key is further from the head than the head is from the table along the axis: the outer side is -Z
+    const finger = (t: number): Vector3 => new Vector3(0, 0, -1).applyQuaternion(at('hands', 'twist', t).quat);
+    for (const t of [0.8, 1.65, 2.2, 2.6, 3.0, 3.4]) expect(Math.abs(finger(t).dot(tg.axis))).toBeGreaterThan(0.999);
+    expect(finger(1.65).dot(tg.axis)).toBeGreaterThan(0.999); // the fingers point at the key from outside
+    expect(at('hands', 'twist', 0.6).hand.z).toBeLessThan(tg.from.z); // and the hand waits on that outer side
+    const flipped = { ...tg, from: new Vector3(-0.1, 1.0, 0.4) }; // a key on the near side: the hand comes from the near side
+    expect(at('hands', 'twist', 0.6, flipped).hand.z).toBeGreaterThan(flipped.from.z);
+  });
+
   it('lets go and lifts away at the end', () => {
     expect(at('hands', 'twist', 4.3).shape.index).toBeLessThan(0.3);
     expect(at('hands', 'twist', 4.8).hand.distanceTo(targets().from)).toBeGreaterThan(0.05);

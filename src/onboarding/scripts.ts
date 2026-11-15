@@ -65,6 +65,7 @@ const UP = new Vector3(0, 1, 0);
 const _fwd = new Vector3();
 const _right = new Vector3();
 const _back = new Vector3();
+const _side = new Vector3();
 const _a = new Vector3();
 const _b = new Vector3();
 const _x = new Vector3();
@@ -169,13 +170,20 @@ function reach(gesture: Gesture, t: number, targets: Targets, out: Sample): Samp
       return out;
     }
     case 'twist': {
-      // Pinch the key, turn the wrist a full turn about its axis, let go.
+      // Pinch the key, turn the wrist a full turn about its axis, let go. The forearm lies along the key's axis on the side away from the
+      // player's head (the case's outer side), so the wrist rolls about its own forearm as a real winding does, and the hand stays clear
+      // of the Run sign that stands in front of the key.
       out.anchor = 'pinch';
-      aim(_base, _fwd, 0.45, 0);
+      _side.copy(targets.axis);
+      _side.y = 0;
+      if (_side.lengthSq() < 1e-6) _side.copy(_back);
+      _side.normalize();
+      if (_side.dot(_a.copy(from).sub(targets.head)) < 0) _side.negate();
+      aim(_base, _a.copy(_side).negate(), 0, 0); // level: the roll is then exactly about the forearm
       pinchShape(out.shape, ramp(t, 1.3, 1.6) * (1 - ramp(t, 3.6, 4.0)));
       const arrive = ramp(t, 0.5, 1.3);
       const leave = ramp(t, 4.0, 4.9);
-      out.hand.copy(from).addScaledVector(_back, 0.11 * (1 - arrive) + 0.1 * leave).addScaledVector(UP, 0.08 * (1 - arrive) + 0.08 * leave);
+      out.hand.copy(from).addScaledVector(_side, 0.11 * (1 - arrive) + 0.1 * leave).addScaledVector(UP, 0.08 * (1 - arrive) + 0.08 * leave);
       _spin.setFromAxisAngle(targets.axis, 2 * Math.PI * ramp(t, 1.7, 3.5));
       out.quat.copy(_spin).multiply(_base);
       out.pulseFrom = breathe(t, ramp(t, 0.8, 1.2) * (1 - ramp(t, 3.8, 4.4)));
