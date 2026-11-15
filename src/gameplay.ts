@@ -704,9 +704,12 @@ export class Gameplay {
     const build = this.build;
     switch (intent.type) {
       case 'snapped': {
-        if (!build) return;
-        const socketId = this.socketIdOf(build, intent.socket);
-        if (socketId === undefined) return; // a plot socket: the town's
+        const socketId = build ? this.socketIdOf(build, intent.socket) : undefined;
+        if (!build || socketId === undefined) {
+          // A plot socket: the town's. `bindInteractionAudio(audio, { snaps: false })` leaves every snap click to this layer, so the machine's click on its plot sounds here.
+          this.opt.audio.snap();
+          return;
+        }
         if (unmetDependencies(build.blueprint, this.assembly(), socketId).length > 0) {
           intent.part.removeComponent(SnappedTo); // the socket is not ready for it: out again, and the tray takes it back
           this.opt.audio.bonk();

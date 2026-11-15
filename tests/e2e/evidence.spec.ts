@@ -266,7 +266,7 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
     } else if (beat === 'snapped') {
       await shot('09b', 'component-snapped', 'Extra: the same wheel a moment after the release, seated.', 'hands', async () => {
         const seated = (await gameState(page)).build?.seated ?? 0;
-        expect(seated).toBe(index + 1);
+        expect(seated, 'the part and the hardware the game seats with it (ADR-050)').toBeGreaterThan(index);
         return `${seated} seated`;
       });
     }
@@ -274,7 +274,7 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
   hands.strayPausesWhileBuildingByHand = { atPartIndex: [...strayPauses], note: 'BUG-4: a pinch in the tray opened the Pause panel; each was resumed by the debug helper' };
   hands.seat = seatReports.map((r) => ({ part: r.part.name, socket: r.socket, releasedAtCm: +(r.releasedAt * 100).toFixed(2), grabbed: r.grabbed, snapped: r.snapped, seatedAfter: r.seatedAfter }));
   seatReports.forEach((r, i) => {
-    if (!(r.grabbed && r.snapped && r.releasedAt < 0.04 && r.seatedAfter === i + 1)) failures.push(`seat ${i} ${r.part.name}: ${JSON.stringify(r)}`);
+    if (!(r.grabbed && r.snapped && r.releasedAt < 0.04 && r.seatedAfter > (i === 0 ? 0 : seatReports[i - 1].seatedAfter))) failures.push(`seat ${i} ${r.part.name}: ${JSON.stringify(r)}`);
   });
   await waitForMode(page, 'wind');
   await frames(page, 20);
@@ -283,8 +283,8 @@ test('EVIDENCE: the Music Box flow, 19 screenshots, renderer numbers and motion 
   await shot('10', 'completed-assembly', 'All 12 parts seated by hand: the Music Box is complete and the run sign shows the wind counter.', 'hands', async () => {
     const s = await gameState(page);
     expect(s.mode).toBe('wind');
-    expect(s.build?.seated).toBe(MUSIC_BOX_SOCKETS.length);
-    return '12 of 12 seated, mode wind';
+    expect(s.build?.seated, '12 big parts by hand, 22 pieces of hardware seated by the game (Relaxed)').toBe(34);
+    return `${MUSIC_BOX_SOCKETS.length} big parts by hand, 34 of 34 sockets filled, mode wind`;
   });
 
   // ---- 12: winding. A real wrist twist (IWER rolls the pinching hand about the key's axis) ------------------------------------------

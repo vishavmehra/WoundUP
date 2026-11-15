@@ -84,7 +84,19 @@ for (const level of ['relaxed', 'standard', 'master'] as const) {
     const wind = await windByHandAuto(page, hand, 2, 360);
     expect(wind.report.units[1], 'two wrist turns top the spring up').toBeGreaterThanOrEqual(7);
     await runMachine(page);
+    // Every snap click is the game loop's (`bindInteractionAudio(audio, { snaps: false })`), the machine's click on its plot included: count the calls of the engine's `snap`.
+    await page.evaluate(async () => {
+      const w = window as any;
+      const { AudioEngine } = await (new Function('url', 'return import(url)') as (url: string) => Promise<any>)('/src/audio/engine.ts');
+      w.__snapClicks = 0;
+      const original = AudioEngine.prototype.snap;
+      AudioEngine.prototype.snap = function (...args: unknown[]) {
+        w.__snapClicks++;
+        return original.apply(this, args);
+      };
+    });
     const carried = await carryToPlot(page, hand, 'music_box', 'SOCKET_PlotMusicBox');
+    expect(await page.evaluate(() => (window as any).__snapClicks), 'the machine clicks once as it seats on its plot').toBe(1);
     expect(carried.grabbed).toBe(true);
     expect(carried.modeAfter).toBe('town');
     expect(carried.placedAfter).toContain('music_box');

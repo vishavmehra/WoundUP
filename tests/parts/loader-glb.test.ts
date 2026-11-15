@@ -105,6 +105,27 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
     }
   });
 
+  it('leaves the housing its own sockets: a spring\'s Key empty and a shaft\'s Cylinder empty never take the place of the case\'s, and are shut (a repair has two springs)', async () => {
+    const { scene, loader } = setup();
+    const machine = await loader.spawnMachine('music_box', { parent: scene });
+    const key = machine.sockets.get('winding_key');
+    const cylinder = machine.sockets.get('cylinder');
+    expect(key).toBeDefined();
+    expect(cylinder).toBeDefined();
+    const parts = [
+      await loader.spawnPart('spring_worn_brass', { parent: scene, machine }),
+      await loader.spawnPart('spring_standard_brass', { parent: scene, machine }),
+      await loader.spawnPart('shaft_short_brass', { parent: scene, machine }),
+    ];
+    expect(machine.sockets.get('winding_key'), 'the key still seats in the case\'s own Key').toBe(key);
+    expect(machine.sockets.get('cylinder'), 'the cylinder still seats in the case\'s own Cylinder').toBe(cylinder);
+    const homonyms = parts.flatMap((p) => p.sockets).filter((s) => s !== key && s !== cylinder && ['Key', 'Cylinder'].includes(s.getValue(Socket, 'name') as string));
+    expect(homonyms.length, 'two springs and a shaft each carry one such empty').toBe(3);
+    for (const socket of homonyms) expect(socket.getValue(Socket, 'armed'), 'an empty no blueprint socket owns takes nothing').toBe(false);
+    expect([...machine.sockets.values()].filter((s) => (s.getValue(Socket, 'name') as string) === 'Key')).toHaveLength(1);
+    machine.dispose();
+  });
+
   it('puts the Music Box sockets at the blueprint poses, +1.0 mm gear spacing included', async () => {
     const { scene, loader } = setup();
     const machine = await loader.spawnMachine('music_box', { parent: scene });
