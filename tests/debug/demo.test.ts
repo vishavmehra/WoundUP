@@ -1,6 +1,6 @@
 import { Object3D, Vector3 } from '@iwsdk/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { demoRequest, orbitPosition, Winding } from '../../src/debug/demo';
+import { demoRequest, orbitPosition, swingDirection, Winding } from '../../src/debug/demo';
 import type { SolveResult } from '../../src/sim';
 import { createRig, createRotor, stepRig } from '../../src/town/motion';
 
@@ -98,6 +98,29 @@ describe('orbitPosition', () => {
     expect(above.z).toBeCloseTo(-3, 12);
     for (const [azimuth, elevation] of [[0.4, 0.3], [2.5, 1.1], [-1, 0.05]]) {
       expect(orbitPosition(new Vector3(), target, 0.8, azimuth, elevation).distanceTo(target)).toBeCloseTo(0.8, 12);
+    }
+  });
+});
+
+describe('swingDirection (the Clock Tower is shown from its dial side only)', () => {
+  const swing = { centre: 0, half: 0.6 };
+
+  it('keeps its way inside the swing and turns round at either edge', () => {
+    expect(swingDirection(0.2, 1, swing)).toBe(1);
+    expect(swingDirection(-0.2, -1, swing)).toBe(-1);
+    expect(swingDirection(0.61, 1, swing)).toBe(-1);
+    expect(swingDirection(-0.61, -1, swing)).toBe(1);
+  });
+
+  it('heads back in from wherever a drag left the camera, and a camera driven by it never leaves the front half-turn', () => {
+    expect(swingDirection(2.5, 1, swing)).toBe(-1);
+    expect(swingDirection(-3, -1, swing)).toBe(1);
+    let azimuth = 0;
+    let direction: 1 | -1 = 1;
+    for (let i = 0; i < 60 * 600; i++) {
+      direction = swingDirection(azimuth, direction, swing);
+      azimuth += 0.18 * direction * (1 / 60);
+      expect(Math.cos(azimuth)).toBeGreaterThan(0.8); // the dial side (+Z), never the back of the tower
     }
   });
 });

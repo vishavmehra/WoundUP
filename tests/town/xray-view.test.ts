@@ -1,12 +1,12 @@
-import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Object3D } from 'three';
+import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial, Object3D } from 'three';
 import type { Material } from 'three';
 import type { Entity } from '@iwsdk/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setXRayLens, writeXRayFlag } from '../../src/interaction/xray-state';
 import { BLUEPRINT_SOCKET_IDS, buildMachine } from '../../src/town/machines';
-import { createRig } from '../../src/town/motion';
+import { createRig, createRotor } from '../../src/town/motion';
 import { TownRuntime } from '../../src/town/runtime';
-import { XRAY_FADE_S, XRAY_OPACITY, XRAY_SHELL, XRayShell, XRayView, xrayZoneOf } from '../../src/town/xray-view';
+import { XRAY_FADE_S, XRAY_GLOW, XRAY_OPACITY, XRAY_SHELL, XRayShell, XRayView, xrayMovers, xrayZoneOf } from '../../src/town/xray-view';
 import { libraryRegistry, syntheticTown } from './helpers';
 import { modelsPresent, realSource } from './real-source';
 
@@ -135,6 +135,150 @@ describe('XRayShell', () => {
   });
 });
 
+
+describe('XRayShell glow (the moving mechanism)', () => {
+  /** The case node with its casing and its gear, as one mover: a rotor's node can carry casing too (the Carousel's platform carries its canopy). */
+  const moversOf = (m: ReturnType<typeof musicBox>) => () => [m.gear.parent as Object3D];
+  const shown = (mesh: Mesh): Color => (mesh.material as MeshStandardMaterial).emissive.clone().multiplyScalar((mesh.material as MeshStandardMaterial).emissiveIntensity);
+
+  it('gives the moving parts a warm glow on their own copy, and neither the casing nor the shared material is the glow', () => {
+    const m = musicBox();
+    const shell = new XRayShell(m.root, XRAY_SHELL.music_box, moversOf(m));
+    shell.setAmount(1);
+    const glow = m.gear.material as MeshStandardMaterial;
+    expect(glow).not.toBe(m.brass);
+    expect(glow.opacity).toBe(1); // not see-through: the mechanism stays solid
+    expect(glow.transparent).toBe(false);
+    expect(glow.depthWrite).toBe(true);
+    const lit = shown(m.gear);
+    expect(lit.r).toBeGreaterThan(lit.g);
+    expect(lit.g).toBeGreaterThan(lit.b); // warm, the palette's lamp glow (#FFC66D)
+    expect(lit.r).toBeCloseTo(XRAY_GLOW, 2);
+    expect(lit.r).toBeLessThan(0.5); // gentle
+    expect((m.bodyMesh.material as MeshStandardMaterial).opacity).toBeCloseTo(XRAY_OPACITY, 6); // the casing under the same mover is the see-through copy
+    expect(m.bodyMesh.material).not.toBe(glow);
+    expect(m.brass.emissive.getHex()).toBe(0x000000); // the shared materials are never touched
+    expect(m.brass.emissiveIntensity).toBe(1);
+  });
+
+  it('eases in with the fade, and adds to what a part already glows instead of replacing it', () => {
+    const m = musicBox();
+    const lamp = standard('Mat_Lamp');
+    lamp.emissive.set(0xff3300);
+    lamp.emissiveIntensity = 0.8;
+    const before = lamp.emissive.clone().multiplyScalar(0.8);
+    m.gear.material = lamp;
+    const shell = new XRayShell(m.root, XRAY_SHELL.music_box, moversOf(m));
+    shell.setAmount(0.5);
+    const half = shown(m.gear);
+    shell.setAmount(1);
+    const full = shown(m.gear);
+    expect(half.g - before.g).toBeCloseTo((full.g - before.g) / 2, 5);
+    expect(full.r).toBeGreaterThan(before.r); // never dimmer than the part was
+    expect(full.g).toBeGreaterThan(before.g);
+  });
+
+  it("starts from what a carried machine's materials show (warm colour at intensity 0), with no flash as the fade begins", () => {
+    const m = musicBox();
+    m.brass.emissive.set(0xffc66d);
+    m.brass.emissiveIntensity = 0;
+    const shell = new XRayShell(m.root, XRAY_SHELL.music_box, moversOf(m));
+    shell.setAmount(0.02);
+    expect(shown(m.gear).r).toBeLessThan(0.01);
+    shell.setAmount(1);
+    expect(shown(m.gear).r).toBeCloseTo(XRAY_GLOW, 2);
+    expect(m.brass.emissiveIntensity).toBe(0);
+  });
+
+  it('gives the shared materials back at 0, keeps its copies for the next toggle and disposes them with the machine', () => {
+    const m = musicBox();
+    const shell = new XRayShell(m.root, XRAY_SHELL.music_box, moversOf(m));
+    shell.setAmount(1);
+    const glow = m.gear.material as Material;
+    const dispose = vi.spyOn(glow, 'dispose');
+    shell.setAmount(0);
+    expect(m.gear.material).toBe(m.brass);
+    expect(dispose).not.toHaveBeenCalled();
+    shell.setAmount(1);
+    expect(m.gear.material).toBe(glow); // the same copy: nothing is cloned per toggle
+    shell.dispose();
+    expect(m.gear.material).toBe(m.brass);
+    expect(dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes the wake shading of the shared material with it, so X-ray compiles no new shader program for the mechanism', () => {
+    const m = musicBox();
+    m.brass.onBeforeCompile = () => undefined;
+    m.brass.customProgramCacheKey = () => 'wu-wake-test';
+    const shell = new XRayShell(m.root, XRAY_SHELL.music_box, moversOf(m));
+    shell.setAmount(1);
+    const glow = m.gear.material as MeshStandardMaterial;
+    expect(glow.onBeforeCompile).toBe(m.brass.onBeforeCompile);
+    expect(glow.customProgramCacheKey()).toBe('wu-wake-test');
+  });
+
+  it('lights each mesh once however many movers reach it, and leaves hidden meshes and the invisible collider proxies alone', () => {
+    const m = musicBox();
+    const hidden = box('GearHidden', m.brass);
+    hidden.visible = false;
+    const proxy = box('COL_Grab', new MeshStandardMaterial({ visible: false }));
+    m.gear.parent?.add(hidden, proxy);
+    const shell = new XRayShell(m.root, XRAY_SHELL.music_box, () => [m.gear.parent as Object3D, m.gear, m.gear.parent as Object3D]);
+    shell.setAmount(1);
+    shell.setAmount(0);
+    expect(m.gear.material).toBe(m.brass); // swapped once, so restored to the real original, not to the copy
+    shell.setAmount(1);
+    expect(hidden.material).toBe(m.brass);
+    expect((proxy.material as MeshStandardMaterial).visible).toBe(false);
+    expect((proxy.material as MeshStandardMaterial).emissive.getHex()).toBe(0x000000);
+  });
+
+  it('asks which parts move each time it turns on: a part seated later glows the next time', () => {
+    const m = musicBox();
+    const late = box('ShaftShort', m.brass);
+    m.root.add(late);
+    const seated: Object3D[] = [];
+    const shell = new XRayShell(m.root, XRAY_SHELL.music_box, () => seated);
+    shell.setAmount(1);
+    expect(late.material).toBe(m.brass);
+    shell.setAmount(0);
+    seated.push(late);
+    shell.setAmount(1);
+    expect(late.material).not.toBe(m.brass);
+    expect(shown(late).r).toBeCloseTo(XRAY_GLOW, 2);
+  });
+
+  it('has nothing to glow for a subject that names no moving parts', () => {
+    const m = musicBox();
+    new XRayShell(m.root, XRAY_SHELL.music_box).setAmount(1);
+    expect(m.gear.material).toBe(m.brass);
+  });
+});
+
+describe('xrayMovers', () => {
+  it('reads the moving mechanism from the rig: every rotor and every bobbing horse, so a new machine needs no line', () => {
+    const root = new Group();
+    const gear = new Group();
+    const horse = new Group();
+    const idle = new Group();
+    root.add(gear, horse, idle);
+    const rig = createRig('carousel', root);
+    rig.rotors.push(createRotor(gear, 'platform'));
+    rig.bobbers.push({ node: horse, driver: rig.rotors[0], baseY: 0, phase: 0, amplitude: 0.01 });
+    expect(xrayMovers(rig)).toEqual([gear, horse]);
+  });
+
+  it('adds the named mechanism of a machine moved by its own runtime (the Clock Tower), when the node is there', () => {
+    const root = new Group();
+    const movement = new Group();
+    movement.name = 'ClockTowerMovement';
+    root.add(movement);
+    expect(xrayMovers(createRig('clock_tower', root))).toEqual([movement]);
+    expect(xrayMovers(createRig('clock_tower', new Group()))).toEqual([]);
+    expect(xrayMovers(createRig('music_box', root))).toEqual([]);
+  });
+});
+
 describe('XRayView', () => {
   it('fades in over 0.3 s for the palm over the machine and back out when the flag drops', () => {
     const { root, bodyMesh, wood } = musicBox();
@@ -162,7 +306,24 @@ describe('XRayView', () => {
     expect(view.busy).toBe(false);
   });
 
-  it('opens the palm\'s machine only, and the lens\' machine (the one being built or carried) only while the lens is on', () => {
+  it('fades the glow of the mechanism in and out with the casing, over the same 0.3 s', () => {
+    const m = musicBox();
+    const view = new XRayView();
+    view.add({ root: m.root, prefixes: XRAY_SHELL.music_box, lens: () => false, moving: () => [m.gear] });
+    flag(true, m.root);
+    run(view, XRAY_FADE_S / 2);
+    const glow = m.gear.material as MeshStandardMaterial;
+    expect(glow.emissive.r).toBeGreaterThan(0.05);
+    expect(glow.emissive.r).toBeLessThan(XRAY_GLOW - 0.05); // still rising
+    run(view, XRAY_FADE_S);
+    expect(glow.emissive.r).toBeCloseTo(XRAY_GLOW, 2);
+    expect(view.busy).toBe(false);
+    flag(false);
+    run(view, XRAY_FADE_S * 2);
+    expect(m.gear.material).toBe(m.brass);
+  });
+
+  it("opens the palm's machine only, and the lens' machine (the one being built or carried) only while the lens is on", () => {
     const a = musicBox();
     const b = musicBox();
     let carried = true;
@@ -219,6 +380,25 @@ describe('TownRuntime and X-ray', () => {
     expect(runtime.xray.busy).toBe(false);
 
     runtime.removeRig(rig);
+    expect(bodyMesh.material).toBe(wood);
+  });
+
+  it('lights the mechanism of every rig from its rotors, with nothing listed per machine', () => {
+    const { town, uniforms } = syntheticTown();
+    const runtime = new TownRuntime(town, uniforms);
+    const { root, wood, brass, gear, bodyMesh } = musicBox();
+    const rig = createRig('music_box', root);
+    rig.rotors.push(createRotor(gear, 'cylinder'));
+    runtime.addRig(rig);
+
+    flag(true, root);
+    for (let i = 0; i < 40; i++) runtime.update(FRAME, i * FRAME);
+    expect(gear.material).not.toBe(brass);
+    expect((gear.material as MeshStandardMaterial).emissive.r).toBeCloseTo(XRAY_GLOW, 2);
+    expect((bodyMesh.material as MeshStandardMaterial).emissive.r).toBeLessThan(0.1); // the casing gets the cool tint, not the glow
+
+    runtime.removeRig(rig);
+    expect(gear.material).toBe(brass);
     expect(bodyMesh.material).toBe(wood);
   });
 
@@ -299,6 +479,42 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
         if (from) merged.push(...from.filter((name) => XRAY_SHELL[id].some((p) => name.startsWith(p))));
       });
       expect(merged, `${id}: casing meshes merged away`).toEqual([]);
+    });
+  }
+
+  for (const id of MACHINES) {
+    it(`${id}: the moving mechanism glows warm and solid, the casing does not, and everything is given back`, async () => {
+      const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
+      if (!rig) throw new Error(`no ${id}`);
+      const prefixes = XRAY_SHELL[id];
+      const movers = xrayMovers(rig);
+      expect(movers.length, `${id} moving nodes`).toBeGreaterThan(0);
+      const expected = new Set<Mesh>();
+      for (const node of movers) {
+        node.traverse((n) => {
+          const mesh = n as Mesh;
+          if (mesh.isMesh && mesh.visible && !Array.isArray(mesh.material) && mesh.material.visible && !prefixes.some((p) => mesh.name.startsWith(p))) expected.add(mesh);
+        });
+      }
+      expect(expected.size, `${id} meshes that glow`).toBeGreaterThan(0);
+
+      const all: Mesh[] = [];
+      rig.root.traverse((n) => {
+        if ((n as Mesh).isMesh) all.push(n as Mesh);
+      });
+      const before = new Map(all.map((m) => [m, m.material]));
+      const shell = new XRayShell(rig.root, prefixes, () => movers);
+      shell.setAmount(1);
+      for (const mesh of expected) {
+        const material = mesh.material as MeshStandardMaterial;
+        expect(material, mesh.name).not.toBe(before.get(mesh));
+        expect(material.transparent, mesh.name).toBe(false);
+        expect(material.emissive.r * material.emissiveIntensity, mesh.name).toBeGreaterThanOrEqual(XRAY_GLOW - 1e-6);
+      }
+      for (const m of all) if (!expected.has(m) && !prefixes.some((p) => m.name.startsWith(p))) expect(m.material, m.name).toBe(before.get(m)); // the rest is untouched
+      shell.setAmount(0);
+      for (const m of all) expect(m.material, m.name).toBe(before.get(m));
+      shell.dispose();
     });
   }
 

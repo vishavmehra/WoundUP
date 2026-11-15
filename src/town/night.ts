@@ -8,13 +8,13 @@
  * No shadows and no extra passes: this only changes numbers on components that already exist.
  */
 import { DirectionalLightComponent, HemisphereLightComponent, IBLGradient } from '@iwsdk/core';
-import type { Entity } from '@iwsdk/core';
+import type { Camera, Entity, Object3D, PointLight } from '@iwsdk/core';
 
-/** How each light stands at full night: a fraction of its day intensity, and the colour it moves towards (linear RGB). */
+/** How each light stands at full night: a fraction of its day intensity, and the colour it moves towards. The colours are what the light components hold, which IWSDK reads as sRGB. */
 export const NIGHT_LOOK = {
-  hemisphere: { intensity: 0.55, sky: [0.3, 0.4, 0.66], ground: [0.035, 0.03, 0.06] },
-  directional: { intensity: 0.3, color: [0.55, 0.68, 1.0] },
-  environment: { intensity: 0.45 },
+  hemisphere: { intensity: 0.6, sky: [0.45, 0.55, 0.82], ground: [0.12, 0.1, 0.16] },
+  directional: { intensity: 0.4, color: [0.62, 0.72, 1.0] },
+  environment: { intensity: 0.55 },
 } as const;
 
 interface Day {
@@ -78,4 +78,35 @@ export class NightLights {
   private blend(out: ArrayLike<number> & { [i: number]: number }, day: readonly number[], night: readonly number[], t: number): void {
     for (let i = 0; i < 3; i++) out[i] = lerp(day[i], night[i], t);
   }
+}
+
+/** The slice of the renderer `precompileNight` uses (three's `compileAsync`). */
+export interface ShaderCompiler {
+  compileAsync(scene: Object3D, camera: Camera): Promise<unknown>;
+}
+
+/**
+ * Compiles the shader programs of the night while it is still day. Switching the night on makes the lamp lights visible, and three
+ * builds a new program for every lit material the first frame their number changes (17 to 24 programs, docs/evidence/PERF_2026-11-15.md),
+ * which can show as one long frame. `compileAsync` reads the lights that are visible when it is called, and a light under a hidden parent
+ * (the stage is hidden behind the landing) does not count, so the lamps and whatever hides them are shown for that call only and put back
+ * at once: nothing is drawn, the scene never shows them, and the programs wait in three's cache for the night.
+ *
+ * It compiles the whole scene, not only the town: three counts a light once per traversal, and `compileAsync(town, camera, scene)` reads the
+ * lamps through both and sees twice as many, which is another program. Call it after the town and the library textures exist (a texture
+ * that arrives later is another program). Resolves when the programs are ready to use. Programs are compiled for the view three draws to the page; a headset session that uses
+ * multiview draws through another render target and asks for its own variants, which this does not cover.
+ */
+export function precompileNight(renderer: ShaderCompiler, scene: Object3D, camera: Camera, lamps: readonly PointLight[]): Promise<void> {
+  const hidden: Object3D[] = [];
+  for (const lamp of lamps) for (let node: Object3D | null = lamp; node; node = node.parent) if (!node.visible && !hidden.includes(node)) hidden.push(node);
+  if (lamps.length === 0) return Promise.resolve();
+  let compiled: Promise<unknown>;
+  hidden.forEach((node) => (node.visible = true));
+  try {
+    compiled = renderer.compileAsync(scene, camera);
+  } finally {
+    hidden.forEach((node) => (node.visible = false));
+  }
+  return compiled.then(() => undefined);
 }

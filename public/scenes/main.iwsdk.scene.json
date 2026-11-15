@@ -5,8 +5,8 @@
     "com.iwsdk.components.IBLGradient": {
       "sky": [0.8879, 0.7913, 0.625, 1],
       "equator": [0.62, 0.52, 0.42, 1],
-      "ground": [0.1046, 0.0423, 0.0177, 1],
-      "intensity": 0.9
+      "ground": [0.3, 0.19, 0.1, 1],
+      "intensity": 1.2
     }
   },
   "environment": {
@@ -23,8 +23,8 @@
       "components": {
         "com.iwsdk.components.HemisphereLight": {
           "skyColor": [0.8879, 0.7913, 0.625, 1],
-          "groundColor": [0.1046, 0.0423, 0.0177, 1],
-          "intensity": 0.6
+          "groundColor": [0.35, 0.25, 0.16, 1],
+          "intensity": 1.2
         }
       }
     },
@@ -39,7 +39,7 @@
       "components": {
         "com.iwsdk.components.DirectionalLight": {
           "color": [1, 0.82, 0.58, 1],
-          "intensity": 2,
+          "intensity": 3,
           "castShadow": false
         }
       }
