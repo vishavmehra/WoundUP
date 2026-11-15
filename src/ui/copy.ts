@@ -148,7 +148,7 @@ export function nextDifficulty(current: Difficulty, masterAvailable: boolean): D
 export const HELPER_COPY = {
   label: 'Help',
   offer: 'Need a hand?',
-  demo: 'Watch my hands',
+  demo: 'It goes right here.', // the F15 ghost hands are not on this branch: Demonstrate shows a ghost of the part at its socket, so the line must not promise hands
   place: 'Here, let me.',
   wind: 'Wind it, then press Run',
   next: (what: string): string => `Next: ${what}`,
