@@ -35,6 +35,17 @@ export const MACHINE_PLOT: Readonly<Record<MachineId, PlotId>> = {
   belfry: 'plot_belfry',
 };
 
+// ---- Onboarding lessons (PRODUCT_SPEC F15, §15) --------------------------------------------------------------------
+
+/**
+ * The gestures the ghost hands teach, in the order a first session meets them: the trunk latch, the letter, the parcel, the pinch that
+ * carries a part to its socket, the wrist twist on the key, the Run plaque, carrying the machine to its plot, and the palm-down X-ray.
+ * A lesson is `learned` once the player has done its gesture; the list is persisted (`SaveV1.learned`), so none may be renamed
+ * without a migration.
+ */
+export const LESSON_IDS = ['latch', 'letter', 'parcel', 'grab', 'wind', 'run', 'place', 'xray'] as const;
+export type LessonId = (typeof LESSON_IDS)[number];
+
 // ---- Story repairs (PRODUCT_SPEC §8; GAMEPLAY_SYSTEMS §12) ---------------------------------------------------------
 
 /**

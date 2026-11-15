@@ -10,11 +10,13 @@
 import {
   ALL_LETTER_IDS,
   isOneOf,
+  LESSON_IDS,
   LETTER_STATUSES,
   LETTERS,
   MACHINE_IDS,
   MACHINE_PLOT,
   PLOT_IDS,
+  type LessonId,
   type LetterId,
   type LetterStatus,
   type MachineId,
@@ -38,6 +40,8 @@ export interface MachineRecord {
 export interface Settings {
   readonly easySnap: boolean;
   readonly gazeMode: boolean;
+  /** Ray interaction mode (PRODUCT_SPEC §16): parts, the key and the machine are taken with the hand's ray. Gaze and pinch wins when both are on. */
+  readonly rayMode: boolean;
   readonly xrayHint: boolean;
   readonly night: boolean;
 }
@@ -51,19 +55,21 @@ export interface SaveV1 {
   /** Local date of the last completed daily repair, or null (ADR-027). */
   readonly dailyDone: string | null;
   readonly settings: Settings;
+  /** The ghost-hand lessons the player has already done (PRODUCT_SPEC §15: cues disappear once the player performs the action). Canonical order. */
+  readonly learned: readonly LessonId[];
 }
 
 /**
  * Starting values for a missing or reset setting. The specifications list the four settings but not their defaults;
  * the X-ray hint starts on so it can teach the gesture before the player turns it off (PRODUCT_SPEC §17).
  */
-export const DEFAULT_SETTINGS: Settings = { easySnap: false, gazeMode: false, xrayHint: true, night: false };
+export const DEFAULT_SETTINGS: Settings = { easySnap: false, gazeMode: false, rayMode: false, xrayHint: true, night: false };
 
 /** A new player's save: every letter locked, nothing built. A new object on every call. */
 export function freshSave(): SaveV1 {
   const letters = {} as Record<LetterId, LetterStatus>;
   for (const id of ALL_LETTER_IDS) letters[id] = 'locked';
-  return { version: SAVE_VERSION, townPlaced: false, letters, machines: [], dailyDone: null, settings: { ...DEFAULT_SETTINGS } };
+  return { version: SAVE_VERSION, townPlaced: false, letters, machines: [], dailyDone: null, settings: { ...DEFAULT_SETTINGS }, learned: [] };
 }
 
 export type ValidateResult = { readonly ok: true; readonly save: SaveV1 } | { readonly ok: false; readonly reason: string };
@@ -138,7 +144,13 @@ export function validateSave(data: unknown): ValidateResult {
     settings[key] = value;
   }
 
-  return { ok: true, save: { version: SAVE_VERSION, townPlaced, letters, machines, dailyDone, settings } };
+  // Lessons learned: a save written before the ghost hands existed has none. Names this build does not know (a newer build's lesson) are
+  // dropped, not rejected: they cost the player nothing but a repeated demonstration.
+  const rawLearned = data.learned === undefined ? [] : data.learned;
+  if (!Array.isArray(rawLearned) || rawLearned.length > 64) return bad('learned is not a short list');
+  const learned = LESSON_IDS.filter((id) => rawLearned.includes(id));
+
+  return { ok: true, save: { version: SAVE_VERSION, townPlaced, letters, machines, dailyDone, settings, learned } };
 }
 
 /** The exact text stored under the save key. Callers validate first (store.ts does). */

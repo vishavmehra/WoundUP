@@ -11,7 +11,8 @@
  * `closing`, `giftAvailable` and `dailyRepair` compute from the save: read them when a command was accepted, not per frame.
  */
 
-import type { LetterDef, LetterId, MachineId, PlotId, RepairDef, RepairId } from './content';
+import { LESSON_IDS } from './content';
+import type { LessonId, LetterDef, LetterId, MachineId, PlotId, RepairDef, RepairId } from './content';
 import { completeDaily, dailyOffer } from './daily';
 import { canTransition, modeState, transition, type Mode, type ModeAction, type ModeState } from './modes';
 import {
@@ -201,6 +202,12 @@ export class GameSession {
   setSetting(key: keyof Settings, value: boolean): boolean {
     if (this.currentSave.settings[key] === value) return false;
     return this.commit({ ...this.currentSave, settings: { ...this.currentSave.settings, [key]: value } });
+  }
+
+  /** The player did what a ghost-hand lesson shows (a save trigger, once per lesson). False when it was already learned. */
+  learn(lesson: LessonId): boolean {
+    if (this.currentSave.learned.includes(lesson)) return false;
+    return this.commit({ ...this.currentSave, learned: LESSON_IDS.filter((id) => id === lesson || this.currentSave.learned.includes(id)) });
   }
 
   // ---- Internals -------------------------------------------------------------------------------------------------

@@ -10,7 +10,7 @@ import { BENCH } from '../../src/ui/layout';
 import { SAVE_KEY, parseSave } from '../../src/game/save';
 import { GameSession } from '../../src/game/session';
 import { Socket } from '../../src/interaction/components';
-import { isGazeModeOn, setGazeModeFlag } from '../../src/interaction/gaze-state';
+import { isGazeModeOn, isRayModeOn, setGazeModeFlag, setRayModeFlag } from '../../src/interaction/gaze-state';
 import { isXRayLensOn, setXRayLens, writeXRayFlag } from '../../src/interaction/xray-state';
 import { installFlowUi } from '../../src/ui';
 import { FlowUi, type FlowEvent } from '../../src/ui/flow-ui';
@@ -344,6 +344,7 @@ afterEach(() => {
   setXRayLens(false);
   writeXRayFlag(false, null);
   setGazeModeFlag(false);
+  setRayModeFlag(false);
 });
 
 describe('FlowUi: the lens and the X-ray hint', () => {
@@ -441,6 +442,19 @@ describe('FlowUi: the lens and the X-ray hint', () => {
     expect(visible(r, 'UI_XrayHint')).toBe(true);
     expect(texts(r).join(' ')).toContain('Look at the lens, then pinch.');
   });
+
+  it('words the hint for ray mode with the lens, not the palm (a player who points does not owe the palm gesture)', async () => {
+    const r = await rig();
+    await toBench(r);
+    click(r, 'UI_Pause');
+    click(r, 'UI_Toggle_rayMode');
+    click(r, 'UI_PanelLeft');
+    r.ui.onModeChange('wind');
+    r.ui.showResult({ status: 'jams', jamReason: 'module_mismatch' });
+    expect(visible(r, 'UI_XrayHint')).toBe(true);
+    expect(texts(r).join(' ')).toContain('Point at the lens, then pinch.');
+    expect(texts(r).join(' ')).not.toContain('Palm down');
+  });
 });
 
 describe('FlowUi: gaze mode from the pause menu', () => {
@@ -473,6 +487,57 @@ describe('FlowUi: gaze mode from the pause menu', () => {
   });
 });
 
+describe('FlowUi: ray mode from the pause menu', () => {
+  const gazePointerOn = (r: Rig): boolean => (r.world as unknown as { input: { xr: { gazeEnabled: boolean } } }).input.xr.gazeEnabled;
+
+  it('has a Ray mode row next to Easy Snap and Gaze and pinch, and saves it', async () => {
+    const r = await rig();
+    await toTown(r);
+    click(r, 'UI_Pause');
+    expect(live(r)).toContain('UI_Toggle_rayMode');
+    expect(isRayModeOn()).toBe(false);
+    click(r, 'UI_Toggle_rayMode');
+    expect(r.game.save.settings.rayMode).toBe(true);
+    expect(last(r)).toEqual({ type: 'setting', key: 'rayMode', value: true });
+    expect(isRayModeOn()).toBe(true);
+    expect(isGazeModeOn()).toBe(true); // parts now answer to rays (GrabModeSystem listens to this flag)
+    expect(gazePointerOn(r)).toBe(false); // the hands' own rays aim, not the head
+    expect(parseSave(r.storage.data.get(SAVE_KEY) ?? null).save.settings.rayMode).toBe(true);
+    click(r, 'UI_Toggle_rayMode');
+    expect(isRayModeOn()).toBe(false);
+    expect(isGazeModeOn()).toBe(false);
+  });
+
+  it('is exclusive with gaze and pinch: turning one on turns the other off, in the save and in the pointer', async () => {
+    const r = await rig();
+    await toTown(r);
+    click(r, 'UI_Pause');
+    click(r, 'UI_Toggle_gazeMode');
+    expect(gazePointerOn(r)).toBe(true);
+    click(r, 'UI_Toggle_rayMode');
+    expect(r.game.save.settings).toMatchObject({ gazeMode: false, rayMode: true });
+    expect(gazePointerOn(r)).toBe(false);
+    expect(isRayModeOn()).toBe(true);
+    click(r, 'UI_Toggle_gazeMode');
+    expect(r.game.save.settings).toMatchObject({ gazeMode: true, rayMode: false });
+    expect(gazePointerOn(r)).toBe(true);
+    expect(isRayModeOn()).toBe(false);
+  });
+
+  it('starts from the save: a player who saved ray mode begins in it', async () => {
+    const storage = new FakeStorage();
+    const first = await rig(undefined, undefined, storage);
+    await toTown(first);
+    click(first, 'UI_Pause');
+    click(first, 'UI_Toggle_rayMode');
+    setRayModeFlag(false); // a new page load starts with the flag off
+    const second = await rig(undefined, undefined, storage);
+    expect(second.game.save.settings.rayMode).toBe(true);
+    expect(isRayModeOn()).toBe(true);
+    expect(gazePointerOn(second)).toBe(false);
+  });
+});
+
 describe('FlowUi: the pause menu', () => {
   it('pauses, toggles accessibility settings into the save, and resumes', async () => {
     const r = await rig();
@@ -480,7 +545,7 @@ describe('FlowUi: the pause menu', () => {
     expect(click(r, 'UI_Pause')).toBe(true);
     expect(r.game.mode).toBe('pause');
     expect(r.ui.currentView?.panel).toBe('pause');
-    expect(live(r)).toEqual(['UI_PanelLeft', 'UI_PanelRight', 'UI_Toggle_easySnap', 'UI_Toggle_gazeMode', 'UI_Toggle_night', 'UI_Toggle_xrayHint']);
+    expect(live(r)).toEqual(['UI_PanelLeft', 'UI_PanelRight', 'UI_Toggle_easySnap', 'UI_Toggle_gazeMode', 'UI_Toggle_night', 'UI_Toggle_rayMode', 'UI_Toggle_xrayHint']);
     expect(find(r, 'UI_Pause').active).toBe(false);
     expect(visible(r, 'letter_envelope')).toBe(true); // the paused scene stays as it was
 

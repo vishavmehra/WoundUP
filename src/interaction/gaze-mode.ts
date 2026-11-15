@@ -1,6 +1,6 @@
 import { GazeSystem } from '@iwsdk/core';
 import type { GazePointer, World, XROrigin } from '@iwsdk/core';
-import { isGazeModeOn, setGazeModeFlag } from './gaze-state.js';
+import { isGazeAiming, setGazeModeFlag } from './gaze-state.js';
 
 /**
  * Gaze-and-pinch on IWSDK's own gaze pointer (ADR-036). IWSDK's `GazeSystem` aims a cone from the headset's eye-tracking input
@@ -49,5 +49,5 @@ export function installGaze(world: World, on: boolean): void {
 /** Turns gaze-and-pinch on or off now: the pointer, and the grab components of every part (src/grab-mode.ts listens). */
 export function setGazeMode(world: World, on: boolean): void {
   setGazeModeFlag(on);
-  world.input.xr.gazeEnabled = isGazeModeOn();
+  world.input.xr.gazeEnabled = isGazeAiming(); // ray mode (ray-mode.ts) uses the hands' own rays, so it leaves the gaze pointer off
 }

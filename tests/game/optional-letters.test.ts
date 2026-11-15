@@ -204,6 +204,7 @@ describe('the optional letters and the save (SaveV1 is unchanged: older saves lo
     ],
     dailyDone: null,
     settings: { easySnap: false, gazeMode: false, xrayHint: true, night: false },
+    // no `rayMode` and no `learned`: the save is older than both (the loader gives them their defaults)
   };
 
   it('a save written before them loads untouched, with them locked; the session then settles them, so a returning player finds the letters waiting', () => {

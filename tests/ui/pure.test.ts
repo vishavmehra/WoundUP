@@ -152,7 +152,7 @@ describe('result labels (UI_UX_SPEC section 13)', () => {
 
   it('has a name for every machine and a row for each setting', () => {
     expect(Object.keys(MACHINE_NAMES).sort()).toEqual(['belfry', 'carousel', 'clock_tower', 'music_box', 'well', 'windmill']);
-    expect(SETTING_ROWS.map((r) => r.key)).toEqual(['easySnap', 'gazeMode', 'xrayHint', 'night']);
+    expect(SETTING_ROWS.map((r) => r.key)).toEqual(['easySnap', 'gazeMode', 'rayMode', 'xrayHint', 'night']);
     expect(ENGRAVINGS.length).toBe(8);
   });
 });
