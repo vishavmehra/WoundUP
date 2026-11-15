@@ -29,6 +29,8 @@ export interface Landing {
   /** Asset load progress 0..1 (0 reads as "starting"), or null when finished. */
   setLoading(progress01: number | null): void;
   showError(message: string): void;
+  /** Takes the error slip down again (a problem that has since been put right). */
+  clearError(): void;
   destroy(): void;
 }
 
@@ -365,6 +367,7 @@ export function mountLanding(root: HTMLElement, options: LandingOptions): Landin
       render();
     },
     showError,
+    clearError,
     destroy() {
       alive = false;
       ac.abort();

@@ -25,6 +25,16 @@ export const HINTS = {
   windMore: 'Wind it, then press Run',
 } as const;
 
+/**
+ * The slip over the town while its models are still arriving after the trunk has opened (`View.townCue`). No percentage: the loader reports
+ * none for the town as a whole, and a made-up one would not be honest. The failed card says what to do and the plaque below it does it.
+ */
+export const TOWN_WAIT = {
+  waiting: { title: 'Waking Tockton…', hint: 'The town is still unpacking.' },
+  failed: { title: 'Tockton would not wake.', hint: 'Check your connection.' },
+  retry: 'Try again',
+} as const;
+
 /** The X-ray hint slip (UI_UX_SPEC §14), by how the player acts: an open palm over the machine, or the lens button with gaze and pinch or with the hand's ray. */
 export const XRAY_HINT = {
   title: 'Look inside',

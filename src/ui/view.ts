@@ -12,6 +12,12 @@ export interface LocalFlow {
   result: ResultView | null;
 }
 
+/**
+ * Whether the town's models are in. A first-time player's page is usable before they are (4.4 MiB load behind the landing, src/index.ts),
+ * so the trunk can be opened first: the town is then `loading` (a short wait) or `failed` (the player can try again).
+ */
+export type TownLoad = 'loading' | 'ready' | 'failed';
+
 export const freshLocal = (): LocalFlow => ({ trunk: 'closed', envelope: 'sealed', parcel: 'closed', result: null });
 
 export interface ViewContext {
@@ -22,6 +28,8 @@ export interface ViewContext {
   dailyAvailable?: boolean;
   /** The X-ray hint setting (SaveV1 `settings.xrayHint`). */
   xrayHint: boolean;
+  /** Whether the town's models are in (`TownLoad`). Absent: they are, which is every page that has no deferred town. */
+  townLoad?: TownLoad;
 }
 
 export interface View {
@@ -48,6 +56,8 @@ export interface View {
   /** The X-ray hint: after a run that did not work out, when looking inside can help, and only if the player left the hint on. */
   xrayHint: boolean;
   panel: 'none' | 'pause' | 'restart' | 'gift';
+  /** The slip over the town once the trunk has opened but the town is not there: it is still `waiting` to arrive, or `failed` to load and offers a retry. */
+  townCue: 'none' | 'waiting' | 'failed';
 }
 
 const BENCH_MODES: readonly Mode[] = ['build', 'wind', 'place'];
@@ -63,6 +73,8 @@ export function viewFor(state: ModeState, local: LocalFlow, ctx: ViewContext): V
   const bench = BENCH_MODES.includes(mode);
   const parcelOpen = bench && local.parcel === 'open';
   const inTown = mode === 'town';
+  const panel = paused ? (state.restartArmed ? 'restart' : 'pause') : mode === 'gift' ? 'gift' : 'none';
+  const townLoad = ctx.townLoad ?? 'ready';
   return {
     trunk: mode === 'intro' || local.trunk === 'opening' || local.trunk === 'withdrawing',
     envelope: inTown && ctx.letter !== null ? (local.envelope === 'open' ? 'open' : 'sealed') : 'hidden',
@@ -80,6 +92,8 @@ export function viewFor(state: ModeState, local: LocalFlow, ctx: ViewContext): V
     dailyButton: inTown && ctx.dailyAvailable === true && !paused,
     lens: bench && !paused,
     xrayHint: bench && !paused && ctx.xrayHint && local.result !== null && !local.result.canContinue,
-    panel: paused ? (state.restartArmed ? 'restart' : 'pause') : mode === 'gift' ? 'gift' : 'none',
+    panel,
+    // Nothing to wait for before the trunk opens (the town is hidden until then); a panel has the player's attention and covers the spot.
+    townCue: mode === 'intro' || panel !== 'none' || townLoad === 'ready' ? 'none' : townLoad === 'failed' ? 'failed' : 'waiting',
   };
 }

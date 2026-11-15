@@ -9,7 +9,7 @@ export type { GiftHost, GiftModel, LinkOutcome, ShareEnv } from './gift-flow.js'
 export { mountGiftViewer } from './gift-viewer.js';
 export type { GiftViewer, GiftViewerOptions } from './gift-viewer.js';
 export type { ResultHints, ResultView } from './copy.js';
-export type { View } from './view.js';
+export type { TownLoad, View } from './view.js';
 
 const running = new WeakMap<World, FlowUi>();
 

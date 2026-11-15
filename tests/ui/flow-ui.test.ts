@@ -866,6 +866,59 @@ describe('FlowUi: returning to the gift panel', () => {
   });
 });
 
+describe('FlowUi: the town is not in yet', () => {
+  const painted = (r: Rig): string => r.canvases.made.flatMap((c) => c.calls.map((t) => t.text)).join('|');
+
+  it('shows nothing while the trunk is closed, "Waking Tockton…" once it has opened, and nothing again when the town is in', async () => {
+    const r = await rig();
+    r.ui.setTownLoad('loading');
+    expect(visible(r, 'UI_TownWait')).toBe(false); // the town is hidden until the trunk opens, there is nothing to wait for yet
+    await toTown(r);
+    expect(visible(r, 'UI_TownWait')).toBe(true);
+    expect(painted(r)).toContain('Waking Tockton…');
+    expect(visible(r, 'UI_TownRetry')).toBe(false);
+    expect(find(r, 'UI_TownRetry').active).toBe(false); // no retry while it is loading: that would load it twice
+
+    r.ui.setTownLoad('ready');
+    expect(visible(r, 'UI_TownWait')).toBe(false);
+    expect(visible(r, 'UI_TownRetry')).toBe(false);
+  });
+
+  it('turns to a calm message with a working "Try again" when the town could not be loaded, and the retry asks the integrator once', async () => {
+    const r = await rig();
+    r.ui.setTownLoad('loading');
+    await toTown(r);
+    r.ui.setTownLoad('failed');
+    expect(visible(r, 'UI_TownWait')).toBe(true);
+    expect(visible(r, 'UI_TownRetry')).toBe(true);
+    expect(painted(r)).toContain('Tockton would not wake.');
+    expect(painted(r)).toContain('Try again');
+    expect(find(r, 'UI_TownRetry').active).toBe(true);
+
+    expect(click(r, 'UI_TownRetry')).toBe(true);
+    expect(types(r)).toEqual(['trunk-opened', 'town-retry']);
+    expect(cues(r)).toContain('button');
+
+    // The integrator starts the load again: the plaque goes (a second press would load the town twice), the message waits.
+    r.ui.setTownLoad('loading');
+    expect(visible(r, 'UI_TownRetry')).toBe(false);
+    expect(click(r, 'UI_TownRetry')).toBe(false);
+    expect(types(r).filter((t) => t === 'town-retry')).toHaveLength(1);
+    expect(painted(r)).toContain('Waking Tockton…');
+  });
+
+  it('keeps the cue off a game whose town is never deferred, and under a panel', async () => {
+    const r = await rig();
+    await toTown(r);
+    expect(visible(r, 'UI_TownWait')).toBe(false); // the integrator never said the town is missing
+    r.ui.setTownLoad('failed');
+    expect(visible(r, 'UI_TownWait')).toBe(true);
+    click(r, 'UI_Pause');
+    expect(visible(r, 'UI_TownWait')).toBe(false);
+    expect(find(r, 'UI_TownRetry').active).toBe(false);
+  });
+});
+
 describe('FlowUi: housekeeping', () => {
   it('releases every canvas texture on dispose', async () => {
     const r = await rig();

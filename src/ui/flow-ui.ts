@@ -14,13 +14,13 @@ import { setupGlbInteraction, type GlbInteraction } from '../interaction/glb-int
 import { applyLibraryMaterials, type MaterialRegistry } from '../materials/index.js';
 import type { SolveResult } from '../sim/index.js';
 import { findHinge, applyHinge, Progress } from './anim.js';
-import { MACHINE_NAMES, SETTING_ROWS, HINTS, XRAY_HINT, describeResult, giftMakeErrorText, windLabel, type ResultHints } from './copy.js';
-import { BENCH, DAILY_SPOT, GIFT_SPOT, LENS_HINT_SPOT, LENS_SPOT, LETTER_SPOT, PANEL_BUTTON, PANEL_SPOT, PAUSE_BUTTON_ROW_Y, PAUSE_PANEL_BASE, PAUSE_PANEL_SCALE, PAUSE_PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_PLAQUE, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP, RUN_SIGN_SLIP_HEIGHT, SETTING_PLAQUE, SETTING_ROW_STEP, SETTING_ROW_Y, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
+import { MACHINE_NAMES, SETTING_ROWS, HINTS, TOWN_WAIT, XRAY_HINT, describeResult, giftMakeErrorText, windLabel, type ResultHints } from './copy.js';
+import { BENCH, DAILY_SPOT, GIFT_SPOT, LENS_HINT_SPOT, LENS_SPOT, LETTER_SPOT, PANEL_BUTTON, PANEL_SPOT, PAUSE_BUTTON_ROW_Y, PAUSE_PANEL_BASE, PAUSE_PANEL_SCALE, PAUSE_PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_PLAQUE, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP, RUN_SIGN_SLIP_HEIGHT, SETTING_PLAQUE, SETTING_ROW_STEP, SETTING_ROW_Y, SHEET_PAPER, TOWN_RETRY_SPOT, TOWN_WAIT_SPOT, benchPoint, benchZ, latchSpot } from './layout.js';
 import { createGiftLink, shortLink, showLinkInPage, type GiftHost, type ShareEnv } from './gift-flow.js';
 import { paintBlueprint, paintClosing, paintLetter, paintMedallion, paintPanel, paintSlip, resultSlip, type BlueprintSlot } from './paint.js';
 import { PALETTE, ensureFonts } from './palette.js';
 import { Plaque, Surface, domCanvas, type CanvasFactory } from './surface.js';
-import { freshLocal, viewFor, type LocalFlow, type View } from './view.js';
+import { freshLocal, viewFor, type LocalFlow, type TownLoad, type View } from './view.js';
 
 /** The stage root's scene node id (`STAGE_NODE_ID` in src/stage.ts, repeated so this module does not pull the placement code in). */
 const STAGE_NODE = 'stage';
@@ -42,6 +42,8 @@ export type FlowEvent =
   /** Restart was confirmed and progress is deleted: reset the town and the machine. */
   | { type: 'restarted' }
   | { type: 'gift-link'; machineId: MachineId; url: string; delivered: 'copied' | 'shared' | 'shown' }
+  /** The town's models did not load and the player pressed "Try again" on the slip over the town: load them again, then `setTownLoad`. */
+  | { type: 'town-retry' }
   /** A sound cue for the audio layer, at the moment of the action (UI_UX_SPEC section 22): the latch, paper, and every other press. */
   | { type: 'cue'; cue: 'latch' | 'paper' | 'button' };
 
@@ -130,6 +132,8 @@ export class FlowUi {
   private facedYaw = 0;
   private view: View | null = null;
   private shownLetter: string | null = null;
+  /** Whether the town's models are in (`setTownLoad`). Ready until the integrator says otherwise, so a page with no deferred town shows no cue. */
+  private townLoad: TownLoad = 'ready';
 
   // Animations
   private readonly lid = new Progress(1.1);
@@ -168,6 +172,9 @@ export class FlowUi {
   private dailyMed!: Surface;
   private lensMed!: Surface;
   private lensHint!: Surface;
+  private townSlip!: Surface;
+  private townRetry!: Plaque;
+  private townRetryHot!: Hot;
   private panelGroup!: Group;
   private panelBase!: Surface;
   private panelGiftBase!: Surface;
@@ -235,6 +242,13 @@ export class FlowUi {
 
   /** Call after any mode change the UI did not make itself. */
   onModeChange(_mode?: Mode): void {
+    this.sync();
+  }
+
+  /** The town's models are loading, in, or could not be loaded: once the trunk has opened, a slip over the town says so (`View.townCue`). */
+  setTownLoad(state: TownLoad): void {
+    if (state === this.townLoad) return;
+    this.townLoad = state;
     this.sync();
   }
 
@@ -490,6 +504,15 @@ export class FlowUi {
     this.lensHint.mesh.name = 'UI_XrayHint';
     place(this.lensHint, LENS_HINT_SPOT);
 
+    // The town's models are late (or could not be fetched): a slip over the town, and a plaque that tries again (`View.townCue`).
+    this.townSlip = new Surface(f, 0.15, 0.056);
+    this.townSlip.mesh.name = 'UI_TownWait';
+    place(this.townSlip, TOWN_WAIT_SPOT);
+    this.townRetry = new Plaque(f, 0.09, 0.034);
+    this.townRetry.mesh.name = 'UI_TownRetry';
+    this.townRetryHot = this.hot(place(this.townRetry, TOWN_RETRY_SPOT), () => this.retryTown(), (on) => this.townRetry.set(TOWN_WAIT.retry, on ? 'hover' : 'idle'));
+    this.townRetry.set(TOWN_WAIT.retry);
+
     // The run sign: a post, the Run plaque, an Adjust plaque after a failed run, and one slip for the counter or the result.
     this.signGroup = new Group();
     this.signGroup.visible = false;
@@ -551,7 +574,7 @@ export class FlowUi {
       this.hotButton(p, panelEntity, () => this.pickEngraving(e.id));
       return p;
     });
-    this.surfaces.push(this.sheet.overlay, this.cardPaper, this.accept, this.closingCard, this.hint, this.pauseMed, this.giftMed, this.dailyMed, this.lensMed, this.lensHint, this.signSlip, this.runPlaque, this.adjustPlaque);
+    this.surfaces.push(this.sheet.overlay, this.cardPaper, this.accept, this.closingCard, this.hint, this.pauseMed, this.giftMed, this.dailyMed, this.lensMed, this.lensHint, this.townSlip, this.townRetry, this.signSlip, this.runPlaque, this.adjustPlaque);
     this.surfaces.push(this.panelBase, this.panelGiftBase, this.btnL, this.btnR, this.machineBtn, ...this.toggles, ...this.chips);
   }
 
@@ -572,6 +595,7 @@ export class FlowUi {
       giftAvailable: this.session.giftAvailable,
       dailyAvailable: this.session.dailyRepair(dateKey(new Date())) !== null,
       xrayHint: this.session.save.settings.xrayHint,
+      townLoad: this.townLoad,
     });
     const before = this.view;
     this.view = view;
@@ -637,6 +661,7 @@ export class FlowUi {
     this.paintLens();
     this.showXrayHint(view);
     this.showHint(view);
+    this.showTownCue(view);
 
     // Panels
     this.showPanel(view.panel);
@@ -654,6 +679,8 @@ export class FlowUi {
     if (this.dailyMed.mesh.visible) this.faceHead(this.dailyMed.mesh);
     if (this.lensMed.mesh.visible) this.faceHead(this.lensMed.mesh);
     if (this.lensHint.mesh.visible) this.faceHead(this.lensHint.mesh);
+    if (this.townSlip.mesh.visible) this.faceHead(this.townSlip.mesh);
+    if (this.townRetry.mesh.visible) this.faceHead(this.townRetry.mesh);
     if (this.signGroup.visible) this.faceHead(this.signGroup, true);
     if (this.panelGroup.visible) this.faceHead(this.panelGroup);
   }
@@ -1088,6 +1115,24 @@ export class FlowUi {
     this.hint.paint(text, (c, w, h) => paintSlip(c, w, h, text, '', 'good'));
     this.hint.mesh.position.set(at.x, at.y, at.z);
     this.faceHead(this.hint.mesh);
+  }
+
+  /** The wait cue over the town (`View.townCue`): "Waking Tockton…" while its models arrive, or why they did not and a plaque to try again. */
+  private showTownCue(view: View): void {
+    const cue = view.townCue;
+    this.townSlip.mesh.visible = cue !== 'none';
+    this.townRetry.mesh.visible = cue === 'failed';
+    this.setHot(this.townRetryHot, cue === 'failed');
+    if (cue === 'none') return;
+    const text = TOWN_WAIT[cue];
+    this.townSlip.paint(cue, (c, w, h) => paintSlip(c, w, h, text.title, text.hint, cue === 'failed' ? 'warn' : 'good'));
+    this.faceHead(this.townSlip.mesh);
+    if (cue === 'failed') this.faceHead(this.townRetry.mesh);
+  }
+
+  private retryTown(): void {
+    this.cue('button');
+    this.opt.onEvent?.({ type: 'town-retry' });
   }
 
   private faceIfShown(object: Object3D, shown: boolean): void {
