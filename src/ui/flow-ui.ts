@@ -15,7 +15,7 @@ import { applyLibraryMaterials, type MaterialRegistry } from '../materials/index
 import type { SolveResult } from '../sim/index.js';
 import { findHinge, applyHinge, Progress } from './anim.js';
 import { MACHINE_NAMES, SETTING_ROWS, HINTS, XRAY_HINT, describeResult, giftMakeErrorText, windLabel, type ResultHints } from './copy.js';
-import { BENCH, DAILY_SPOT, GIFT_SPOT, LENS_HINT_SPOT, LENS_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_PLAQUE, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
+import { BENCH, DAILY_SPOT, GIFT_SPOT, LENS_HINT_SPOT, LENS_SPOT, LETTER_SPOT, PANEL_BUTTON, PANEL_SPOT, PAUSE_BUTTON_ROW_Y, PAUSE_PANEL_BASE, PAUSE_PANEL_SCALE, PAUSE_PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_PLAQUE, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP, RUN_SIGN_SLIP_HEIGHT, SETTING_PLAQUE, SETTING_ROW_STEP, SETTING_ROW_Y, SHEET_PAPER, benchPoint, benchZ, latchSpot } from './layout.js';
 import { createGiftLink, shortLink, showLinkInPage, type GiftHost, type ShareEnv } from './gift-flow.js';
 import { paintBlueprint, paintClosing, paintLetter, paintMedallion, paintPanel, paintSlip, resultSlip, type BlueprintSlot } from './paint.js';
 import { PALETTE, ensureFonts } from './palette.js';
@@ -87,14 +87,8 @@ class Hot {
   ) {}
 }
 
-const PANEL_SMALL = { w: 0.26, h: 0.381 } as const; // five setting rows (a row and its caption take 0.056)
 /** The tray rises this far (metres) as the parcel opens; parts are seated for its rest pose. */
 const TRAY_RISE = 0.02;
-/** The pause panel's first setting plaque (centre, metres from the panel's centre) and the step between rows; a caption sits under each. */
-const SETTING_ROW_Y = 0.1305;
-const SETTING_ROW_STEP = 0.056;
-/** The panel base (pause and restart share it) grew by one row (0.056) over the four-row one; half of that lifts it so its bottom edge stays where it was, clear of the table. */
-const PAUSE_PANEL_RAISE = 0.028;
 const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
 /** The gift panel's machine selector (centre, metres from the panel's centre): under the two message lines (they end about 9 cm above the centre) and over the first engraving row (its top edge is at 4.3 cm). */
 const GIFT_MACHINE_ROW_Y = 0.066;
@@ -522,19 +516,19 @@ export class FlowUi {
     this.panelGroup = new Group();
     this.panelGroup.visible = false;
     const panelEntity = this.mount(this.panelGroup);
-    this.panelBase = new Surface(f, PANEL_SMALL.w, PANEL_SMALL.h);
+    this.panelBase = new Surface(f, PAUSE_PANEL_BASE.w, PAUSE_PANEL_BASE.h);
     this.panelGiftBase = new Surface(f, PANEL_GIFT.w, PANEL_GIFT.h);
     this.panelGroup.add(this.panelBase.mesh, this.panelGiftBase.mesh);
     this.toggles = SETTING_ROWS.map((row, i) => {
-      const p = new Plaque(f, 0.21, 0.032);
+      const p = new Plaque(f, SETTING_PLAQUE.w, SETTING_PLAQUE.h);
       p.mesh.name = `UI_Toggle_${row.key}`;
       p.mesh.position.z = 0.003;
       this.panelGroup.add(p.mesh);
       this.hotButton(p, panelEntity, () => this.toggle(i));
       return p;
     });
-    this.btnL = new Plaque(f, 0.115, 0.034);
-    this.btnR = new Plaque(f, 0.115, 0.034);
+    this.btnL = new Plaque(f, PANEL_BUTTON.w, PANEL_BUTTON.h);
+    this.btnR = new Plaque(f, PANEL_BUTTON.w, PANEL_BUTTON.h);
     this.machineBtn = new Plaque(f, 0.21, 0.032);
     this.btnL.mesh.name = 'UI_PanelLeft';
     this.btnR.mesh.name = 'UI_PanelRight';
@@ -888,7 +882,11 @@ export class FlowUi {
       for (const hot of this.panelHots) this.setHot(hot, false);
       return;
     }
-    this.panelGroup.position.set(PANEL_SPOT.x, PANEL_SPOT.y + (kind === 'pause' || kind === 'restart' ? PAUSE_PANEL_RAISE : 0), PANEL_SPOT.z); // the gift panel has its own, shorter base
+    // Pause and restart stand in front of the machine on the bench, smaller; the gift panel, shown in the town, keeps the spot behind where the bench stands (layout.ts).
+    const compact = kind === 'pause' || kind === 'restart';
+    const spot = compact ? PAUSE_PANEL_SPOT : PANEL_SPOT;
+    this.panelGroup.position.set(spot.x, spot.y, spot.z);
+    this.panelGroup.scale.setScalar(compact ? PAUSE_PANEL_SCALE : 1);
     if (was === 'none') this.faceHead(this.panelGroup);
     if (kind === 'gift' && was !== 'gift') {
       // Reopened later: the machines standing in the town may have changed since the last visit.
@@ -920,9 +918,9 @@ export class FlowUi {
     for (const c of this.chips) c.mesh.visible = gift;
     // One machine to gift is the usual case and needs no selector; none (a note) or several (a choice) do.
     this.machineBtn.mesh.visible = gift && this.giftState.machines.length !== 1;
-    const row = kind === 'pause' ? -0.1655 : kind === 'restart' ? -0.06 : -0.122;
-    this.btnL.mesh.position.set(-0.067, row, 0.003);
-    this.btnR.mesh.position.set(0.067, row, 0.003);
+    const row = kind === 'pause' ? PAUSE_BUTTON_ROW_Y : kind === 'restart' ? -0.06 : -0.122;
+    this.btnL.mesh.position.set(-PANEL_BUTTON.x, row, 0.003);
+    this.btnR.mesh.position.set(PANEL_BUTTON.x, row, 0.003);
     for (const hot of this.panelHots) this.setHot(hot, (hot.entity.object3D as Object3D).visible);
   }
 
