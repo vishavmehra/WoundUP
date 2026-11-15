@@ -67,9 +67,10 @@ test.describe.serial('machines in the town (letters played by the debug helper)'
     test.info().annotations.push({ type: 'motion', description: JSON.stringify(Object.fromEntries(Object.entries(reports).map(([k, r]) => [k, { rotors: r.rotors.map((x) => [x.socket, +x.measured.toFixed(3), +x.expected.toFixed(3)]), bobbers: r.bobbers.map((b) => [+(b.amplitude * 1000).toFixed(2), +b.rSquared.toFixed(3)]) }]))) });
     await test.info().attach('motion-and-perf.json', { body: JSON.stringify({ perf, reports }, null, 2), contentType: 'application/json' });
     // Written next to the other evidence so the lead can read the numbers after a re-run.
-    const fs = (await import('node:fs' as string)) as { writeFileSync(path: string, data: string): void };
+    const fs = (await import('node:fs' as string)) as { mkdirSync(path: string, o: object): void; writeFileSync(path: string, data: string): void };
     const cwd = (globalThis as unknown as { process: { cwd(): string } }).process.cwd();
-    fs.writeFileSync(`${cwd}/docs/evidence/screens/motion-run.json`, JSON.stringify({ ranAt: new Date().toISOString(), perf, reports }, null, 2));
+    fs.mkdirSync(`${cwd}/.tmp/evidence`, { recursive: true });
+    fs.writeFileSync(`${cwd}/.tmp/evidence/motion-run.json`, JSON.stringify({ ranAt: new Date().toISOString(), perf, reports }, null, 2));
 
     for (const [name, r] of Object.entries(reports)) expect(r.failures, `motion of ${name}`).toEqual([]);
   });
@@ -82,7 +83,7 @@ test.describe.serial('machines in the town (letters played by the debug helper)'
   test('BUDGET-1: draw calls with the Music Box, the Carousel and the Windmill placed stay under the 200 ceiling', async () => {
     const fs = (await import('node:fs' as string)) as { readFileSync(path: string, encoding: string): string };
     const cwd = (globalThis as unknown as { process: { cwd(): string } }).process.cwd();
-    const { perf } = JSON.parse(fs.readFileSync(`${cwd}/docs/evidence/screens/motion-run.json`, 'utf8')) as { perf: PerfSample[] };
+    const { perf } = JSON.parse(fs.readFileSync(`${cwd}/.tmp/evidence/motion-run.json`, 'utf8')) as { perf: PerfSample[] };
     for (const sample of perf) expect(sample.drawCalls, `draw calls at "${sample.label}"`).toBeLessThanOrEqual(200);
   });
 
