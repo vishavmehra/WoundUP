@@ -1,5 +1,6 @@
 import type { LetterDef } from '../game/content.js';
-import type { ResultView, Tone } from './copy.js';
+import { DIAL, assemblyProgress, needleAngle, stageClosed, tickAngle, type AssemblyView } from './assembly.js';
+import { DIFFICULTY_CARD, STEP_SHEET, type DifficultyCopy, type ResultView, type Tone } from './copy.js';
 import { FONT_BODY, FONT_DISPLAY, PALETTE } from './palette.js';
 import { fitText } from './text-layout.js';
 
@@ -203,6 +204,225 @@ export function paintBlueprint(ctx: Ctx, w: number, h: number, title: string, sl
   });
 }
 
+export interface ChoiceFace {
+  readonly copy: DifficultyCopy;
+  /** The "Recommended" tag. */
+  readonly recommended: boolean;
+  /** Replaces the line when the level cannot be picked (Master while its test has not passed). */
+  readonly note: string | null;
+}
+
+/** One answer on the difficulty card: a brass plaque with the level's name and time, one line under them, and an optional tag. */
+export function paintChoice(ctx: Ctx, w: number, h: number, face: ChoiceFace, state: PlaqueState = 'idle'): void {
+  ctx.clearRect(0, 0, w, h);
+  const lit = state === 'hover' || state === 'on';
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, lit ? PALETTE.lamp : PALETTE.brassLit);
+  g.addColorStop(0.55, lit ? PALETTE.brassLit : PALETTE.brass);
+  g.addColorStop(1, PALETTE.brassDark);
+  ctx.fillStyle = g;
+  roundedRect(ctx, 0, 0, w, h, h * 0.16);
+  ctx.fill();
+  ctx.strokeStyle = PALETTE.ink;
+  ctx.lineWidth = 3;
+  roundedRect(ctx, 9, 9, w - 18, h - 18, h * 0.11);
+  ctx.stroke();
+  if (state === 'disabled') {
+    ctx.fillStyle = 'rgba(42, 26, 15, 0.45)';
+    roundedRect(ctx, 0, 0, w, h, h * 0.16);
+    ctx.fill();
+  }
+  const tagged = face.recommended && state !== 'disabled';
+  const nameY = tagged ? 0.27 : 0.33;
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = state === 'disabled' ? PALETTE.cream : PALETTE.ink;
+  ctx.textAlign = 'left';
+  ctx.font = font(700, 44);
+  ctx.fillText(face.copy.name, 38, h * nameY);
+  ctx.textAlign = 'right';
+  ctx.font = font(400, 28);
+  ctx.fillText(face.copy.time, w - 38, h * nameY);
+  ctx.textAlign = 'left';
+  const fit = fitText(measureWith(ctx, 400), face.note ?? face.copy.line, w - 76, h * 0.3, 30, 24, 1.1);
+  ctx.font = font(400, fit.size);
+  const top = h * (tagged ? 0.55 : 0.66) - ((fit.lines.length - 1) * fit.lineHeight) / 2;
+  fit.lines.forEach((line, i) => ctx.fillText(line, 38, top + i * fit.lineHeight));
+  if (tagged) {
+    ctx.font = font(700, 24);
+    const tag = DIFFICULTY_CARD.recommended;
+    const tw = ctx.measureText(tag).width + 36;
+    ctx.fillStyle = PALETTE.teal;
+    roundedRect(ctx, 34, h * 0.73, tw, 38, 19);
+    ctx.fill();
+    ctx.fillStyle = PALETTE.cream;
+    ctx.fillText(tag, 52, h * 0.73 + 20);
+  }
+}
+
+/** Row geometry of the step sheet, shared with its test: the top of the stage list and the smallest size the current step is drawn at. */
+export const STEP_SHEET_TOP = 112;
+const STEP_ROW_MAX = 44;
+const STEP_ROW_TITLES = 40;
+const STEP_LINE_H = 36;
+/** 28 px at 4000 px per metre is a 5 mm cap height (design §7.4, TOCKTON_DIMENSIONS §5.2). */
+export const STEP_TEXT_MIN_PX = 28;
+
+/** Where the stage list ends: the row height, the height of the opened current row's steps, and the bottom edge, in pixels of an `h`-high sheet. */
+export function stepSheetLayout(h: number, stages: number, shown: number, titlesOnly: boolean): { rowH: number; expandedH: number; bottom: number } {
+  const expandedH = shown > 0 ? 18 + STEP_LINE_H * shown : 0;
+  const rowH = titlesOnly ? STEP_ROW_TITLES : Math.min(STEP_ROW_MAX, (h - STEP_SHEET_TOP - 28 - expandedH) / Math.max(1, stages));
+  return { rowH, expandedH, bottom: STEP_SHEET_TOP + rowH * stages + expandedH };
+}
+
+/**
+ * The blueprint sheet of a build with stages (design §7.4): the machine's name and a progress dial in the header, one row per stage with a
+ * pip for each placement, and under the current stage's row the step to do now in large type and the next two in small. `titlesOnly` is
+ * Master: stage names and stamps, no pips, no steps. Painted once per change, never per frame.
+ */
+export function paintStepSheet(ctx: Ctx, w: number, h: number, title: string, view: AssemblyView, titlesOnly: boolean): void {
+  ctx.clearRect(0, 0, w, h);
+  const n = view.stages.length;
+  const progress = assemblyProgress(view);
+
+  // Header: the name, where the build stands, and the dial.
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = PALETTE.teal;
+  const t = fitText(measureWith(ctx, 400, FONT_DISPLAY), title, w - 60 - 112, 56, 40, 24, 1.1);
+  ctx.font = font(400, t.size, FONT_DISPLAY);
+  ctx.fillText(t.lines[0] ?? '', 30, 44);
+  ctx.fillStyle = PALETTE.ink;
+  ctx.font = font(700, 22);
+  ctx.fillText(view.current >= 0 ? `Stage ${view.current + 1} of ${n}` : 'All stages built', 30, 82);
+  paintDial(ctx, w - 58, 56, 34, view, progress.fraction);
+  ctx.strokeStyle = PALETTE.teal;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(30, 104);
+  ctx.lineTo(w - 30, 104);
+  ctx.stroke();
+
+  // The stage list; the current stage's row opens to show its steps.
+  const shown = view.current >= 0 && !titlesOnly ? view.upcoming.slice(0, 3) : [];
+  const { rowH, expandedH } = stepSheetLayout(h, n, shown.length, titlesOnly);
+  let y = STEP_SHEET_TOP;
+  view.stages.forEach((stage, i) => {
+    const closed = stageClosed(stage);
+    const current = i === view.current;
+    const cy = y + rowH / 2;
+    if (current) {
+      ctx.globalAlpha = 0.34;
+      ctx.fillStyle = PALETTE.lamp;
+      roundedRect(ctx, 16, y, w - 32, rowH + expandedH, 8);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.beginPath();
+    ctx.arc(46, cy, rowH * 0.36, 0, Math.PI * 2);
+    ctx.fillStyle = closed ? PALETTE.teal : PALETTE.brass;
+    ctx.fill();
+    ctx.fillStyle = closed ? PALETTE.cream : PALETTE.ink;
+    ctx.textAlign = 'center';
+    ctx.font = font(700, Math.round(rowH * 0.42));
+    ctx.fillText(String(i + 1), 46, cy + 1);
+    const pipsW = titlesOnly || closed ? 44 : stage.steps * 14 + 8;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = PALETTE.ink;
+    const name = fitText(measureWith(ctx, current ? 700 : 400), stage.name, w - 80 - pipsW - 24, rowH, Math.round(rowH * 0.52), 16, 1.1);
+    ctx.font = font(current ? 700 : 400, name.size);
+    ctx.fillText(name.lines[0] ?? '', 80, cy + 1);
+    if (closed) {
+      ctx.strokeStyle = PALETTE.teal;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(w - 74, cy);
+      ctx.lineTo(w - 62, cy + 12);
+      ctx.lineTo(w - 40, cy - 12);
+      ctx.stroke();
+    } else if (!titlesOnly) {
+      for (let k = 0; k < stage.steps; k++) {
+        const px = w - 30 - (stage.steps - k) * 14 + 7;
+        ctx.beginPath();
+        ctx.arc(px, cy, 4.5, 0, Math.PI * 2);
+        if (k < stage.done) {
+          ctx.fillStyle = PALETTE.teal;
+          ctx.fill();
+        } else {
+          ctx.strokeStyle = PALETTE.brassDark;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+    }
+    y += rowH;
+    if (current && shown.length > 0) {
+      shown.forEach((step, k) => {
+        const line = `${step.n}. ${step.label}`;
+        ctx.fillStyle = PALETTE.ink;
+        ctx.textAlign = 'left';
+        if (k === 0) {
+          const big = fitText(measureWith(ctx, 700), line, w - 92, STEP_LINE_H, 32, STEP_TEXT_MIN_PX, 1.1);
+          ctx.font = font(700, big.size);
+          ctx.fillText(big.lines[0] ?? '', 46, y + 8 + STEP_LINE_H / 2);
+        } else {
+          ctx.globalAlpha = 0.7;
+          ctx.font = font(400, 22);
+          ctx.fillText(line, 46, y + 8 + k * STEP_LINE_H + STEP_LINE_H / 2);
+          ctx.globalAlpha = 1;
+        }
+      });
+      y += expandedH;
+    }
+  });
+
+  ctx.textAlign = 'left';
+  if (view.current < 0) {
+    ctx.fillStyle = PALETTE.teal;
+    ctx.font = font(700, 30);
+    ctx.fillText(STEP_SHEET.done, 30, y + 30);
+    ctx.fillStyle = PALETTE.ink;
+    ctx.font = font(400, 24);
+    ctx.fillText(STEP_SHEET.doneHint, 30, y + 66);
+  } else if (titlesOnly) {
+    ctx.fillStyle = PALETTE.brassDark;
+    ctx.font = font(400, 22);
+    ctx.fillText(STEP_SHEET.masterNote, 30, y + 26);
+  }
+}
+
+/** The progress dial: a brass arc, one tick per stage (lit when its stage is closed) and a needle at the share of placements done. */
+function paintDial(ctx: Ctx, cx: number, cy: number, r: number, view: AssemblyView, fraction: number): void {
+  const n = view.stages.length;
+  ctx.strokeStyle = PALETTE.brassDark;
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, DIAL.start, DIAL.start + DIAL.sweep);
+  ctx.stroke();
+  view.stages.forEach((stage, i) => {
+    const a = tickAngle(i, n);
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 7, 0, Math.PI * 2);
+    ctx.fillStyle = stageClosed(stage) ? PALETTE.lamp : PALETTE.cream;
+    ctx.fill();
+    ctx.strokeStyle = PALETTE.ink;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+  const a = needleAngle(fraction);
+  ctx.strokeStyle = PALETTE.ink;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(a) * (r - 10), cy + Math.sin(a) * (r - 10));
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fillStyle = PALETTE.brass;
+  ctx.fill();
+}
+
 /** A walnut panel with a cream title block and optional lines below it; the buttons are separate surfaces placed on it. `captions` are small lines at `y` metres from the panel's centre (up positive). */
 export function paintPanel(ctx: Ctx, w: number, h: number, title: string, lines: readonly string[] = [], lineY = 0.2, captions: readonly { y: number; text: string }[] = []): void {
   ctx.clearRect(0, 0, w, h);
@@ -227,10 +447,10 @@ export function paintPanel(ctx: Ctx, w: number, h: number, title: string, lines:
 }
 
 /**
- * A round brass medallion with a glyph and a word: the pause, gift, repair and lens controls. `active` is a control that is on (the
+ * A round brass medallion with a glyph and a word: the pause, gift, repair, lens and helper controls. `active` is a control that is on (the
  * lens while X-ray shows): lamp-lit, with a lit ring round the rim.
  */
-export function paintMedallion(ctx: Ctx, size: number, glyph: 'pause' | 'gift' | 'repair' | 'lens', label: string, hover: boolean, active = false): void {
+export function paintMedallion(ctx: Ctx, size: number, glyph: 'pause' | 'gift' | 'repair' | 'lens' | 'helper', label: string, hover: boolean, active = false): void {
   ctx.clearRect(0, 0, size, size);
   const c = size / 2;
   const g = ctx.createRadialGradient(c, c * 0.8, size * 0.05, c, c, c);
@@ -269,6 +489,23 @@ export function paintMedallion(ctx: Ctx, size: number, glyph: 'pause' | 'gift' |
     ctx.fillStyle = PALETTE.brass;
     ctx.fillRect(-6, -40, 12, 22);
     ctx.restore();
+  } else if (glyph === 'helper') {
+    // A lamp held in a cupped hand (design §7.1): a glass globe with a flame, a stem and foot, and the palm as an arc beneath it.
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(c, c - 26, 22, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillRect(c - 5, c - 4, 10, 16);
+    ctx.fillRect(c - 20, c + 10, 40, 8);
+    ctx.beginPath();
+    ctx.ellipse(c, c - 26, 6, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(c, c + 2, 30, Math.PI * 0.2, Math.PI * 0.8);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
   } else if (glyph === 'lens') {
     // A magnifying glass: a ring (filled with lamp glow while X-ray is on) and a handle.
     ctx.beginPath();

@@ -30,7 +30,7 @@ import {
   trunkOpened,
   type ProgressionOptions,
 } from './progression';
-import { freshSave, serializeSave, type LoadStatus, type SaveV1, type Settings } from './save';
+import { freshSave, serializeSave, type BooleanSettingKey, type Difficulty, type LoadStatus, type SaveV1 } from './save';
 import { browserStorage, createSaveStore, type SaveStore, type StorageLike } from './store';
 
 export interface GameSessionInit {
@@ -197,10 +197,16 @@ export class GameSession {
     return true;
   }
 
-  /** Changes one setting (a save trigger). */
-  setSetting(key: keyof Settings, value: boolean): boolean {
+  /** Changes one on-or-off setting (a save trigger). */
+  setSetting(key: BooleanSettingKey, value: boolean): boolean {
     if (this.currentSave.settings[key] === value) return false;
     return this.commit({ ...this.currentSave, settings: { ...this.currentSave.settings, [key]: value } });
+  }
+
+  /** The build difficulty, chosen at the first build and changeable in Pause (ADR-050). A save trigger; the same level again changes nothing. */
+  setDifficulty(value: Difficulty): boolean {
+    if (this.currentSave.settings.difficulty === value) return false;
+    return this.commit({ ...this.currentSave, settings: { ...this.currentSave.settings, difficulty: value } });
   }
 
   // ---- Internals -------------------------------------------------------------------------------------------------

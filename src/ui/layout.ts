@@ -52,6 +52,13 @@ export const DAILY_SPOT: V3 = v(-0.28, 0.15, 0.2);
  */
 export const LENS_SPOT: V3 = v(0.28, 0.09, 0.3);
 export const LENS_HINT_SPOT: V3 = v(0.28, 0.15, 0.3);
+/**
+ * The Helper (ADR-050, INTRICATE_ASSEMBLY_DESIGN §7.1): a medallion on the right with Pause and the lens, one medallion above Pause (the daily
+ * repair sits above Gift the same way), and its one-line slip above it. Shown with the tray, so tests/ui/hot-zones.test.ts holds it, like
+ * Pause, a fingertip's reach beyond its press sphere from every compartment, the build zone, the caddy and the stand.
+ */
+export const HELPER_SPOT: V3 = v(0.28, 0.15, 0.2);
+export const HELPER_HINT_SPOT: V3 = v(0.28, 0.21, 0.2);
 /** The trunk latch (trunk_main.glb `COL_Latch`) scaled with the town. */
 export const latchSpot = (s: number): V3 => v(0, 0.14 * s, 0.125 * s);
 
@@ -75,6 +82,21 @@ export const MEDALLION_HOT_RADIUS_M = (MEDALLION_SIZE_M * Math.SQRT2) / 2 + POKE
 export const FINGER_REACH_M = 0.12;
 /** The footprint and height of the build zone about `BENCH.build` (the widest machine base, the Music Box case and the Carousel base, is 13 cm; the case is 10 cm tall, and a held part rises above it). */
 export const BUILD_ZONE = { halfX: 0.065, halfZ: 0.065, height: 0.13 } as const;
+
+/**
+ * The two props the intricate Music Box build adds to the bench (design §3.3), as footprints about the bench centre (bench-local metres,
+ * x measured from `BENCH.build.x`): the fastener caddy in the build zone's front strip and the shaft stand in its back strip. Both lie
+ * outside `BUILD_ZONE` in z, so the hot-zone test checks them as zones of their own. The GLBs are the world asset agent's; these are the
+ * design's numbers (12.5 x 5.0 cm stand, 16.2 x 4.2 cm caddy) and a held part's height above them.
+ */
+export const CADDY_ZONE = { halfX: 0.081, z0: 0.055, z1: 0.097, height: 0.065 } as const;
+export const STAND_ZONE = { halfX: 0.0625, z0: -0.105, z1: -0.055, height: 0.09 } as const;
+
+/**
+ * The "?" corner of the blueprint sheet (Master only, design §6.1): a 4 cm plaque at the sheet's near-right corner, in the painted
+ * plane's own coordinates (x right, y up the page; the page's top is away from the player).
+ */
+export const STEP_HELP = { size: 0.04, x: SHEET_PAPER.w / 2 - 0.026, y: -SHEET_PAPER.h / 2 + 0.026 } as const;
 
 export const benchPoint = (s: number, local: V3): V3 => v(local.x, local.y, benchZ(s) + local.z);
 
