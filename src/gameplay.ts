@@ -21,7 +21,7 @@
  * The daily repair (ADR-027) is a build that starts from the town's "Repair" medallion: the same housing, tray and run as a story repair,
  * and `session.dailyRepairVerified` instead of a letter when it runs correctly.
  */
-import { AdditiveBlending, createSystem, DistanceGrabbable, Grabbed, Mesh, MeshBasicMaterial, OneHandGrabbable, PlaneGeometry, Quaternion, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, createSystem, DistanceGrabbable, Grabbed, Mesh, MeshBasicMaterial, OneHandGrabbable, PlaneGeometry, Quaternion, Vector3, VisibilityState } from '@iwsdk/core';
 import type { Entity, Object3D, World } from '@iwsdk/core';
 import { needsDirector } from './assembly/director';
 import { Bench } from './assembly/bench';
@@ -33,7 +33,7 @@ import { planBuild } from './build-plan';
 import { getBlueprint, giftPlacements, INTRICATE_ASSEMBLY, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
 import type { Assembly, MachineBlueprint, StagesPlan } from './content/blueprints';
 import { isFastener, requirePart } from './content/parts';
-import { MACHINE_PLOT, REPAIRS } from './game/content';
+import { LESSON_IDS, MACHINE_PLOT, REPAIRS } from './game/content';
 import type { Difficulty, EngravingId, LetterDef, MachineId, PlotId, RepairDef } from './game/content';
 import type { Gift } from './game/gift';
 import type { GameSession } from './game/session';
@@ -44,6 +44,8 @@ import { CLOCK_TOWER_MODEL_PATHS, ClockTowerRigComponent, ClockTowerSystem, cloc
 import { WELL_MODEL_PATHS } from './machines/well';
 import { applyLibraryMaterials } from './materials';
 import type { MaterialRegistry } from './materials';
+import { installOnboarding } from './onboarding';
+import type { GameplayView, GhostGuide } from './onboarding';
 import { machineAssetIds, PartLoader } from './parts';
 import type { MachineInstance, PartInstance } from './parts';
 import { MAX_WIND_UNITS } from './sim';
@@ -55,7 +57,8 @@ import type { MachineRig } from './town';
 import type { LidHinge } from './town/motion';
 import { XRAY_SHELL, xrayZoneOf } from './town/xray-view';
 import { HELPER_COPY } from './ui';
-import type { FlowEvent, FlowUi } from './ui';
+import type { FlowEvent, FlowUi, TownLoad } from './ui';
+import { Progress, townRevealScale } from './ui/anim';
 import { BENCH, benchPoint, CADDY_AT } from './ui/layout';
 import { placeTrayParts } from './tray-layout';
 
@@ -126,12 +129,29 @@ const FINISHED_MODEL_PATHS: Readonly<Record<string, readonly string[] | undefine
 };
 
 export class Gameplay {
-  /** Set by `index.ts` once the town and the UI exist (they need this object's callbacks first). */
-  town!: TownRuntime;
+  /** Set by `index.ts` once the UI exists (it needs this object's callbacks first). */
   ui!: FlowUi;
   loader!: PartLoader;
 
   private readonly stage: Object3D;
+  /**
+   * The town, once `attachTown` has run; null before. A first-time player's page is usable before the town's models are in (they are 4.4
+   * MiB, and the town stays hidden until the trunk opens), so everything here that needs the town either waits for `townReady` (an async
+   * step: the bench, the finished machine) or does nothing until it exists (a plain flag, `townShown`, is kept for it).
+   */
+  private runtime: TownRuntime | null = null;
+  /** The trunk has opened: the town is to be shown, as soon as there is one. */
+  private townShown = false;
+  /** Whether the town's models are in; the flow UI shows a wait cue, or a retry, once the trunk has opened and they are not. */
+  private townLoad: TownLoad = 'loading';
+  /** The town settling to its size when it arrives after the trunk opened (the player saw the wait cue), rather than appearing at once. */
+  private readonly arrival = new Progress(0.5);
+  /**
+   * Resolves with the town when `attachTown` has run. A failed load does not settle it: the player is told and can try again (`townFailed`,
+   * `townLoading`), and whatever waits for the town (the bench) goes on when a try succeeds, so a retry never leaves an empty workbench.
+   */
+  readonly townReady: Promise<TownRuntime>;
+  private resolveTown!: (town: TownRuntime) => void;
   private build: Build | null = null;
   /** Unregisters the bench machine from the X-ray view (town.xray): the lens opens it while it is on the bench. */
   private xrayBench: (() => void) | null = null;
@@ -158,6 +178,8 @@ export class Gameplay {
   /** Machines whose finished model files are already being fetched (see `preload`). */
   private readonly warmed = new Set<string>();
   private towerSystem: ClockTowerSystem | undefined;
+  /** The ghost-hand onboarding (src/onboarding, PRODUCT_SPEC F15): set by `installGameplay` once the town and the UI exist. */
+  guide: GhostGuide | null = null;
   /** The theatre facade's doors (PIV_DoorL, PIV_DoorR), opened by the tower's hour; `doorsWereOpen` shuts them once it stops. */
   private readonly doors = new TheatreDoors();
   private doorsWereOpen = false;
@@ -178,6 +200,19 @@ export class Gameplay {
     this.stage = stage;
     this.unsubscribe = interactionIntents.subscribe((intent) => this.onIntent(intent));
     this.unbindTowerAudio = bindClockTowerAudio(opt.audio, clockTowerEvents);
+    this.townReady = new Promise<TownRuntime>((resolve) => {
+      this.resolveTown = resolve;
+    });
+  }
+
+  /** The town, or null while its models are still loading (see `townReady`). */
+  get town(): TownRuntime | null {
+    return this.runtime;
+  }
+
+  /** Keeps the 2D page rendering (the render budget's `wake`). */
+  keepAwake(): void {
+    this.opt.keepAwake();
   }
 
   private get session(): GameSession {
@@ -190,14 +225,31 @@ export class Gameplay {
 
   // ---- Start-up -----------------------------------------------------------------------------------------------------
 
-  /** A returning player's town: the plots that were awake, the machines that stood on them, and the next letter's models. */
-  async start(): Promise<void> {
-    this.town.town.group.visible = this.session.mode !== 'intro';
-    const missing = this.doors.resolve(this.town.town.theatre);
-    if (missing.length > 0) console.warn(`[wound-up] the theatre facade has no ${missing.join(', ')}: its doors will not open.`);
+  /** What the story needs whether or not the town is in yet: the next letter's models. */
+  start(): void {
+    this.ui.setTownLoad(this.townLoad);
     this.preload(this.session.letter);
+  }
+
+  /**
+   * The town's models are in and it stands under the stage (`installTown`). Shows it when the trunk has opened (a returning player's
+   * town is visible at once) and restores a returning player's town: the plots that were awake and the machines that stood on them.
+   */
+  async attachTown(town: TownRuntime): Promise<void> {
+    this.runtime = town;
+    this.setTownLoad('ready');
+    town.town.group.visible = this.townShown || this.session.mode !== 'intro';
+    if (this.townShown) {
+      // The trunk opened before the town was in and the player has been looking at the wait cue: the town settles in instead of appearing.
+      town.town.group.scale.setScalar(this.townScale * townRevealScale(0));
+      this.arrival.jump(0);
+      this.arrival.go(1);
+    }
+    const missing = this.doors.resolve(town.town.theatre);
+    if (missing.length > 0) console.warn(`[wound-up] the theatre facade has no ${missing.join(', ')}: its doors will not open.`);
     const standing = this.session.save.machines.filter((m) => m.placed && m.plotId);
-    this.town.restore(standing.map((m) => m.plotId as PlotId));
+    town.restore(standing.map((m) => m.plotId as PlotId));
+    this.resolveTown(town);
     if (standing.length === 0) return;
     await this.opt.texturesReady;
     for (const record of standing) {
@@ -208,7 +260,7 @@ export class Gameplay {
       rig.result = result;
       rig.running = result !== null && keepsRunning(record.blueprintId, result); // a saved Windmill or Clock Tower runs again, a saved Music Box waits for its next letter
       const xray = xrayZoneOf(rig.root); // at the bench scale, before placeRig eases it to the town's
-      if (!this.town.placeRig(rig)) continue;
+      if (!town.placeRig(rig)) continue;
       // Nothing carries a restored machine, so the town holds it; it still needs an entity, for the palm gesture (and the Clock Tower's rig component).
       let entity: Entity;
       if (record.blueprintId === 'clock_tower') entity = this.attachTower(rig, null);
@@ -219,6 +271,21 @@ export class Gameplay {
       entity.addComponent(XRayTarget, xray);
       this.placed.set(record.blueprintId, { rig, entity });
     }
+  }
+
+  /** The town's models could not be loaded: the flow UI says so and offers a retry (`townLoading` is the retry); whatever waits for the town goes on waiting. */
+  townFailed(): void {
+    this.setTownLoad('failed');
+  }
+
+  /** The town's models are being loaded (again): the flow UI shows "Waking Tockton…". */
+  townLoading(): void {
+    this.setTownLoad('loading');
+  }
+
+  private setTownLoad(state: TownLoad): void {
+    this.townLoad = state;
+    this.ui.setTownLoad(state);
   }
 
   /** The town's events (installTown `events`). */
@@ -233,9 +300,11 @@ export class Gameplay {
   /** FlowUi's `onEvent`. */
   readonly onFlow = (event: FlowEvent): void => {
     this.opt.keepAwake();
+    this.lessonDone(event.type);
     switch (event.type) {
       case 'trunk-opened':
-        this.town.town.group.visible = true;
+        this.townShown = true;
+        if (this.runtime) this.runtime.town.group.visible = true; // not in yet: `attachTown` shows it
         this.preload(this.session.letter);
         break;
       case 'letter-accepted':
@@ -280,6 +349,14 @@ export class Gameplay {
     if (system) system.config.level.value = level ?? 'standard';
   }
 
+  /** The player did what a ghost-hand lesson shows: the flow event is the proof (a press on the latch, the letter, the parcel, Run). */
+  private lessonDone(event: FlowEvent['type']): void {
+    if (event === 'trunk-opened') this.guide?.complete('latch');
+    else if (event === 'letter-accepted') this.guide?.complete('letter');
+    else if (event === 'parcel-opened') this.guide?.complete('parcel');
+    else if (event === 'run') this.guide?.complete('run');
+  }
+
   private cue(cue: 'latch' | 'paper' | 'button'): void {
     const audio = this.opt.audio;
     if (cue === 'latch') audio.snap();
@@ -313,6 +390,8 @@ export class Gameplay {
     const carried = this.carried;
     if (carried?.pending && this.session.mode === 'place') this.commitPlacement(carried, carried.pending.machine, carried.pending.plot);
     this.updateGlow(dt);
+    this.updateArrival(dt);
+    this.guide?.update(dt);
     for (let i = this.runs.length - 1; i >= 0; i--) {
       const run = this.runs[i];
       run.left -= dt;
@@ -403,10 +482,20 @@ export class Gameplay {
     return (this.towerSystem ??= this.world.getSystem(ClockTowerSystem));
   }
 
+  /** The town that arrived late settles to the scale the stage gives it (read each frame: a table placement may change it meanwhile). */
+  private updateArrival(dt: number): void {
+    const town = this.runtime;
+    if (!this.arrival.moving || !town) return;
+    this.arrival.step(dt);
+    town.town.group.scale.setScalar(this.townScale * townRevealScale(this.arrival.eased));
+    this.opt.keepAwake();
+  }
+
   /** The plot of the machine in the hand breathes in lamp light until the machine is put down on it. */
   private updateGlow(dt: number): void {
     const plot = this.carried ? PLOTS[MACHINE_PLOT[this.carried.rig.machineId]] : null;
-    if (!plot) {
+    const town = this.runtime;
+    if (!plot || !town) {
       if (this.glow) this.glow.visible = false;
       return;
     }
@@ -417,7 +506,7 @@ export class Gameplay {
       );
       this.glow.name = 'PlotGlow';
       this.glow.renderOrder = 2;
-      this.town.town.group.add(this.glow);
+      town.town.group.add(this.glow);
     }
     this.clock += dt;
     this.glow.visible = true;
@@ -436,6 +525,8 @@ export class Gameplay {
     const { blueprint, repair } = plan;
     this.disposeBuild();
     const token = ++this.buildToken;
+    const town = this.runtime ?? (await this.townReady); // the bench machine joins the town's X-ray view; the town is long in by the time a letter has been read
+    if (token !== this.buildToken) return;
     // A repair starts from the machine as it stands in the town: it comes back to the bench, the plot stays awake.
     const standing = this.placed.get(blueprint.id as MachineId);
     if (repair && standing) this.removePlaced(blueprint.id as MachineId);
@@ -443,7 +534,7 @@ export class Gameplay {
     const at = benchPoint(this.townScale, BENCH.build);
     const machine = await this.loader.spawnMachine(blueprint.id, { parent: this.stage, position: [at.x, at.y, at.z] });
     if (token !== this.buildToken) return machine.dispose();
-    this.xrayBench = this.town.xray.add({
+    this.xrayBench = town.xray.add({
       root: machine.object,
       prefixes: XRAY_SHELL[blueprint.id] ?? [],
       lens: () => true,
@@ -700,6 +791,7 @@ export class Gameplay {
   private async finish(build: Build, result: SolveResult): Promise<void> {
     const id = build.blueprint.id as MachineId;
     await this.opt.texturesReady; // GrabFeedbackSystem clones the materials of what it is given: they must be final
+    const town = this.runtime ?? (await this.townReady);
     const rig = await buildMachine(id, loadModel, this.opt.materials, BLUEPRINT_SOCKET_IDS);
     if (!rig || this.build !== build) return;
     const deep = this.bench !== null; // an intricate build ends in the reveal (design §10.4)
@@ -721,7 +813,7 @@ export class Gameplay {
       rig.running = true;
       this.runs.push({ rig, left: result.continuous ? PLACED_RUN_CAP_S : Math.min(result.runSeconds, PLACED_RUN_CAP_S) });
     }
-    this.town.addRig(rig);
+    town.addRig(rig);
     this.carried = { rig, entity: makeCarriable(this.world, rig), pending: null };
     if (id === 'clock_tower') this.attachTower(rig, this.carried.entity);
 
@@ -768,6 +860,7 @@ export class Gameplay {
       this.runs.push({ rig: carried.rig, left: keepsRunning(machine, full) ? Infinity : Math.min(full.runSeconds, PLACED_RUN_CAP_S) });
     }
     if (machine === 'clock_tower') this.towerPlaced();
+    this.guide?.complete('place');
     this.daily = null;
     this.ui.onModeChange();
     this.preload(this.session.letter);
@@ -787,7 +880,7 @@ export class Gameplay {
       this.towerPowered = false;
     }
     entity?.destroy();
-    this.town.removeRig(rig);
+    this.runtime?.removeRig(rig);
     this.runs = this.runs.filter((r) => r.rig !== rig);
     rig.root.removeFromParent();
   }
@@ -827,8 +920,28 @@ export class Gameplay {
     this.runs = [];
     this.windUnits = 0;
     this.daily = null;
-    this.town.reset();
-    this.town.town.group.visible = false;
+    this.townShown = false;
+    this.runtime?.reset();
+    if (this.runtime) this.runtime.town.group.visible = false;
+    this.guide?.reset(this.session.save.learned);
+  }
+
+  /** Read-only windows onto the loop for the onboarding guide (src/onboarding/host.ts). */
+  guideView(): GameplayView {
+    return {
+      world: this.world,
+      session: this.session,
+      ui: this.ui,
+      town: () => this.runtime,
+      stage: this.stage,
+      townScale: () => this.townScale,
+      // The stage root is hidden until the table (or the stand) is chosen, and a 2D page has no hands to teach: no lesson before both hold.
+      presenting: () => this.stage.visible && this.world.visibilityState.peek() !== VisibilityState.NonImmersive,
+      build: () => this.build,
+      carried: () => this.carried,
+      windUnits: () => this.windUnits,
+      assembly: () => this.assembly(),
+    };
   }
 
   /** The gift panel's machine: what the player built, or the intended build for one restored from a save. Null for a machine without a blueprint. */
@@ -845,6 +958,7 @@ export class Gameplay {
   }
 
   dispose(): void {
+    this.guide?.dispose();
     this.unsubscribe();
     this.unbindTowerAudio();
     this.disposeBuild();
@@ -856,10 +970,17 @@ export class Gameplay {
 
   /** Opt-in (`?debug`): drives the loop without hands, for the browser and emulator tests. */
   debug() {
+    const town = (): TownRuntime | null => this.runtime;
     return {
       session: this.session,
       ui: this.ui,
-      town: this.town,
+      /** The town runtime, null while the town is still loading (`townReady`). */
+      get town(): TownRuntime | null {
+        return town();
+      },
+      townReady: this.townReady,
+      /** Whether the town's models are in (`loading`, `ready`) or could not be loaded (`failed`). */
+      townLoad: (): TownLoad => this.townLoad,
       state: () => ({
         mode: this.session.mode,
         build: this.build ? { blueprint: this.build.blueprint.id, parts: this.build.parts.length, seated: Object.keys(this.build.machine.assembly()).length, fixed: Object.keys(this.build.fixed).length } : null,
@@ -884,6 +1005,10 @@ export class Gameplay {
         letter: this.session.letter?.id ?? null,
         daily: this.daily?.repair.id ?? null,
       }),
+      /** The ghost-hand cue on show (lesson, kind, seconds, variant), or null. */
+      guide: () => this.guide?.state() ?? null,
+      /** Which lessons are learned: the tracker's and the save's. */
+      lessons: () => ({ learned: [...this.session.save.learned], tracker: this.guide ? LESSON_IDS.filter((id) => this.guide?.tracker.isLearned(id)) : [] }),
       /** A click on the UI target named `name` (a ray or poke), as pointer events deliver it; `hit` names the child that was hit (the trunk's `COL_Latch`). */
       press: (name: string, hit?: string): boolean => {
         // The three props keep their GLB's root name (`Scene`): they are the first three targets, in build order.
@@ -940,7 +1065,7 @@ export class Gameplay {
       dropOnPlot: (): boolean => {
         const carried = this.carried;
         if (!carried) return false;
-        const socket = this.town.town.ground.getObjectByName(`SOCKET_${plotNode(carried.rig.machineId)}`);
+        const socket = this.runtime?.town.ground.getObjectByName(`SOCKET_${plotNode(carried.rig.machineId)}`);
         if (!socket) return false;
         socket.getWorldPosition(_at);
         carried.rig.root.parent?.worldToLocal(_at);
@@ -992,6 +1117,7 @@ export class GameplaySystem extends createSystem({}) {
 
 export function installGameplay(world: World, gameplay: Gameplay): void {
   running.set(world, gameplay);
+  gameplay.guide = installOnboarding(gameplay.guideView(), () => gameplay.keepAwake());
   world.registerSystem(GameplaySystem, { priority: 12 });
   installClockTower(world); // after the interaction systems (10), the town (11) and this loop: see src/machines/clock-tower/INTEGRATION.md
 }

@@ -9,7 +9,7 @@ import { frames, gameState, GPU_ARGS, Hand, openGame, pressWhenReady, requireDev
  *   run 3  Restart again, the whole flow again, then a page reload.
  * Parts and the carry are done by hands (IWER); UI presses, wind and Run go through the debug helper. EMULATOR evidence, never headset evidence.
  * A console error or an uncaught exception anywhere fails the run that saw it. The result of each run is written to
- * docs/evidence/screens/repeat.json as well as reported by the runner.
+ * .tmp/evidence/repeat.json as well as reported by the runner.
  */
 test.use({ launchOptions: { args: GPU_ARGS } });
 test.setTimeout(600_000);
@@ -129,8 +129,8 @@ test.describe.serial('the Music Box flow three times in a row (Restart from the 
   test.afterAll(async () => {
     const fs = (await import('node:fs' as string)) as { mkdirSync(p: string, o: { recursive: boolean }): void; writeFileSync(p: string, d: string): void };
     const cwd = (globalThis as unknown as { process: { cwd(): string } }).process.cwd();
-    fs.mkdirSync(`${cwd}/docs/evidence/screens`, { recursive: true });
-    fs.writeFileSync(`${cwd}/docs/evidence/screens/repeat.json`, JSON.stringify({ ranAt: new Date().toISOString(), results, consoleProblems: problems }, null, 2));
+    fs.mkdirSync(`${cwd}/.tmp/evidence`, { recursive: true });
+    fs.writeFileSync(`${cwd}/.tmp/evidence/repeat.json`, JSON.stringify({ ranAt: new Date().toISOString(), results, consoleProblems: problems }, null, 2));
     await context.close();
   });
 

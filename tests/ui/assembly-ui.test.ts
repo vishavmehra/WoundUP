@@ -11,7 +11,7 @@ import { setXRayLens, writeXRayFlag } from '../../src/interaction/xray-state';
 import { HELPER_BREATH_S, HELPER_COOLDOWN_S, type HelperView } from '../../src/ui/assembly';
 import { DIFFICULTY_CARD, DIFFICULTY_COPY, DIFFICULTY_ROW, HELPER_COPY, SETTING_ROWS } from '../../src/ui/copy';
 import { FlowUi, type AssemblyOptions, type FlowEvent } from '../../src/ui/flow-ui';
-import { HELPER_SPOT, PANEL_SPOT } from '../../src/ui/layout';
+import { HELPER_SPOT, PANEL_SPOT, PAUSE_PANEL_BASE, PAUSE_PANEL_SCALE, PAUSE_PANEL_SPOT, SETTING_ROW_STEP } from '../../src/ui/layout';
 import { PX_PER_M } from '../../src/ui/paint';
 import { FakeStorage } from '../game/helpers';
 import { viewAt } from './assembly-fixtures';
@@ -564,7 +564,7 @@ describe('the Difficulty row in Pause', () => {
     const r = await rig({ assembly: ON, difficulty: 'standard' });
     await toParcel(r);
     await pause(r);
-    expect(live(r)).toEqual(['UI_Difficulty', 'UI_PanelLeft', 'UI_PanelRight', 'UI_Toggle_easySnap', 'UI_Toggle_gazeMode', 'UI_Toggle_night', 'UI_Toggle_xrayHint']);
+    expect(live(r)).toEqual(['UI_Difficulty', 'UI_PanelLeft', 'UI_PanelRight', 'UI_Toggle_easySnap', 'UI_Toggle_gazeMode', 'UI_Toggle_night', 'UI_Toggle_rayMode', 'UI_Toggle_xrayHint']);
     expect(allText(r)).toContain('Difficulty: Standard');
     expect(allText(r)).toContain(DIFFICULTY_ROW.hint);
   });
@@ -576,15 +576,17 @@ describe('the Difficulty row in Pause', () => {
     const panel = object(r, 'UI_Difficulty').parent as Object3D;
     const base = panel.children.find((c) => c instanceof Mesh && c.visible && !c.name) as Mesh;
     const { height } = (base.geometry as unknown as { parameters: { height: number } }).parameters;
-    expect(height).toBeCloseTo(0.325 + 0.056, 9);
-    expect(panel.position.y - height / 2).toBeCloseTo(PANEL_SPOT.y - 0.325 / 2, 9); // the bottom is where the four-row panel's was
+    expect(height).toBeCloseTo(PAUSE_PANEL_BASE.h + SETTING_ROW_STEP, 9);
+    // The panel is shown at PAUSE_PANEL_SCALE in front of the machine; its bottom is where the five-row panel's is.
+    expect(panel.scale.y).toBe(PAUSE_PANEL_SCALE);
+    expect(panel.position.y - (height / 2) * PAUSE_PANEL_SCALE).toBeCloseTo(PAUSE_PANEL_SPOT.y - (PAUSE_PANEL_BASE.h / 2) * PAUSE_PANEL_SCALE, 9);
     const rows = [...SETTING_ROWS.map((row) => `UI_Toggle_${row.key}`), 'UI_Difficulty'].map((n) => object(r, n).position.y);
     for (let i = 1; i < rows.length; i++) expect(rows[i - 1] - rows[i]).toBeCloseTo(0.056, 9); // the same pitch as the others
     const buttons = object(r, 'UI_PanelLeft').position.y;
     expect(last(rows) - buttons).toBeGreaterThanOrEqual(0.07);
     expect(rows[0] + 0.016).toBeLessThanOrEqual(height / 2 - 0.04); // under the title
-    expect(buttons - 0.017).toBeGreaterThanOrEqual(-height / 2 + 0.005); // the margin the four-row panel has too (0.008)
-    // The sentence under the fifth row sits between it and the buttons, clear of both.
+    expect(buttons - 0.017).toBeGreaterThanOrEqual(-height / 2 + 0.005); // the margin the five-row panel has too (0.008)
+    // The sentence under the sixth row sits between it and the buttons, clear of both.
     const captionY = last(rows) - 0.0235;
     const half = 26 / PX_PER_M / 2;
     expect(captionY + half).toBeLessThan(last(rows) - 0.016);
@@ -622,7 +624,7 @@ describe('the Difficulty row in Pause', () => {
     await pause(r);
     expect(find(r, 'UI_Difficulty').active).toBe(false);
     expect(visible(r, 'UI_Difficulty')).toBe(false);
-    expect((object(r, 'UI_Toggle_easySnap').parent as Object3D).position.y).toBe(PANEL_SPOT.y);
+    expect((object(r, 'UI_Toggle_easySnap').parent as Object3D).position.y).toBe(PAUSE_PANEL_SPOT.y);
   });
 
   it('is not there when the assembly is off, even with a level saved, and the panel is then the usual size', async () => {
@@ -631,6 +633,6 @@ describe('the Difficulty row in Pause', () => {
     await pause(r);
     expect(find(r, 'UI_Difficulty').active).toBe(false);
     expect(visible(r, 'UI_Difficulty')).toBe(false);
-    expect((object(r, 'UI_Toggle_easySnap').parent as Object3D).position.y).toBe(PANEL_SPOT.y);
+    expect((object(r, 'UI_Toggle_easySnap').parent as Object3D).position.y).toBe(PAUSE_PANEL_SPOT.y);
   });
 });

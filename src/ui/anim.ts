@@ -4,6 +4,10 @@ import type { Object3D } from 'three';
 export const smooth = (t: number): number => t * t * (3 - 2 * t);
 export const clamp01 = (t: number): number => (t < 0 ? 0 : t > 1 ? 1 : t);
 
+/** The town that arrives after the trunk has opened settles to its size from this fraction of it (eased progress 0 to 1 gives `TOWN_REVEAL_FROM` to 1). */
+export const TOWN_REVEAL_FROM = 0.86;
+export const townRevealScale = (eased: number): number => TOWN_REVEAL_FROM + (1 - TOWN_REVEAL_FROM) * clamp01(eased);
+
 /**
  * A 0..1 value that eases toward 1 (`go(1)`) or 0 (`go(0)`) over `seconds`, with an optional start delay. No allocation in `step`.
  * `value` is the linear progress, `eased` the smoothed one a pose should use.

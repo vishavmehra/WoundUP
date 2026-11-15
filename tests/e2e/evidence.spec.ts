@@ -29,8 +29,8 @@ import {
 
 /**
  * The evidence run: walks the whole Music Box flow in the emulated Quest 3 (IWER) and saves the 19 screenshots of the
- * competition's acceptance list to docs/evidence/screens/NN-name.png, plus the machine-readable record of the run
- * (docs/evidence/screens/run.json: one row per screenshot, the renderer numbers at four points, the motion readings).
+ * competition's acceptance list to .tmp/evidence/NN-name.png, plus the machine-readable record of the run
+ * (.tmp/evidence/run.json: one row per screenshot, the renderer numbers at four points, the motion readings).
  * EMULATOR evidence (IWER in desktop Chromium, real GPU, both eyes rendered), never headset evidence. Screenshot 19 is the desktop gift page.
  *
  * Re-runnable: it starts from a fresh browser context (no save), needs only the IWSDK dev runtime on localhost:8081, and
@@ -51,7 +51,7 @@ const fs = (await import('node:fs' as string)) as NodeFs;
 const path = (await import('node:path' as string)) as NodePath;
 const cwd = (globalThis as unknown as { process: { cwd(): string } }).process.cwd();
 
-const OUT = path.join(cwd, 'docs', 'evidence', 'screens');
+const OUT = path.join(cwd, '.tmp', 'evidence');
 
 type Png = Awaited<ReturnType<Page['screenshot']>>;
 type Driver = 'hands' | 'debug helper' | 'hands + debug helper';

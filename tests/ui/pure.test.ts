@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { ENGRAVINGS, LETTERS } from '../../src/game/content';
 import type { GiftError } from '../../src/game/gift';
 import { modeState, type Mode, type ModeState } from '../../src/game/modes';
-import { Progress, applyHinge, findHinge, hingeAngle, readPivot } from '../../src/ui/anim';
-import { MACHINE_NAMES, SETTING_ROWS, describeResult, giftErrorText, giftMakeErrorText, windLabel } from '../../src/ui/copy';
+import { Progress, TOWN_REVEAL_FROM, applyHinge, findHinge, hingeAngle, readPivot, townRevealScale } from '../../src/ui/anim';
+import { MACHINE_NAMES, SETTING_ROWS, TOWN_WAIT, describeResult, giftErrorText, giftMakeErrorText, windLabel } from '../../src/ui/copy';
 import { fitText, wrapText } from '../../src/ui/text-layout';
-import { freshLocal, viewFor, type LocalFlow } from '../../src/ui/view';
+import { freshLocal, viewFor, type LocalFlow, type TownLoad } from '../../src/ui/view';
 
 const ctx = { letter: LETTERS.letter_1, closing: null, giftAvailable: false, xrayHint: true };
 const at = (mode: Mode, extra: Partial<ModeState> = {}): ModeState => ({ ...modeState(mode), ...extra });
@@ -152,7 +152,7 @@ describe('result labels (UI_UX_SPEC section 13)', () => {
 
   it('has a name for every machine and a row for each setting', () => {
     expect(Object.keys(MACHINE_NAMES).sort()).toEqual(['belfry', 'carousel', 'clock_tower', 'music_box', 'well', 'windmill']);
-    expect(SETTING_ROWS.map((r) => r.key)).toEqual(['easySnap', 'gazeMode', 'xrayHint', 'night']);
+    expect(SETTING_ROWS.map((r) => r.key)).toEqual(['easySnap', 'gazeMode', 'rayMode', 'xrayHint', 'night']);
     expect(ENGRAVINGS.length).toBe(8);
   });
 });
@@ -236,5 +236,73 @@ describe('Progress', () => {
     expect(p.value).toBeCloseTo(0.2, 6);
     p.jump(0);
     expect(p.moving).toBe(false);
+  });
+});
+
+describe('viewFor: the wait cue while the town is not in (townCue)', () => {
+  const afterTrunk = local({ trunk: 'withdrawing' });
+  const cueOf = (state: ModeState, flow: LocalFlow, townLoad?: TownLoad) => viewFor(state, flow, { ...ctx, townLoad }).townCue;
+
+  it('shows nothing when the town is in, or when nothing says it is not (a page with no deferred town)', () => {
+    expect(cueOf(at('town'), afterTrunk, 'ready')).toBe('none');
+    expect(cueOf(at('town'), afterTrunk)).toBe('none');
+  });
+
+  it('waits only once the trunk has opened: the town is hidden until then, so there is nothing to wait for', () => {
+    expect(cueOf(at('intro'), local(), 'loading')).toBe('none');
+    expect(cueOf(at('intro'), local({ trunk: 'opening' }), 'failed')).toBe('none');
+    expect(cueOf(at('town'), afterTrunk, 'loading')).toBe('waiting');
+  });
+
+  it('says so when the town could not be loaded, in every mode of the story, until it is', () => {
+    for (const mode of ['town', 'build', 'wind', 'place'] as const) {
+      expect(cueOf(at(mode), local({ trunk: 'gone' }), 'failed'), mode).toBe('failed');
+      expect(cueOf(at(mode), local({ trunk: 'gone' }), 'loading'), mode).toBe('waiting');
+      expect(cueOf(at(mode), local({ trunk: 'gone' }), 'ready'), mode).toBe('none');
+    }
+  });
+
+  it('steps aside for a panel (pause, restart, gift) and comes back with the mode it returns to', () => {
+    expect(cueOf(at('pause', { resume: 'town' }), afterTrunk, 'failed')).toBe('none');
+    expect(cueOf(at('pause', { resume: 'town', restartArmed: true }), afterTrunk, 'loading')).toBe('none');
+    expect(cueOf(at('gift'), local({ trunk: 'gone' }), 'failed')).toBe('none');
+    // A game paused in the introduction goes back to it: still nothing to wait for.
+    expect(cueOf(at('pause', { resume: 'intro' }), local(), 'loading')).toBe('none');
+  });
+});
+
+describe('the wait cue words', () => {
+  it('never claim progress they do not have: no percentage, no count', () => {
+    for (const text of [TOWN_WAIT.waiting, TOWN_WAIT.failed]) expect(`${text.title} ${text.hint}`).not.toMatch(/\d|%/);
+    expect(TOWN_WAIT.waiting.title).toBe('Waking Tockton…');
+  });
+
+  it('say what happened and what to do, in words that need no code names', () => {
+    expect(TOWN_WAIT.failed.hint).toMatch(/connection/i);
+    expect(TOWN_WAIT.retry).toBe('Try again');
+  });
+});
+
+describe('the town that arrives late settles in (townRevealScale)', () => {
+  it('goes from a little under its size to its size, and no further either way', () => {
+    expect(townRevealScale(0)).toBe(TOWN_REVEAL_FROM);
+    expect(townRevealScale(1)).toBe(1);
+    expect(townRevealScale(0.5)).toBeGreaterThan(TOWN_REVEAL_FROM);
+    expect(townRevealScale(0.5)).toBeLessThan(1);
+    expect(townRevealScale(-3)).toBe(TOWN_REVEAL_FROM);
+    expect(townRevealScale(7)).toBe(1);
+  });
+
+  it('is monotonic along the eased progress', () => {
+    const p = new Progress(0.5);
+    p.go(1);
+    let last = townRevealScale(p.eased);
+    for (let i = 0; i < 40; i++) {
+      p.step(0.0125);
+      const now = townRevealScale(p.eased);
+      expect(now).toBeGreaterThanOrEqual(last);
+      last = now;
+    }
+    expect(last).toBe(1);
   });
 });

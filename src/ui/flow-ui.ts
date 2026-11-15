@@ -8,7 +8,7 @@ import type { Difficulty } from '../game/save.js';
 import type { GameSession } from '../game/session.js';
 import type { Mode } from '../game/modes.js';
 import { giftableMachines } from '../game/progression.js';
-import { setGazeMode } from '../interaction/gaze-mode.js';
+import { setPointerModes } from '../interaction/ray-mode.js';
 import { SocketSnapSystem } from '../interaction/socket-snap-system.js';
 import { isXRayLensOn, setXRayLens, xrayFlag } from '../interaction/xray-state.js';
 import { setupGlbInteraction, type GlbInteraction } from '../interaction/glb-interaction.js';
@@ -28,6 +28,7 @@ import {
   RECOMMENDED_DIFFICULTY,
   SETTING_ROWS,
   STEP_SHEET,
+  TOWN_WAIT,
   XRAY_HINT,
   describeResult,
   difficultyRowLabel,
@@ -36,12 +37,43 @@ import {
   windLabel,
   type ResultHints,
 } from './copy.js';
-import { BENCH, DAILY_SPOT, GIFT_SPOT, HELPER_HINT_SPOT, HELPER_SPOT, LENS_HINT_SPOT, LENS_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_PLAQUE, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, STEP_HELP, benchPoint, benchZ, latchSpot } from './layout.js';
+import {
+  BENCH,
+  DAILY_SPOT,
+  GIFT_SPOT,
+  HELPER_HINT_SPOT,
+  HELPER_SPOT,
+  LENS_HINT_SPOT,
+  LENS_SPOT,
+  LETTER_SPOT,
+  PANEL_BUTTON,
+  PANEL_SPOT,
+  PAUSE_BUTTON_ROW_Y,
+  PAUSE_PANEL_BASE,
+  PAUSE_PANEL_SCALE,
+  PAUSE_PANEL_SPOT,
+  PAUSE_SPOT,
+  READING_SPOT,
+  RUN_PLAQUE,
+  RUN_SIGN_HEIGHT,
+  RUN_SIGN_SLIP,
+  RUN_SIGN_SLIP_HEIGHT,
+  SETTING_PLAQUE,
+  SETTING_ROW_STEP,
+  SETTING_ROW_Y,
+  SHEET_PAPER,
+  STEP_HELP,
+  TOWN_RETRY_SPOT,
+  TOWN_WAIT_SPOT,
+  benchPoint,
+  benchZ,
+  latchSpot,
+} from './layout.js';
 import { createGiftLink, shortLink, showLinkInPage, type GiftHost, type ShareEnv } from './gift-flow.js';
 import { paintBlueprint, paintChoice, paintClosing, paintLetter, paintMedallion, paintPanel, paintSlip, paintStepSheet, resultSlip, type BlueprintSlot } from './paint.js';
 import { PALETTE, ensureFonts } from './palette.js';
 import { Plaque, Surface, domCanvas, type CanvasFactory } from './surface.js';
-import { freshLocal, viewFor, type LocalFlow, type View } from './view.js';
+import { freshLocal, viewFor, type LocalFlow, type TownLoad, type View } from './view.js';
 
 /** The stage root's scene node id (`STAGE_NODE_ID` in src/stage.ts, repeated so this module does not pull the placement code in). */
 const STAGE_NODE = 'stage';
@@ -59,10 +91,12 @@ export type FlowEvent =
   | { type: 'run' }
   /** Adjust was pressed: the session is back in Build. */
   | { type: 'adjust' }
-  | { type: 'setting'; key: 'easySnap' | 'gazeMode' | 'xrayHint' | 'night'; value: boolean }
+  | { type: 'setting'; key: 'easySnap' | 'gazeMode' | 'rayMode' | 'xrayHint' | 'night'; value: boolean }
   /** Restart was confirmed and progress is deleted: reset the town and the machine. */
   | { type: 'restarted' }
   | { type: 'gift-link'; machineId: MachineId; url: string; delivered: 'copied' | 'shared' | 'shown' }
+  /** The town's models did not load and the player pressed "Try again" on the slip over the town: load them again, then `setTownLoad`. */
+  | { type: 'town-retry' }
   /** A sound cue for the audio layer, at the moment of the action (UI_UX_SPEC section 22): the latch, paper, and every other press. */
   | { type: 'cue'; cue: 'latch' | 'paper' | 'button' }
   /** The build difficulty was chosen on the first-build card (`first`) or changed in Pause; it is already in the save (ADR-050, design §6). */
@@ -123,15 +157,11 @@ class Hot {
   ) {}
 }
 
-const PANEL_SMALL = { w: 0.26, h: 0.325 } as const; // four setting rows (a row and its caption take 0.055)
 /** The tray rises this far (metres) as the parcel opens; parts are seated for its rest pose. */
 const TRAY_RISE = 0.02;
-/** The pause panel's first setting plaque (centre, metres from the panel's centre) and the step between rows; a caption sits under each. */
-const SETTING_ROW_Y = 0.1025;
-const SETTING_ROW_STEP = 0.056;
 const PANEL_GIFT = { w: 0.29, h: 0.3 } as const;
-/** The pause panel with the Difficulty row (ADR-050): one setting row (0.056) taller. It grows upward, so its bottom edge stays where the small panel's was. */
-const PANEL_TALL = { w: PANEL_SMALL.w, h: PANEL_SMALL.h + SETTING_ROW_STEP } as const;
+/** The pause panel with the Difficulty row (ADR-050): one setting row (0.056) taller. It grows upward, so its bottom edge stays where the five-row panel's was. */
+const PANEL_TALL = { w: PAUSE_PANEL_BASE.w, h: PAUSE_PANEL_BASE.h + SETTING_ROW_STEP } as const;
 /** The first-build difficulty card: three choices (0.23 x 0.07, 0.075 apart) under the title, the note under them. */
 const PANEL_DIFFICULTY = { w: 0.27, h: 0.34 } as const;
 const CHOICE = { w: 0.23, h: 0.07, y0: 0.085, step: 0.075 } as const;
@@ -182,6 +212,8 @@ export class FlowUi {
   private facedYaw = 0;
   private view: View | null = null;
   private shownLetter: string | null = null;
+  /** Whether the town's models are in (`setTownLoad`). Ready until the integrator says otherwise, so a page with no deferred town shows no cue. */
+  private townLoad: TownLoad = 'ready';
 
   // Animations
   private readonly lid = new Progress(1.1);
@@ -224,6 +256,9 @@ export class FlowUi {
   private helperHint!: Surface;
   private helperHalo!: Mesh;
   private stepHelp!: Plaque;
+  private townSlip!: Surface;
+  private townRetry!: Plaque;
+  private townRetryHot!: Hot;
   private panelGroup!: Group;
   private panelBase!: Surface;
   private panelTallBase!: Surface;
@@ -310,6 +345,13 @@ export class FlowUi {
 
   /** Call after any mode change the UI did not make itself. */
   onModeChange(_mode?: Mode): void {
+    this.sync();
+  }
+
+  /** The town's models are loading, in, or could not be loaded: once the trunk has opened, a slip over the town says so (`View.townCue`). */
+  setTownLoad(state: TownLoad): void {
+    if (state === this.townLoad) return;
+    this.townLoad = state;
     this.sync();
   }
 
@@ -647,6 +689,15 @@ export class FlowUi {
     this.stepHelp.set(STEP_SHEET.helpLabel);
     this.stepHelpHot = this.button(this.stepHelp, this.sheet.entity, () => this.showStepNow(), (on) => this.stepHelp.set(STEP_SHEET.helpLabel, on ? 'hover' : 'idle'));
 
+    // The town's models are late (or could not be fetched): a slip over the town, and a plaque that tries again (`View.townCue`).
+    this.townSlip = new Surface(f, 0.15, 0.056);
+    this.townSlip.mesh.name = 'UI_TownWait';
+    place(this.townSlip, TOWN_WAIT_SPOT);
+    this.townRetry = new Plaque(f, 0.09, 0.034);
+    this.townRetry.mesh.name = 'UI_TownRetry';
+    this.townRetryHot = this.hot(place(this.townRetry, TOWN_RETRY_SPOT), () => this.retryTown(), (on) => this.townRetry.set(TOWN_WAIT.retry, on ? 'hover' : 'idle'));
+    this.townRetry.set(TOWN_WAIT.retry);
+
     // The run sign: a post, the Run plaque, an Adjust plaque after a failed run, and one slip for the counter or the result.
     this.signGroup = new Group();
     this.signGroup.visible = false;
@@ -673,13 +724,13 @@ export class FlowUi {
     this.panelGroup = new Group();
     this.panelGroup.visible = false;
     const panelEntity = this.mount(this.panelGroup);
-    this.panelBase = new Surface(f, PANEL_SMALL.w, PANEL_SMALL.h);
+    this.panelBase = new Surface(f, PAUSE_PANEL_BASE.w, PAUSE_PANEL_BASE.h);
     this.panelTallBase = new Surface(f, PANEL_TALL.w, PANEL_TALL.h);
     this.panelGiftBase = new Surface(f, PANEL_GIFT.w, PANEL_GIFT.h);
     this.panelDifficultyBase = new Surface(f, PANEL_DIFFICULTY.w, PANEL_DIFFICULTY.h);
     this.panelGroup.add(this.panelBase.mesh, this.panelTallBase.mesh, this.panelGiftBase.mesh, this.panelDifficultyBase.mesh);
     this.toggles = SETTING_ROWS.map((row, i) => {
-      const p = new Plaque(f, 0.21, 0.032);
+      const p = new Plaque(f, SETTING_PLAQUE.w, SETTING_PLAQUE.h);
       p.mesh.name = `UI_Toggle_${row.key}`;
       p.mesh.position.z = 0.003;
       this.panelGroup.add(p.mesh);
@@ -687,7 +738,7 @@ export class FlowUi {
       return p;
     });
     // The Difficulty row of the pause panel, and the three answers of the first-build card (ADR-050).
-    this.difficultyRow = new Plaque(f, 0.21, 0.032);
+    this.difficultyRow = new Plaque(f, SETTING_PLAQUE.w, SETTING_PLAQUE.h);
     this.difficultyRow.mesh.name = 'UI_Difficulty';
     this.difficultyRow.mesh.position.z = 0.003;
     this.panelGroup.add(this.difficultyRow.mesh);
@@ -700,8 +751,8 @@ export class FlowUi {
       this.choiceHots.push(this.hotButton(p, panelEntity, () => this.chooseDifficulty(d)));
       return p;
     });
-    this.btnL = new Plaque(f, 0.115, 0.034);
-    this.btnR = new Plaque(f, 0.115, 0.034);
+    this.btnL = new Plaque(f, PANEL_BUTTON.w, PANEL_BUTTON.h);
+    this.btnR = new Plaque(f, PANEL_BUTTON.w, PANEL_BUTTON.h);
     this.machineBtn = new Plaque(f, 0.21, 0.032);
     this.btnL.mesh.name = 'UI_PanelLeft';
     this.btnR.mesh.name = 'UI_PanelRight';
@@ -724,7 +775,7 @@ export class FlowUi {
       this.hotButton(p, panelEntity, () => this.pickEngraving(e.id));
       return p;
     });
-    this.surfaces.push(this.sheet.overlay, this.cardPaper, this.accept, this.closingCard, this.hint, this.pauseMed, this.giftMed, this.dailyMed, this.lensMed, this.lensHint, this.signSlip, this.runPlaque, this.adjustPlaque);
+    this.surfaces.push(this.sheet.overlay, this.cardPaper, this.accept, this.closingCard, this.hint, this.pauseMed, this.giftMed, this.dailyMed, this.lensMed, this.lensHint, this.townSlip, this.townRetry, this.signSlip, this.runPlaque, this.adjustPlaque);
     this.surfaces.push(this.panelBase, this.panelGiftBase, this.btnL, this.btnR, this.machineBtn, ...this.toggles, ...this.chips);
     this.surfaces.push(this.helperMed, this.helperHint, this.stepHelp, this.panelTallBase, this.panelDifficultyBase, this.difficultyRow, ...this.choices);
   }
@@ -750,6 +801,7 @@ export class FlowUi {
       xrayHint: this.session.save.settings.xrayHint,
       helper: this.assembly !== null,
       chooseDifficulty: this.assemblyOn() && this.session.save.settings.difficulty === null && (this.opt.assembly?.deepBuild(letter) ?? false),
+      townLoad: this.townLoad,
     });
     const before = this.view;
     this.view = view;
@@ -817,6 +869,7 @@ export class FlowUi {
     this.showHint(view);
     this.showHelper(view);
     this.showStepHelp(view);
+    this.showTownCue(view);
 
     // Panels
     this.showPanel(view.panel);
@@ -836,6 +889,8 @@ export class FlowUi {
     if (this.lensHint.mesh.visible) this.faceHead(this.lensHint.mesh);
     if (this.helperMed.mesh.visible) this.faceHead(this.helperMed.mesh);
     if (this.helperHint.mesh.visible) this.faceHead(this.helperHint.mesh);
+    if (this.townSlip.mesh.visible) this.faceHead(this.townSlip.mesh);
+    if (this.townRetry.mesh.visible) this.faceHead(this.townRetry.mesh);
     if (this.signGroup.visible) this.faceHead(this.signGroup, true);
     if (this.panelGroup.visible) this.faceHead(this.panelGroup);
   }
@@ -1034,7 +1089,8 @@ export class FlowUi {
     const show = view.xrayHint && view.panel === 'none';
     this.lensHint.mesh.visible = show;
     if (!show) return;
-    const text = this.session.save.settings.gazeMode ? XRAY_HINT.gaze : XRAY_HINT.hands;
+    const { gazeMode, rayMode } = this.session.save.settings; // at most one is on (the toggle turns the other off)
+    const text = gazeMode ? XRAY_HINT.gaze : rayMode ? XRAY_HINT.ray : XRAY_HINT.hands;
     this.lensHint.paint(text.hint, (c, w, h) => paintSlip(c, w, h, XRAY_HINT.title, text.hint, 'good'));
     this.faceHead(this.lensHint.mesh);
   }
@@ -1063,10 +1119,16 @@ export class FlowUi {
       for (const hot of this.panelHots) this.setHot(hot, false);
       return;
     }
+    // Pause and restart stand in front of the machine on the bench, smaller; the gift panel, shown in the town, and the first-build difficulty card,
+    // shown over the closed parcel before a machine stands on the bench, keep the spot behind where the bench stands (layout.ts).
     // The pause panel carries the Difficulty row once the level is chosen (ADR-050): one row taller, growing upward so its bottom edge stays put.
+    const compact = kind === 'pause' || kind === 'restart';
     const tall = kind === 'pause' && this.difficultyRowOn();
     const shift = tall ? SETTING_ROW_STEP : 0;
-    this.panelGroup.position.set(PANEL_SPOT.x, PANEL_SPOT.y + shift / 2, PANEL_SPOT.z);
+    const scale = compact ? PAUSE_PANEL_SCALE : 1;
+    const spot = compact ? PAUSE_PANEL_SPOT : PANEL_SPOT;
+    this.panelGroup.position.set(spot.x, spot.y + (shift / 2) * scale, spot.z);
+    this.panelGroup.scale.setScalar(scale);
     if (was === 'none') this.faceHead(this.panelGroup);
     if (kind === 'gift' && was !== 'gift') {
       // Reopened later: the machines standing in the town may have changed since the last visit.
@@ -1111,9 +1173,9 @@ export class FlowUi {
     this.btnL.mesh.visible = this.btnR.mesh.visible = kind !== 'difficulty';
     // One machine to gift is the usual case and needs no selector; none (a note) or several (a choice) do.
     this.machineBtn.mesh.visible = gift && this.giftState.machines.length !== 1;
-    const row = kind === 'pause' ? -0.1375 - shift / 2 : kind === 'restart' ? -0.06 : -0.122;
-    this.btnL.mesh.position.set(-0.067, row, 0.003);
-    this.btnR.mesh.position.set(0.067, row, 0.003);
+    const row = kind === 'pause' ? PAUSE_BUTTON_ROW_Y - shift / 2 : kind === 'restart' ? -0.06 : -0.122;
+    this.btnL.mesh.position.set(-PANEL_BUTTON.x, row, 0.003);
+    this.btnR.mesh.position.set(PANEL_BUTTON.x, row, 0.003);
     for (const hot of this.panelHots) this.setHot(hot, (hot.entity.object3D as Object3D).visible);
     // Master stays on the card but is not an answer until its spacing test has passed.
     if (kind === 'difficulty') this.setHot(this.choiceHots[DIFFICULTY_ORDER.indexOf('master')], this.masterOn);
@@ -1157,7 +1219,9 @@ export class FlowUi {
     if (!this.session.setSetting(row.key, value)) return;
     this.cue('button');
     if (row.key === 'easySnap') this.applySnap();
-    if (row.key === 'gazeMode') this.applyGaze();
+    // Gaze and pinch and ray mode both put a pointer in charge of the grab: turning one on turns the other off.
+    if (value && (row.key === 'gazeMode' || row.key === 'rayMode')) this.session.setSetting(row.key === 'gazeMode' ? 'rayMode' : 'gazeMode', false);
+    if (row.key === 'gazeMode' || row.key === 'rayMode') this.applyGaze();
     this.opt.onEvent?.({ type: 'setting', key: row.key, value });
     this.sync();
   }
@@ -1167,9 +1231,9 @@ export class FlowUi {
     if (system) system.config.easySnap.value = this.session.save.settings.easySnap;
   }
 
-  /** Gaze-and-pinch from the save: the pointer and every part's grab component (src/interaction/gaze-mode.ts). */
+  /** Gaze-and-pinch and ray mode from the save: the pointer and every part's grab component (src/interaction/gaze-mode.ts, ray-mode.ts). */
   private applyGaze(): void {
-    setGazeMode(this.world, this.session.save.settings.gazeMode);
+    setPointerModes(this.world, this.session.save.settings);
   }
 
   private cycleMachine(): void {
@@ -1414,6 +1478,24 @@ export class FlowUi {
     this.hint.paint(text, (c, w, h) => paintSlip(c, w, h, text, '', 'good'));
     this.hint.mesh.position.set(at.x, at.y, at.z);
     this.faceHead(this.hint.mesh);
+  }
+
+  /** The wait cue over the town (`View.townCue`): "Waking Tockton…" while its models arrive, or why they did not and a plaque to try again. */
+  private showTownCue(view: View): void {
+    const cue = view.townCue;
+    this.townSlip.mesh.visible = cue !== 'none';
+    this.townRetry.mesh.visible = cue === 'failed';
+    this.setHot(this.townRetryHot, cue === 'failed');
+    if (cue === 'none') return;
+    const text = TOWN_WAIT[cue];
+    this.townSlip.paint(cue, (c, w, h) => paintSlip(c, w, h, text.title, text.hint, cue === 'failed' ? 'warn' : 'good'));
+    this.faceHead(this.townSlip.mesh);
+    if (cue === 'failed') this.faceHead(this.townRetry.mesh);
+  }
+
+  private retryTown(): void {
+    this.cue('button');
+    this.opt.onEvent?.({ type: 'town-retry' });
   }
 
   private faceIfShown(object: Object3D, shown: boolean): void {

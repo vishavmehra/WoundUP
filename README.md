@@ -58,7 +58,7 @@ Start with `CLAUDE.md` (project instructions), then `docs/PROJECT_BIBLE.md`, `do
 
 ## Deployment
 
-Static hosting on Vercel (ADR-022). The build output is `dist/`; `vercel.json` and `.vercelignore` are in the repository root.
+Static hosting on Vercel (ADR-022). The build output is `dist/`; `vercel.json` and `.vercelignore` are in the repository root. `vercel.json` also sets the security headers and cache rules (ADR-025); `npm run build` then `npx playwright test -c playwright.csp.config.ts` checks that the Content-Security-Policy breaks nothing (`tools/serve-dist.mjs` serves `dist/` with those headers on port 5194).
 
 ## Credits and licences
 

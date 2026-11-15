@@ -181,16 +181,16 @@ describe.skipIf(!present)('the finished Belfry from the real GLBs', () => {
     expect(tightest).toBeGreaterThan(0.0003); // the real GLBs measure 0.38 mm (blender/previews/belfry/fit_check.txt); the town renders no teeth through each other
   }, 60000);
 
-  it('bakes the housing and the still parts and leaves the moving ones alone, with the same picture', async () => {
+  it('bakes what can merge and leaves the moving parts alone, with the same picture', async () => {
     const rig = await runningBelfry();
     step(rig, 1);
     rig.root.updateWorldMatrix(true, true);
     const before = new Box3().setFromObject(rig.root, true);
     const meshesBefore = drawn(rig.root).length;
     const baked = bakeRig(rig);
-    expect(baked.merged.length).toBeGreaterThan(0);
-    expect(baked.sources).toBeGreaterThan(baked.merged.length); // the brass of the plinth, the handle and the bearing: fewer draws
-    expect(drawn(rig.root).length).toBeLessThan(meshesBefore);
+    // Little is left to merge: the casing is one mesh per material already, and the handle and the bearing are alone in their materials
+    // (what they share with the casing is baked once combined and once split, the split hidden until X-ray). The bake must still never add a draw.
+    expect(drawn(rig.root).length).toBeLessThanOrEqual(meshesBefore);
     for (const merged of baked.merged) expect(merged.userData.bakedFrom as string[], merged.name).not.toContain('ClockBell_Bell'); // the bell is never merged away
     rig.root.updateWorldMatrix(true, true);
     const after = new Box3().setFromObject(rig.root, true);

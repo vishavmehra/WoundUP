@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COMFORT_ANGLE_DEG, COMFORT_REACH_M, eyeAt, reachFromChest, targetAngleDeg } from '../../src/ui/comfort';
-import { BENCH, GIFT_SPOT, LENS_HINT_SPOT, LENS_SPOT, PAUSE_SPOT, benchZ, essentialAnchors } from '../../src/ui/layout';
+import { BENCH, BUILD_ZONE, GIFT_SPOT, LENS_HINT_SPOT, LENS_SPOT, PANEL_SPOT, PAUSE_PANEL_BASE, PAUSE_PANEL_SCALE, PAUSE_PANEL_SPOT, PAUSE_SPOT, POKE_PRESS_M, benchZ, essentialAnchors } from '../../src/ui/layout';
+import { PAUSE_PLAQUES, placePanel } from './panel-geometry';
 
 /** Eyes over the stand (55 cm ahead, 38 cm above) and the spread a real table gives (INTERACTION_SPEC ยง3). */
 // The surface may be 20 to 60 cm below the eyes and its centre 40 to 60 cm ahead (placement.ts); it takes the candidate nearest the 55 cm aim
@@ -54,9 +55,38 @@ describe('flow UI layout against INTERACTION_SPEC ยง3', () => {
     expect(benchZ(0.75)).toBeLessThan(benchZ(1));
     expect(BENCH.tray.x).toBeLessThan(BENCH.build.x);
     expect(BENCH.build.x).toBeLessThan(BENCH.blueprint.x);
-    // The run sign stands between the build and blueprint zones and in front, so it hides neither.
-    expect(BENCH.runSign.x).toBeGreaterThan(BENCH.build.x);
-    expect(BENCH.runSign.x).toBeLessThan(BENCH.blueprint.x);
-    expect(BENCH.runSign.z).toBeGreaterThan(0);
+    // The run sign stands at the back right of the bench, beyond the winding key that juts out of the Music Box's right wall (tests/ui/hot-zones.test.ts
+    // keeps the key in view and clear of it): to the right of the build zone, behind its middle, over the blueprint's far edge.
+    expect(BENCH.runSign.x).toBeGreaterThan(BENCH.build.x + BUILD_ZONE.halfX);
+    expect(BENCH.runSign.x).toBeLessThan(0.225 + 0.025); // over the bench (it ends at x = +22.5 cm), not beyond it
+    expect(BENCH.runSign.z).toBeLessThan(BENCH.build.z);
+    expect(BENCH.runSign.z).toBeGreaterThan(-0.125); // and in front of the bench's back edge
+  });
+});
+
+// The pause panel (five setting rows and Resume / Restart chapter) is the one panel taller than the space between the machine's lid and the table (38 cm at full
+// size), so it has its own spot and size (layout.ts). Its centre is an essential anchor above; this holds every row to the reach, from every eye, not just the centre.
+describe('the pause panel against INTERACTION_SPEC ง3 and UI_UX_SPEC ง23', () => {
+  it('keeps every plaque, at its centre and at its four corners, within 60 cm of the chest from every eye', () => {
+    for (const eye of EYES) {
+      for (const plaque of placePanel(eye, PAUSE_PLAQUES)) {
+        for (const [i, point] of [plaque.centre, ...plaque.corners].entries()) {
+          expect(reachFromChest(eye, point), `${plaque.name} ${i === 0 ? 'centre' : `corner ${i}`}, eyes ${eye.y}/${eye.z}`).toBeLessThanOrEqual(COMFORT_REACH_M);
+        }
+      }
+    }
+  });
+
+  it('shows the panel no larger in the view than the old one at its old distance (it must not fill the face), and no nearer than 28 cm', () => {
+    const eye = eyeAt(0.38, 0.55);
+    const viewDeg = (size: number, spot: { x: number; y: number; z: number }): number => (2 * Math.atan(size / 2 / Math.hypot(spot.x - eye.x, spot.y - eye.y, spot.z - eye.z)) * 180) / Math.PI;
+    const old = { spot: { x: 0, y: PANEL_SPOT.y + 0.028, z: PANEL_SPOT.z }, height: PAUSE_PANEL_BASE.h, width: PAUSE_PANEL_BASE.w };
+    expect(viewDeg(PAUSE_PANEL_BASE.h * PAUSE_PANEL_SCALE, PAUSE_PANEL_SPOT)).toBeLessThanOrEqual(viewDeg(old.height, old.spot) * 1.1);
+    expect(viewDeg(PAUSE_PANEL_BASE.w * PAUSE_PANEL_SCALE, PAUSE_PANEL_SPOT)).toBeLessThanOrEqual(viewDeg(old.width, old.spot) * 1.1);
+    expect(Math.hypot(PAUSE_PANEL_SPOT.x - eye.x, PAUSE_PANEL_SPOT.y - eye.y, PAUSE_PANEL_SPOT.z - eye.z)).toBeGreaterThanOrEqual(0.28);
+  });
+
+  it('keeps the plaques tall enough to press: a fingertip presses within 2 cm of a plaque, so none is shown shorter than that', () => {
+    for (const plaque of PAUSE_PLAQUES) expect(plaque.h * PAUSE_PANEL_SCALE, plaque.name).toBeGreaterThanOrEqual(POKE_PRESS_M);
   });
 });

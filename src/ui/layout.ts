@@ -17,11 +17,16 @@ export const BENCH = {
   build: v(0.0025, 0.03, 0),
   blueprint: v(0.1575, 0.03, 0),
   /**
-   * The run sign: a post in front of the gap between the build and blueprint zones (the furthest forward that keeps the plaque within 35
-   * degrees, see tests/ui/layout.test.ts). Far enough to the right that the plaques, which turn to face the player, stay a centimetre clear
-   * of the build zone (BUILD_ZONE reaches x = +6.75 cm; the Run plaque is 7.5 cm wide), tests/ui/hot-zones.test.ts.
+   * The run sign: a post at the back right of the bench, over the blueprint's far edge, beyond the winding key. The Music Box's key juts out of the
+   * case's right wall to x = +10.5 cm, 4 to 41 mm in front of the bench centre, and the player has to see it and turn it while the sign shows. The
+   * post used to stand in front of the key's tip (x = +11.75 cm, 4 cm in front of the centre): seen from the seat the Run plaque covered the key's
+   * outer half and reached into its volume. Moving it right alone is not enough (the sign must stay within 35 degrees of the line of sight from every
+   * seat, tests/ui/layout.test.ts, and a post 17 cm right of the middle and in front is 40 degrees off from the lowest, nearest seats), so it also moves
+   * back, behind the build zone's middle: there the plaques and the slip clear the key's outline in the player's view by more than a centimetre from
+   * every seat and town scale, no plaque is within 9 cm of the key (a fingertip that pinches it is nowhere near the 2 cm press distance of Run), and
+   * the plaques, which turn to face the player, are 12 cm from the build zone (tests/ui/hot-zones.test.ts, "the run sign against the winding key").
    */
-  runSign: v(0.1175, 0.03, 0.04),
+  runSign: v(0.175, 0.03, -0.085),
 } as const;
 
 /**
@@ -34,10 +39,32 @@ export const LETTER_SPOT: V3 = v(0, 0.002, 0.275);
 /** Centre of the reading card and of the pause and gift panels: close, a little above the surface, facing the player. */
 export const READING_SPOT: V3 = v(0, 0.17, 0.27);
 /**
- * Centre of the pause, restart and gift panels (up to 29 x 32.5 cm): further from the eyes than the reading card, about 44 cm
+ * Centre of the gift panel (29 x 30 cm), when no machine stands on the bench: further from the eyes than the reading card, about 44 cm
  * from the eyes over a stand (UI_UX_SPEC section 23, "avoid large panels close to the face"), still in front of the town.
  */
 export const PANEL_SPOT: V3 = v(0, 0.2, 0.15);
+
+/** The pause and restart panel's base (five setting rows, each with its caption under it, and the Resume and Restart buttons), metres, before `PAUSE_PANEL_SCALE`. */
+export const PAUSE_PANEL_BASE = { w: 0.26, h: 0.381 } as const;
+/** The first setting plaque (centre, metres from the panel's centre), the step between rows (a row and its caption take 0.056) and the plaque's size. */
+export const SETTING_ROW_Y = 0.1305;
+export const SETTING_ROW_STEP = 0.056;
+export const SETTING_PLAQUE = { w: 0.21, h: 0.032 } as const;
+/** Resume and Restart chapter: the row they stand on in the pause panel (the restart panel's pair is higher, in a shorter stack), their offset from the middle and their size. */
+export const PAUSE_BUTTON_ROW_Y = -0.1655;
+export const PANEL_BUTTON = { w: 0.115, h: 0.034, x: 0.067 } as const;
+/**
+ * The pause and restart panel is shown at 70% of its drawn size and stands in front of the machine on the bench, over the front of the
+ * bench, about 29 cm from the eyes: the old spot (the middle of the town's front, 15 cm ahead of the stand's centre) put the lower rows
+ * behind the Music Box and its open lid. 38 cm of panel does not fit anywhere else: behind the machine it is hidden unless raised above the
+ * lid's line of sight, where the top rows are out of arm's reach (60 cm from the chest) and the lowest eyes cannot see it within 35 degrees;
+ * at its old size in front of the machine it would fill the face (54 x 71 degrees at 26 cm). At 70% (18 x 27 cm) it fills the same view
+ * as the old panel did at its old distance (about 35 x 50 degrees), the plaques are still over 2.2 cm tall (a fingertip presses within 2 cm),
+ * and the whole panel sits on the line of sight to the town's centre, so nothing makes the player turn their head.
+ * tests/ui/hot-zones.test.ts holds every plaque in the player's view and in reach, clear of the machine, from every seat and town scale.
+ */
+export const PAUSE_PANEL_SCALE = 0.7;
+export const PAUSE_PANEL_SPOT: V3 = v(0, 0.185, 0.34);
 /**
  * Small brass buttons beside the bench, floating just above the surface. The two that show while a machine is built (pause and the
  * lens) stand on the right, away from the parts tray on the left and the build zone: a hand reaching into the tray has its open
@@ -66,6 +93,12 @@ export const LENS_HINT_SPOT: V3 = v(0.34, 0.15, 0.3);
  */
 export const HELPER_SPOT: V3 = v(0.34, 0.15, 0.2);
 export const HELPER_HINT_SPOT: V3 = v(0.34, 0.21, 0.2);
+/**
+ * The slip over the town while its models are still arriving (or could not), and the "Try again" plaque under it: over the middle of the
+ * town, higher than the reading card's line of sight to it, away from the pause and lens buttons beside the bench.
+ */
+export const TOWN_WAIT_SPOT: V3 = v(0, 0.125, 0.04);
+export const TOWN_RETRY_SPOT: V3 = v(0, 0.078, 0.045);
 /** The trunk latch (trunk_main.glb `COL_Latch`) scaled with the town. */
 export const latchSpot = (s: number): V3 => v(0, 0.14 * s, 0.125 * s);
 
@@ -125,6 +158,7 @@ export function essentialAnchors(s: number): Record<string, V3> {
     envelope: LETTER_SPOT,
     readingCard: READING_SPOT,
     panel: PANEL_SPOT,
+    pausePanel: PAUSE_PANEL_SPOT,
     tray: benchPoint(s, BENCH.tray),
     build: benchPoint(s, BENCH.build),
     blueprint: benchPoint(s, BENCH.blueprint),

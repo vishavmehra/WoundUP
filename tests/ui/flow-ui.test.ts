@@ -10,7 +10,7 @@ import { BENCH } from '../../src/ui/layout';
 import { SAVE_KEY, parseSave } from '../../src/game/save';
 import { GameSession } from '../../src/game/session';
 import { Socket } from '../../src/interaction/components';
-import { isGazeModeOn, setGazeModeFlag } from '../../src/interaction/gaze-state';
+import { isGazeModeOn, isRayModeOn, setGazeModeFlag, setRayModeFlag } from '../../src/interaction/gaze-state';
 import { isXRayLensOn, setXRayLens, writeXRayFlag } from '../../src/interaction/xray-state';
 import { installFlowUi } from '../../src/ui';
 import { FlowUi, type FlowEvent } from '../../src/ui/flow-ui';
@@ -344,6 +344,7 @@ afterEach(() => {
   setXRayLens(false);
   writeXRayFlag(false, null);
   setGazeModeFlag(false);
+  setRayModeFlag(false);
 });
 
 describe('FlowUi: the lens and the X-ray hint', () => {
@@ -441,6 +442,19 @@ describe('FlowUi: the lens and the X-ray hint', () => {
     expect(visible(r, 'UI_XrayHint')).toBe(true);
     expect(texts(r).join(' ')).toContain('Look at the lens, then pinch.');
   });
+
+  it('words the hint for ray mode with the lens, not the palm (a player who points does not owe the palm gesture)', async () => {
+    const r = await rig();
+    await toBench(r);
+    click(r, 'UI_Pause');
+    click(r, 'UI_Toggle_rayMode');
+    click(r, 'UI_PanelLeft');
+    r.ui.onModeChange('wind');
+    r.ui.showResult({ status: 'jams', jamReason: 'module_mismatch' });
+    expect(visible(r, 'UI_XrayHint')).toBe(true);
+    expect(texts(r).join(' ')).toContain('Point at the lens, then pinch.');
+    expect(texts(r).join(' ')).not.toContain('Palm down');
+  });
 });
 
 describe('FlowUi: gaze mode from the pause menu', () => {
@@ -473,6 +487,57 @@ describe('FlowUi: gaze mode from the pause menu', () => {
   });
 });
 
+describe('FlowUi: ray mode from the pause menu', () => {
+  const gazePointerOn = (r: Rig): boolean => (r.world as unknown as { input: { xr: { gazeEnabled: boolean } } }).input.xr.gazeEnabled;
+
+  it('has a Ray mode row next to Easy Snap and Gaze and pinch, and saves it', async () => {
+    const r = await rig();
+    await toTown(r);
+    click(r, 'UI_Pause');
+    expect(live(r)).toContain('UI_Toggle_rayMode');
+    expect(isRayModeOn()).toBe(false);
+    click(r, 'UI_Toggle_rayMode');
+    expect(r.game.save.settings.rayMode).toBe(true);
+    expect(last(r)).toEqual({ type: 'setting', key: 'rayMode', value: true });
+    expect(isRayModeOn()).toBe(true);
+    expect(isGazeModeOn()).toBe(true); // parts now answer to rays (GrabModeSystem listens to this flag)
+    expect(gazePointerOn(r)).toBe(false); // the hands' own rays aim, not the head
+    expect(parseSave(r.storage.data.get(SAVE_KEY) ?? null).save.settings.rayMode).toBe(true);
+    click(r, 'UI_Toggle_rayMode');
+    expect(isRayModeOn()).toBe(false);
+    expect(isGazeModeOn()).toBe(false);
+  });
+
+  it('is exclusive with gaze and pinch: turning one on turns the other off, in the save and in the pointer', async () => {
+    const r = await rig();
+    await toTown(r);
+    click(r, 'UI_Pause');
+    click(r, 'UI_Toggle_gazeMode');
+    expect(gazePointerOn(r)).toBe(true);
+    click(r, 'UI_Toggle_rayMode');
+    expect(r.game.save.settings).toMatchObject({ gazeMode: false, rayMode: true });
+    expect(gazePointerOn(r)).toBe(false);
+    expect(isRayModeOn()).toBe(true);
+    click(r, 'UI_Toggle_gazeMode');
+    expect(r.game.save.settings).toMatchObject({ gazeMode: true, rayMode: false });
+    expect(gazePointerOn(r)).toBe(true);
+    expect(isRayModeOn()).toBe(false);
+  });
+
+  it('starts from the save: a player who saved ray mode begins in it', async () => {
+    const storage = new FakeStorage();
+    const first = await rig(undefined, undefined, storage);
+    await toTown(first);
+    click(first, 'UI_Pause');
+    click(first, 'UI_Toggle_rayMode');
+    setRayModeFlag(false); // a new page load starts with the flag off
+    const second = await rig(undefined, undefined, storage);
+    expect(second.game.save.settings.rayMode).toBe(true);
+    expect(isRayModeOn()).toBe(true);
+    expect(gazePointerOn(second)).toBe(false);
+  });
+});
+
 describe('FlowUi: the pause menu', () => {
   it('pauses, toggles accessibility settings into the save, and resumes', async () => {
     const r = await rig();
@@ -480,7 +545,7 @@ describe('FlowUi: the pause menu', () => {
     expect(click(r, 'UI_Pause')).toBe(true);
     expect(r.game.mode).toBe('pause');
     expect(r.ui.currentView?.panel).toBe('pause');
-    expect(live(r)).toEqual(['UI_PanelLeft', 'UI_PanelRight', 'UI_Toggle_easySnap', 'UI_Toggle_gazeMode', 'UI_Toggle_night', 'UI_Toggle_xrayHint']);
+    expect(live(r)).toEqual(['UI_PanelLeft', 'UI_PanelRight', 'UI_Toggle_easySnap', 'UI_Toggle_gazeMode', 'UI_Toggle_night', 'UI_Toggle_rayMode', 'UI_Toggle_xrayHint']);
     expect(find(r, 'UI_Pause').active).toBe(false);
     expect(visible(r, 'letter_envelope')).toBe(true); // the paused scene stays as it was
 
@@ -798,6 +863,59 @@ describe('FlowUi: returning to the gift panel', () => {
     click(r, 'UI_Gift');
     click(r, 'UI_Machine'); // with the first visit's list this would still be one machine, and the button would do nothing
     expect(painted()).toContain('Machine: Carousel');
+  });
+});
+
+describe('FlowUi: the town is not in yet', () => {
+  const painted = (r: Rig): string => r.canvases.made.flatMap((c) => c.calls.map((t) => t.text)).join('|');
+
+  it('shows nothing while the trunk is closed, "Waking Tockton…" once it has opened, and nothing again when the town is in', async () => {
+    const r = await rig();
+    r.ui.setTownLoad('loading');
+    expect(visible(r, 'UI_TownWait')).toBe(false); // the town is hidden until the trunk opens, there is nothing to wait for yet
+    await toTown(r);
+    expect(visible(r, 'UI_TownWait')).toBe(true);
+    expect(painted(r)).toContain('Waking Tockton…');
+    expect(visible(r, 'UI_TownRetry')).toBe(false);
+    expect(find(r, 'UI_TownRetry').active).toBe(false); // no retry while it is loading: that would load it twice
+
+    r.ui.setTownLoad('ready');
+    expect(visible(r, 'UI_TownWait')).toBe(false);
+    expect(visible(r, 'UI_TownRetry')).toBe(false);
+  });
+
+  it('turns to a calm message with a working "Try again" when the town could not be loaded, and the retry asks the integrator once', async () => {
+    const r = await rig();
+    r.ui.setTownLoad('loading');
+    await toTown(r);
+    r.ui.setTownLoad('failed');
+    expect(visible(r, 'UI_TownWait')).toBe(true);
+    expect(visible(r, 'UI_TownRetry')).toBe(true);
+    expect(painted(r)).toContain('Tockton would not wake.');
+    expect(painted(r)).toContain('Try again');
+    expect(find(r, 'UI_TownRetry').active).toBe(true);
+
+    expect(click(r, 'UI_TownRetry')).toBe(true);
+    expect(types(r)).toEqual(['trunk-opened', 'town-retry']);
+    expect(cues(r)).toContain('button');
+
+    // The integrator starts the load again: the plaque goes (a second press would load the town twice), the message waits.
+    r.ui.setTownLoad('loading');
+    expect(visible(r, 'UI_TownRetry')).toBe(false);
+    expect(click(r, 'UI_TownRetry')).toBe(false);
+    expect(types(r).filter((t) => t === 'town-retry')).toHaveLength(1);
+    expect(painted(r)).toContain('Waking Tockton…');
+  });
+
+  it('keeps the cue off a game whose town is never deferred, and under a panel', async () => {
+    const r = await rig();
+    await toTown(r);
+    expect(visible(r, 'UI_TownWait')).toBe(false); // the integrator never said the town is missing
+    r.ui.setTownLoad('failed');
+    expect(visible(r, 'UI_TownWait')).toBe(true);
+    click(r, 'UI_Pause');
+    expect(visible(r, 'UI_TownWait')).toBe(false);
+    expect(find(r, 'UI_TownRetry').active).toBe(false);
   });
 });
 

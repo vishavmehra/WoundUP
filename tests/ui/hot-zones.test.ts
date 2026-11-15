@@ -1,7 +1,8 @@
-import { Vector3 } from 'three';
+import { Box3, Quaternion, Vector3 } from 'three';
 import type { Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';
+import { MUSIC_BOX } from '../../src/content/blueprints';
 import { modeState, MODES } from '../../src/game/modes';
 import {
   BENCH,
@@ -16,7 +17,7 @@ import {
   LENS_SPOT,
   MEDALLION_HOT_RADIUS_M,
   MEDALLION_SIZE_M,
-  PANEL_SPOT,
+  PAUSE_PANEL_SCALE,
   PAUSE_SPOT,
   POKE_PRESS_M,
   RUN_PLAQUE,
@@ -29,6 +30,7 @@ import {
   benchZ,
 } from '../../src/ui/layout';
 import { freshLocal, viewFor } from '../../src/ui/view';
+import { PAUSE_BASE, PAUSE_PLAQUES, placePanel } from './panel-geometry';
 
 // BUG-4: the Pause medallion stood 12 cm from the second bracket in the parts tray, and a hand reaching for the bracket (open fingertip
 // about 12 cm past the point where it pinches) pressed it, so the Pause panel opened in the middle of the build. This holds every pressable
@@ -173,12 +175,6 @@ describe('pressable medallions against the tray and the build zone (BUG-4)', () 
       }
     });
 
-    it(`the pause panel's plane is clear of the build zone (town scale ${s})`, () => {
-      // The panel is modal (it shows only while paused or in the gift viewer), so it may stand over the tray's rear compartments on a small table;
-      // it must not cut through the machine being built. A plaque is pressed within POKE_PRESS_M of its plane.
-      const build = workZones(s).find((b) => b.name === 'build zone') as Box;
-      expect(PANEL_SPOT.z + POKE_PRESS_M).toBeLessThan(build.lo[2]);
-    });
   }
 
   it('keeps the Helper in the right-hand column with Pause, one medallion above it, and its slip above that', () => {
@@ -235,6 +231,8 @@ function planGapToBuildZone(sign: Sign, radius: number): number {
 
 const SIGN: Sign = { x: BENCH.runSign.x, z: BENCH.runSign.z };
 const OLD_SIGN: Sign = { x: 0.0975, z: 0.05 };
+/** Where the post stood before the winding key was found hidden behind the Run plaque. */
+const KEY_HIDING_SIGN: Sign = { x: 0.1175, z: 0.04 };
 
 describe('the run sign against the build zone', () => {
   it("keeps the Run and Adjust plaques a centimetre clear of the build zone's footprint", () => {
@@ -371,5 +369,258 @@ describe('the run sign seen from the seat', () => {
     const { gap, at } = narrowestGap(BEFORE, [[0.38, 0.55]]); // the seat the placement aims at
     expect(gap, at).toBeLessThan(0);
     expect(at).toMatch(/^slip against (pause|lens)/);
+  });
+});
+
+// ---- The Music Box on the bench: what the run sign and the pause panel must neither hide nor stand in -----------------------------------------------------------
+
+// The machine as the game builds it on the bench (the first, and the commonest, build): its case from the real GLB, the lid opened the way Gameplay.openLid
+// opens it for the build (the pivot turned by `openDeg`, 100 degrees), and the winding key, which the blueprint seats on the case's right wall and which turns
+// about the x axis, so the box it sweeps is its length along x and a radius about the axis. Bench-local metres (x from the build point, y above the bench top,
+// z from the bench's middle). Measured in the IWER emulator too (Box3 of the case, lid and key meshes in the running game): the same to a millimetre.
+async function glb(relative: string): Promise<Object3D> {
+  const bytes = fs.readFileSync(fileOf(relative));
+  const parsed = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, '');
+  parsed.scene.updateMatrixWorld(true);
+  return parsed.scene;
+}
+const musicBox = await glb('tockton/music_box/music_box_case.glb');
+const caseBounds = new Box3().setFromObject(musicBox.getObjectByName('MusicBoxCase_Body') as Object3D);
+const lidPivot = musicBox.getObjectByName('PIV_Lid') as Object3D;
+const lidNode = musicBox.getObjectByName('MusicBoxCase_Lid') as Object3D;
+lidPivot.attach(lidNode);
+lidPivot.quaternion.multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), (((lidPivot.userData.wu as { openDeg?: number } | undefined)?.openDeg ?? 100) * Math.PI) / 180));
+musicBox.updateMatrixWorld(true);
+const lidBounds = new Box3().setFromObject(lidNode);
+
+const KEY_SOCKET = MUSIC_BOX.sockets.find((socket) => socket.id === 'winding_key')?.position as readonly [number, number, number];
+/** The key's sweep about its socket: along its axis (x), and out to this radius round it. winding_key.glb has wings 3 cm across and is 3.6 cm long; the game draws it a sixth larger. */
+const KEY_ALONG_M = [-0.005, 0.042] as const;
+const KEY_RADIUS_M = 0.018;
+
+const toBox = (name: string, lo: readonly [number, number, number], hi: readonly [number, number, number]): Box => ({ name, lo, hi });
+const BENCH_LOCAL_BOXES: readonly Box[] = [
+  toBox('case', [caseBounds.min.x, caseBounds.min.y, caseBounds.min.z], [caseBounds.max.x, caseBounds.max.y, caseBounds.max.z]),
+  toBox('open lid', [lidBounds.min.x, lidBounds.min.y, lidBounds.min.z], [lidBounds.max.x, lidBounds.max.y, lidBounds.max.z]),
+  toBox('winding key', [KEY_SOCKET[0] + KEY_ALONG_M[0], KEY_SOCKET[1] - KEY_RADIUS_M, KEY_SOCKET[2] - KEY_RADIUS_M], [KEY_SOCKET[0] + KEY_ALONG_M[1], KEY_SOCKET[1] + KEY_RADIUS_M, KEY_SOCKET[2] + KEY_RADIUS_M]),
+];
+/** The machine's boxes in the stage's frame at town scale `s`. */
+function machineBoxes(s: number): Box[] {
+  const at = [BENCH.build.x, BENCH.top, benchZ(s) + BENCH.build.z] as const;
+  return BENCH_LOCAL_BOXES.map((b) => toBox(b.name, [b.lo[0] + at[0], b.lo[1] + at[1], b.lo[2] + at[2]], [b.hi[0] + at[0], b.hi[1] + at[1], b.hi[2] + at[2]]));
+}
+const keyBox = (s: number): Box => machineBoxes(s)[2];
+
+describe('the machine the tests stand on', () => {
+  it('has a case 13 x 10 x 9 cm, a lid standing open behind it, and a key on its right wall that the winding_key part fits inside', async () => {
+    const [case_, lid, key] = BENCH_LOCAL_BOXES;
+    expect(case_.hi[0] - case_.lo[0]).toBeCloseTo(0.13, 2);
+    expect(case_.hi[1] - case_.lo[1]).toBeCloseTo(0.1, 2);
+    expect(case_.hi[2] - case_.lo[2]).toBeCloseTo(0.09, 2);
+    expect(lid.hi[2]).toBeLessThan(case_.lo[2] + 0.005); // behind the case's front half: it stands up at the back
+    expect(lid.hi[1]).toBeGreaterThan(0.15); // and rises well over the case (15.6 cm over the bench)
+    expect(key.hi[0]).toBeGreaterThan(case_.hi[0] + 0.03); // it juts out of the right wall by more than 3 cm
+    // The part's own bounds: wings 3 cm across, 3.6 cm long, along its local z (turned onto x by the socket).
+    const part = new Box3().setFromObject(await glb('shared/winding_key/winding_key.glb'));
+    expect(KEY_ALONG_M[1]).toBeGreaterThanOrEqual(part.max.z);
+    expect(-KEY_ALONG_M[0]).toBeGreaterThanOrEqual(-part.min.z);
+    expect(KEY_RADIUS_M).toBeGreaterThanOrEqual(Math.max(part.max.x, part.max.y));
+  });
+});
+
+// ---- The run sign against the winding key -----------------------------------------------------------------------------------------------------------------------
+
+/** One centimetre in the sign's own plane (about a degree at the player's distance): the key and every part of the sign keep at least this much between them. */
+const KEY_VIEW_MARGIN_M = 0.01;
+/** A fingertip on the key (its sweep reaches 1.8 cm round the axis) stays 3 cm from every plaque: over the 2 cm press distance, with a centimetre to spare. */
+const KEY_POKE_CLEARANCE_M = 0.03;
+
+/** The run sign turns about the vertical to face the eye, so its plane is vertical, holds the post, and has the eye on its front side. */
+function signPlane(eye: V, s: number, sign: Sign) {
+  const post: V = { x: sign.x, y: 0, z: benchZ(s) + sign.z };
+  const n = unit({ x: eye.x - post.x, y: 0, z: eye.z - post.z });
+  return { post, n, side: unit(cross({ x: 0, y: 1, z: 0 }, n)) };
+}
+
+/** Where the line from the eye through `p` crosses the sign's plane: along it (u, from the post), up it (v, above the stage's floor), and how far from the eye (t = 1 at `p`). */
+function throughSignPlane(eye: V, p: V, s: number, sign: Sign): { u: number; v: number; t: number } {
+  const { post, n, side } = signPlane(eye, s, sign);
+  const d = sub(p, eye);
+  const t = dot(sub(post, eye), n) / dot(d, n);
+  const hit = { x: eye.x + t * d.x, y: eye.y + t * d.y, z: eye.z + t * d.z };
+  return { u: dot(sub(hit, post), side), v: hit.y, t };
+}
+
+interface SignPart {
+  readonly name: string;
+  /** Across (u) and up (v) in the sign's plane. */
+  readonly u0: number;
+  readonly u1: number;
+  readonly v0: number;
+  readonly v1: number;
+}
+const signRect = (name: string, width: number, centreAbove: number, height: number): SignPart => ({
+  name,
+  u0: -width / 2,
+  u1: width / 2,
+  v0: BENCH.top + centreAbove - height / 2,
+  v1: BENCH.top + centreAbove + height / 2,
+});
+/** Everything of the sign that is drawn: the Run plaque, the Adjust plaque under it, the slip over them and the post (5 mm across). */
+const SIGN_PARTS: readonly SignPart[] = [
+  signRect('Run plaque', RUN_PLAQUE.w, RUN_SIGN_HEIGHT, RUN_PLAQUE.h),
+  signRect('Adjust plaque', RUN_PLAQUE.w, RUN_SIGN_HEIGHT - 0.04, RUN_PLAQUE.h),
+  signRect('slip', RUN_SIGN_SLIP.w, RUN_SIGN_SLIP_HEIGHT, RUN_SIGN_SLIP.h),
+  signRect('post', 0.005, (RUN_SIGN_HEIGHT - 0.012) / 2, RUN_SIGN_HEIGHT - 0.012),
+];
+
+const cornersOf = (box: Box): V[] => [box.lo[0], box.hi[0]].flatMap((x) => [box.lo[1], box.hi[1]].flatMap((y) => [box.lo[2], box.hi[2]].map((z) => ({ x, y, z }))));
+
+/**
+ * The narrowest gap, in the sign's plane, between the outline of the key as the eye sees it (the eight corners of its box, each through the plane along
+ * the line from the eye) and any part of the sign: negative where they overlap. The key may be in front of the plane or behind it; either way what the
+ * player sees must not overlap.
+ */
+function keyGapToSign(eye: V, s: number, sign: Sign): { gap: number; part: string } {
+  const hits = cornersOf(keyBox(s)).map((p) => throughSignPlane(eye, p, s, sign));
+  const k = { u0: Math.min(...hits.map((h) => h.u)), u1: Math.max(...hits.map((h) => h.u)), v0: Math.min(...hits.map((h) => h.v)), v1: Math.max(...hits.map((h) => h.v)) };
+  let worst = { gap: Infinity, part: '' };
+  for (const part of SIGN_PARTS) {
+    const gap = Math.max(part.u0 - k.u1, k.u0 - part.u1, part.v0 - k.v1, k.v0 - part.v1);
+    if (gap < worst.gap) worst = { gap, part: part.name };
+  }
+  return worst;
+}
+
+describe('the run sign against the winding key', () => {
+  it('keeps the key a centimetre clear of every part of the sign, seen from every seat the placement allows and at every town scale', () => {
+    for (const s of SCALES) {
+      for (const [height, ahead] of SEATS) {
+        const { gap, part } = keyGapToSign({ x: 0, y: height, z: ahead }, s, SIGN);
+        expect(gap, `${part}, eyes ${height}/${ahead}, town scale ${s}`).toBeGreaterThanOrEqual(KEY_VIEW_MARGIN_M);
+      }
+    }
+  });
+
+  it('would have caught the post where it stood before: from the seat the placement aims at, the Run plaque covered the key', () => {
+    const { gap, part } = keyGapToSign({ x: 0, y: 0.38, z: 0.55 }, 1, KEY_HIDING_SIGN);
+    expect(gap).toBeLessThan(0);
+    expect(part).toBe('Run plaque');
+  });
+
+  it('keeps the Run and Adjust plaques 3 cm from the key, so the fingertip that pinches it is never within the press distance of either', () => {
+    for (const s of SCALES) {
+      for (const [height, ahead] of SEATS) {
+        const { post, side } = signPlane({ x: 0, y: height, z: ahead }, s, SIGN);
+        for (const plaque of SIGN_PARTS.slice(0, 2)) {
+          for (const u of [plaque.u0, 0, plaque.u1]) {
+            for (const v of [plaque.v0, (plaque.v0 + plaque.v1) / 2, plaque.v1]) {
+              const point = { x: post.x + side.x * u, y: v, z: post.z + side.z * u };
+              expect(distanceToBox(point, keyBox(s)), `${plaque.name}, eyes ${height}/${ahead}, town scale ${s}`).toBeGreaterThanOrEqual(KEY_POKE_CLEARANCE_M);
+            }
+          }
+        }
+      }
+    }
+    expect(KEY_POKE_CLEARANCE_M).toBeGreaterThan(POKE_PRESS_M);
+  });
+
+  it('would have caught that post there too: its Run plaque reached into the key', () => {
+    const { post, side } = signPlane({ x: 0, y: 0.38, z: 0.55 }, 1, KEY_HIDING_SIGN);
+    const run = SIGN_PARTS[0];
+    const tip = { x: post.x + side.x * run.u0, y: (run.v0 + run.v1) / 2, z: post.z + side.z * run.u0 };
+    expect(distanceToBox(tip, keyBox(1))).toBeLessThan(POKE_PRESS_M);
+  });
+});
+
+// ---- The pause panel against the machine --------------------------------------------------------------------------------------------------------------------------
+
+/** Does the segment from `a` to `b` pass through `box` grown by `pad`? */
+function segmentHitsBox(a: V, b: V, box: Box, pad: number): boolean {
+  let t0 = 0;
+  let t1 = 1;
+  for (const [i, axis] of (['x', 'y', 'z'] as const).entries()) {
+    const d = b[axis] - a[axis];
+    const lo = box.lo[i] - pad;
+    const hi = box.hi[i] + pad;
+    if (Math.abs(d) < 1e-12) {
+      if (a[axis] < lo || a[axis] > hi) return false;
+      continue;
+    }
+    const ta = (lo - a[axis]) / d;
+    const tb = (hi - a[axis]) / d;
+    t0 = Math.max(t0, Math.min(ta, tb));
+    t1 = Math.min(t1, Math.max(ta, tb));
+    if (t0 > t1) return false;
+  }
+  return true;
+}
+
+/** What stands between the eye and `p`: the machine (the case, the open lid, the key) or a part of the run sign. Empty when `p` is in the player's view. */
+function hiddenBy(eye: V, p: V, s: number): string[] {
+  const hidden = machineBoxes(s)
+    .filter((box) => segmentHitsBox(eye, p, box, 0.005))
+    .map((box) => box.name);
+  const hit = throughSignPlane(eye, p, s, SIGN);
+  if (hit.t > 0 && hit.t < 1) {
+    for (const part of SIGN_PARTS) if (hit.u >= part.u0 - 0.005 && hit.u <= part.u1 + 0.005 && hit.v >= part.v0 - 0.005 && hit.v <= part.v1 + 0.005) hidden.push(`sign ${part.name}`);
+  }
+  return hidden;
+}
+
+/** The plaque and base points to test: the centre, the corners, the middles of the edges and the points between (a 5 x 3 grid of fractions of the half sizes). */
+const GRID: ReadonlyArray<readonly [number, number]> = [-1, -0.5, 0, 0.5, 1].flatMap((fx) => [-1, 0, 1].map((fy) => [fx, fy] as const));
+/** A plaque is pressed within POKE_PRESS_M of its plane: so its centre stays that far, and a centimetre more, from the machine (a fingertip there is not inside it). */
+const PANEL_CLEARANCE_M = POKE_PRESS_M + 0.01;
+/** The panel hovers at least this far over the bench top. */
+const PANEL_OVER_BENCH_M = 0.02;
+const OLD_PANEL = { x: 0, y: 0.2 + 0.028, z: 0.15 }; // the old PANEL_SPOT and the raise the five-row base needed, at full size: what stood behind the machine
+
+describe('the pause panel against the machine on the bench', () => {
+  for (const s of SCALES) {
+    it(`shows every plaque from every seat the placement allows: nothing of the machine or the sign stands between the eyes and any point of it (town scale ${s})`, () => {
+      for (const [height, ahead] of SEATS) {
+        const eye = { x: 0, y: height, z: ahead };
+        for (const plaque of placePanel(eye, PAUSE_PLAQUES)) {
+          for (const [fx, fy] of GRID) {
+            expect(hiddenBy(eye, plaque.at(fx, fy), s), `${plaque.name} (${fx}, ${fy}), eyes ${height}/${ahead}, town scale ${s}`).toEqual([]);
+          }
+        }
+      }
+    });
+
+    it(`keeps every plaque, and the base it stands on, out of the machine and the build zone, and every plaque centre out of a fingertip's reach of them (town scale ${s})`, () => {
+      // The machine itself, which a plaque centre must also stay a fingertip's reach from, and the build zone, the envelope of any machine a hand works on: only to be outside it.
+      const machine = machineBoxes(s);
+      const solids = [...machine, workZones(s).find((b) => b.name === 'build zone') as Box];
+      for (const [height, ahead] of SEATS) {
+        const eye = { x: 0, y: height, z: ahead };
+        for (const item of [...placePanel(eye, PAUSE_PLAQUES), ...placePanel(eye, [PAUSE_BASE])]) {
+          const plaque = item.name !== PAUSE_BASE.name;
+          for (const box of solids) {
+            for (const [fx, fy] of GRID) {
+              const centre = fx === 0 && fy === 0;
+              const gap = distanceToBox(item.at(fx, fy), box);
+              expect(gap, `${item.name} (${fx}, ${fy}) to the ${box.name}, eyes ${height}/${ahead}`).toBeGreaterThan(plaque && centre && machine.includes(box) ? PANEL_CLEARANCE_M : 0);
+            }
+          }
+        }
+        const [base] = placePanel(eye, [PAUSE_BASE]);
+        expect(Math.min(...base.corners.map((c) => c.y)), `lowest corner of the base, eyes ${height}/${ahead}`).toBeGreaterThanOrEqual(BENCH.top + PANEL_OVER_BENCH_M);
+      }
+    });
+  }
+
+  it('would have caught the old panel: at full size behind the machine, from the seat the placement aims at, the Resume plaque and the Night row were behind the case and the lid', () => {
+    const eye = { x: 0, y: 0.38, z: 0.55 };
+    const hidden = placePanel(eye, PAUSE_PLAQUES, OLD_PANEL, 1)
+      .filter((plaque) => GRID.some(([fx, fy]) => hiddenBy(eye, plaque.at(fx, fy), 1).length > 0))
+      .map((plaque) => plaque.name);
+    expect(hidden).toContain('Resume');
+    expect(hidden).toContain('Night');
+  });
+
+  it('keeps every plaque at least as tall as the press distance, at the size the panel is shown', () => {
+    for (const plaque of PAUSE_PLAQUES) expect(Math.min(plaque.w, plaque.h) * PAUSE_PANEL_SCALE, plaque.name).toBeGreaterThanOrEqual(POKE_PRESS_M);
   });
 });

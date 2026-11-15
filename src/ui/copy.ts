@@ -25,11 +25,22 @@ export const HINTS = {
   windMore: 'Wind it, then press Run',
 } as const;
 
-/** The X-ray hint slip (UI_UX_SPEC §14), by how the player acts: an open palm over the machine, or the lens button with gaze and pinch. */
+/**
+ * The slip over the town while its models are still arriving after the trunk has opened (`View.townCue`). No percentage: the loader reports
+ * none for the town as a whole, and a made-up one would not be honest. The failed card says what to do and the plaque below it does it.
+ */
+export const TOWN_WAIT = {
+  waiting: { title: 'Waking Tockton…', hint: 'The town is still unpacking.' },
+  failed: { title: 'Tockton would not wake.', hint: 'Check your connection.' },
+  retry: 'Try again',
+} as const;
+
+/** The X-ray hint slip (UI_UX_SPEC §14), by how the player acts: an open palm over the machine, or the lens button with gaze and pinch or with the hand's ray. */
 export const XRAY_HINT = {
   title: 'Look inside',
   hands: { hint: 'Palm down over the machine, or press the lens.' },
   gaze: { hint: 'Look at the lens, then pinch.' },
+  ray: { hint: 'Point at the lens, then pinch.' },
 } as const;
 
 export type Tone = 'good' | 'warn' | 'bad';
@@ -88,10 +99,11 @@ export interface SettingRow {
   hint: string;
 }
 
-/** The setting rows of the pause menu, in order: three accessibility rows, then the day/night setting (PRODUCT_SPEC F16). */
+/** The setting rows of the pause menu, in order: the accessibility rows (Easy Snap, gaze and pinch, ray mode), the X-ray hint, then the day/night setting (PRODUCT_SPEC F16, F17). */
 export const SETTING_ROWS: readonly SettingRow[] = [
   { key: 'easySnap', label: 'Easy Snap', hint: 'Parts snap into place from further away.' },
   { key: 'gazeMode', label: 'Gaze and pinch', hint: 'Look at a target, then pinch anywhere to press it.' },
+  { key: 'rayMode', label: 'Ray mode', hint: 'Point with your hand and pinch to take things from afar.' },
   { key: 'xrayHint', label: 'X-ray hint', hint: 'Shows a hint when looking inside a machine can help.' },
   { key: 'night', label: 'Night', hint: 'Dims the room. Lamps and windows light the town.' },
 ];

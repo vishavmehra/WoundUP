@@ -43,8 +43,8 @@ describe('SaveV1 basics', () => {
   });
 
   it('has exactly the fields PRODUCT_SPEC §14 requires', () => {
-    expect(Object.keys(freshSave()).sort()).toEqual(['dailyDone', 'letters', 'machines', 'settings', 'townPlaced', 'version']);
-    expect(Object.keys(freshSave().settings).sort()).toEqual(['difficulty', 'easySnap', 'gazeMode', 'night', 'xrayHint']);
+    expect(Object.keys(freshSave()).sort()).toEqual(['dailyDone', 'learned', 'letters', 'machines', 'settings', 'townPlaced', 'version']);
+    expect(Object.keys(freshSave().settings).sort()).toEqual(['difficulty', 'easySnap', 'gazeMode', 'night', 'rayMode', 'xrayHint']);
     expect(freshSave().settings.difficulty).toBeNull(); // chosen at the first build (ADR-050)
   });
 });
@@ -68,13 +68,13 @@ describe('loading', () => {
       ...playStory(),
       townPlaced: true,
       dailyDone: '2026-11-14',
-      settings: { easySnap: true, gazeMode: true, xrayHint: false, night: true, difficulty: 'master' as const },
+      settings: { easySnap: true, gazeMode: false, rayMode: true, xrayHint: false, night: true, difficulty: 'master' as const },
     };
     const r = parseSave(serializeSave(played));
     expect(r.status).toBe('loaded');
     expect(r.save.townPlaced).toBe(true);
     expect(r.save.dailyDone).toBe('2026-11-14');
-    expect(r.save.settings).toEqual({ easySnap: true, gazeMode: true, xrayHint: false, night: true, difficulty: 'master' });
+    expect(r.save.settings).toEqual({ easySnap: true, gazeMode: false, rayMode: true, xrayHint: false, night: true, difficulty: 'master' });
     expect(r.save.letters.letter_5).toBe('completed');
     expect(r.save.machines.find((m) => m.blueprintId === 'windmill')).toEqual({ blueprintId: 'windmill', built: true, placed: true, plotId: 'plot_windmill' });
   });
@@ -103,7 +103,7 @@ describe('the build difficulty setting (ADR-050)', () => {
     const old = { easySnap: true, gazeMode: false, xrayHint: true, night: false };
     const r = withSettings(old);
     expect(r.status).toBe('loaded');
-    expect(r.save.settings).toEqual({ ...old, difficulty: null });
+    expect(r.save.settings).toEqual({ ...old, rayMode: false, difficulty: null });
     expect(SAVE_VERSION).toBe(1);
   });
 
@@ -227,7 +227,7 @@ describe('rejecting corrupt or foreign data (SAVE §9)', () => {
     const raw2 = `{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"version":1,"townPlaced":false,"letters":{},"machines":[],"dailyDone":null}`;
     const r = parseSave(raw2);
     expect(r.status).toBe('loaded'); // unknown top-level keys are dropped, not interpreted
-    expect(Object.keys(r.save).sort()).toEqual(['dailyDone', 'letters', 'machines', 'settings', 'townPlaced', 'version']);
+    expect(Object.keys(r.save).sort()).toEqual(['dailyDone', 'learned', 'letters', 'machines', 'settings', 'townPlaced', 'version']);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
     expect((r.save as unknown as Record<string, unknown>).polluted).toBeUndefined();
     reject(`{"version":1,"townPlaced":false,"letters":{},"machines":[{"__proto__":{"blueprintId":"music_box"}}],"dailyDone":null}`);
@@ -273,7 +273,7 @@ describe('the difficulty setting (ADR-050, no version bump)', () => {
     old.settings = { easySnap: true, gazeMode: false, xrayHint: true, night: false }; // the four booleans of every earlier build
     const r = parseSave(JSON.stringify(old));
     expect(r.status).toBe('loaded');
-    expect(r.save.settings).toEqual({ easySnap: true, gazeMode: false, xrayHint: true, night: false, difficulty: null });
+    expect(r.save.settings).toEqual({ easySnap: true, gazeMode: false, rayMode: false, xrayHint: true, night: false, difficulty: null });
     expect(SAVE_VERSION).toBe(1);
   });
 

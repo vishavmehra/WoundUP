@@ -23,7 +23,7 @@ describe('GameSession.setDifficulty', () => {
     game.setSetting('easySnap', true);
     game.setDifficulty('relaxed');
     game.setDifficulty('master');
-    expect(game.save.settings).toEqual({ easySnap: true, gazeMode: false, xrayHint: true, night: false, difficulty: 'master' });
+    expect(game.save.settings).toEqual({ easySnap: true, gazeMode: false, rayMode: false, xrayHint: true, night: false, difficulty: 'master' });
   });
 
   it('is there after a reload', () => {
