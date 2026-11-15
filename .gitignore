@@ -63,6 +63,6 @@ blender/previews/**/*_draft.png
 
 # Repository contents (owner rule, 2026-11-15): only README.md as Markdown; specs, reports and previews stay local
 *.md
-!README.md
+!/README.md
 docs/
 blender/previews/
