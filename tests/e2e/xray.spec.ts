@@ -194,7 +194,7 @@ test.describe('X-ray (IWER)', () => {
     const machines: Array<[id: string, prefixes: readonly string[]]> = [
       ['carousel', ['CarouselBase_', 'CarouselCanopy_']],
       ['windmill', ['WindmillBase_', 'WindmillTower_']],
-      ['clock_tower', ['ClockTowerBase_', 'ClockTower_']],
+      ['clock_tower', ['ClockTowerBase_', 'ClockTowerBaseWalls_', 'ClockTowerShell_', 'ClockTower_']],
     ];
     for (const [id, prefixes] of machines) {
       if (id === 'clock_tower') await playStory(page, 'gear_spur_12_m1_brass'); // letter 5, the Windmill's wrong gear, comes first
@@ -250,7 +250,7 @@ interface Snap {
   meshes: Array<{ name: string; material: string; opacity: number; transparent: boolean; casing: boolean }>;
 }
 
-/** Every mesh of the machine (the bench housing, or the finished rig) with its material's uuid and opacity, and whether its name makes it casing. */
+/** Every mesh of the machine (the bench housing, or the finished rig) with its material's uuid and opacity, and whether it is casing: its name starts with a prefix, or it carries the flag the static batching gives a merged casing mesh (`userData.xrayShell`). */
 const snapshot = (page: Page, id: string, where: 'bench' | 'rig', prefixes: readonly string[]): Promise<Snap> =>
   page.evaluate(
     ([id, where, prefixes]) => {
@@ -260,7 +260,7 @@ const snapshot = (page: Page, id: string, where: 'bench' | 'rig', prefixes: read
       root.traverse((n: any) => {
         if (!n.isMesh) return;
         const m = Array.isArray(n.material) ? n.material[0] : n.material;
-        meshes.push({ name: n.name, material: m.uuid, opacity: m.opacity, transparent: m.transparent, casing: (prefixes as string[]).some((p) => n.name.startsWith(p)) });
+        meshes.push({ name: n.name, material: m.uuid, opacity: m.opacity, transparent: m.transparent, casing: n.userData.xrayShell === true || (prefixes as string[]).some((p) => n.name.startsWith(p)) });
       });
       return { casing: meshes.filter((m) => m.casing).length, others: meshes.filter((m) => !m.casing).length, meshes };
     },
