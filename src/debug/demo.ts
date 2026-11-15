@@ -98,6 +98,16 @@ export function orbitPosition(out: Vector3, target: Vector3, distance: number, a
 
 /** Slow turn of the auto-orbit, radians per second. */
 const AUTO_ORBIT_RAD_S = 0.18;
+
+/** A machine seen only from its front: the camera swings to and fro within `half` radians of `centre` instead of circling it. */
+export interface Swing {
+  readonly centre: number;
+  readonly half: number;
+}
+
+/** The way the auto-orbit goes next (+1 or -1): it turns round at the edge of the swing and, if the camera was dragged outside it, heads back in. */
+export const swingDirection = (azimuth: number, direction: 1 | -1, swing: Swing): 1 | -1 =>
+  Math.abs(azimuth - swing.centre) > swing.half ? (azimuth > swing.centre ? -1 : 1) : direction;
 const MIN_ELEVATION = (5 * Math.PI) / 180;
 const MAX_ELEVATION = (80 * Math.PI) / 180;
 const DRAG_RAD_PER_PX = 0.007;
@@ -108,16 +118,19 @@ const MAX_ZOOM = 2.2;
 const MAX_FRAME_S = 0.1;
 
 class OrbitView {
-  azimuth = 0.35;
+  azimuth: number;
   private zoom = 1;
   private dragging = false;
+  private direction: 1 | -1 = 1;
 
   constructor(
     private readonly world: World,
     private readonly target: Vector3,
     private readonly radius: number,
     private elevation: number,
+    private readonly swing: Swing | null = null,
   ) {
+    this.azimuth = swing ? swing.centre : 0.35;
     const el = window;
     el.addEventListener('pointerdown', (e) => {
       if (!(e.target as Element | null)?.closest('button, a, input, select, textarea')) this.dragging = true;
@@ -149,7 +162,10 @@ class OrbitView {
   }
 
   update(dt: number): void {
-    if (!this.dragging) this.azimuth += AUTO_ORBIT_RAD_S * dt;
+    if (!this.dragging) {
+      if (this.swing) this.direction = swingDirection(this.azimuth, this.direction, this.swing);
+      this.azimuth += AUTO_ORBIT_RAD_S * this.direction * dt;
+    }
     const camera = this.world.camera;
     orbitPosition(_eye, this.target, this.distance(), this.azimuth, this.elevation);
     camera.parent?.worldToLocal(_eye);
@@ -168,12 +184,19 @@ interface DemoLook {
   elevationDeg: number;
   /** How much of the field of view the machine fills; below 1 is closer. */
   closeness: number;
+  /** Set for a machine with a front (the Clock Tower's dial, on +Z): the camera stays on that side. Left out: it circles the machine. */
+  swing?: Swing;
 }
+/**
+ * The stage is lit for a player sitting on its +Z side (the key light at x -0.5, z +0.4, the cool ground colour below), so the back of the
+ * tower and of the town is nearly black in a 2D view; it is not a missing light or an unswapped material. The tower therefore shows its
+ * dial side, swinging 35 degrees either way so the dial, hands, bell and balcony are seen from a little to each side.
+ */
 const LOOKS: Readonly<Record<DemoMachine, DemoLook>> = {
   music_box: { elevationDeg: 38, closeness: 0.8 },
   carousel: { elevationDeg: 18, closeness: 0.95 },
   windmill: { elevationDeg: 14, closeness: 0.95 },
-  clock_tower: { elevationDeg: 10, closeness: 0.85 },
+  clock_tower: { elevationDeg: 8, closeness: 0.95, swing: { centre: 0, half: (35 * Math.PI) / 180 } },
 };
 
 class Demo {
@@ -295,7 +318,7 @@ export async function installDemo(world: World, materials: MaterialRegistry, tex
   world.scene.updateMatrixWorld(true);
   const box = new Box3().setFromObject(root);
   const look = LOOKS[machine];
-  const view = new OrbitView(world, box.getCenter(new Vector3()), (box.getSize(new Vector3()).length() / 2) * look.closeness, (look.elevationDeg * Math.PI) / 180);
+  const view = new OrbitView(world, box.getCenter(new Vector3()), (box.getSize(new Vector3()).length() / 2) * look.closeness, (look.elevationDeg * Math.PI) / 180, look.swing ?? null);
 
   const demo = new Demo(machine, rig, winding, view, makeHud(), budget);
   running.set(world, demo);
