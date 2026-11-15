@@ -20,6 +20,15 @@ export const MODEL_PATHS: Readonly<Record<string, string>> = {
   bracket_support: 'shared/structural/bracket_support.glb',
   cylinder_music_box: 'shared/cylinder/cylinder_music_box.glb',
   comb_music_box: 'shared/comb/comb_music_box.glb',
+  // Hardware of the Music Box deep build (ADR-050, family A `fastener`). The GLBs are built by the asset agents; until the manifest names them
+  // a checkout may not have the files, which only skips the suites that need every file (tests/content/glb-contract.test.ts).
+  pin_taper_2: 'shared/fastener/pin_taper_2.glb',
+  pin_dowel_3: 'shared/fastener/pin_dowel_3.glb',
+  collar_set_8: 'shared/fastener/collar_set_8.glb',
+  washer_plain_8: 'shared/fastener/washer_plain_8.glb',
+  bush_split_8: 'shared/fastener/bush_split_8.glb',
+  screw_slot_m3: 'shared/fastener/screw_slot_m3.glb',
+  clip_angle_small: 'shared/fastener/clip_angle_small.glb',
   // The fixed fitting at the front of every machine base (SOCKET_BaseHandle). Not a blueprint part, so no PartDefinition: the
   // place-in-town flow owns it. Listed so it can be loaded on demand like the rest (PartLoader.load).
   machine_base_handle: 'shared/interaction/machine_base_handle.glb',

@@ -1,3 +1,11 @@
+/**
+ * The intricate assembly of ADR-050 (stages, hardware, difficulty, the Helper). The one fallback switch of design §12.4: when false the
+ * difficulty picker is hidden and the game ships in Relaxed with the hardware seated by the game at the start, which is the build before
+ * ADR-050 plus invisible fasteners. No data is lost and no code is removed. Rules take it as an argument (`planStages`'s `intricate`), so the
+ * pure layer never reads a global; `planBuild` passes this constant.
+ */
+export const INTRICATE_ASSEMBLY = true;
+
 export * from './gift';
 export * from './registry';
 export * from './repair';

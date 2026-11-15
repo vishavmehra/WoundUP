@@ -44,7 +44,7 @@ describe('SaveV1 basics', () => {
 
   it('has exactly the fields PRODUCT_SPEC §14 requires', () => {
     expect(Object.keys(freshSave()).sort()).toEqual(['dailyDone', 'letters', 'machines', 'settings', 'townPlaced', 'version']);
-    expect(Object.keys(freshSave().settings).sort()).toEqual(['easySnap', 'gazeMode', 'night', 'xrayHint']);
+    expect(Object.keys(freshSave().settings).sort()).toEqual(['difficulty', 'easySnap', 'gazeMode', 'night', 'xrayHint']);
   });
 });
 
@@ -67,13 +67,13 @@ describe('loading', () => {
       ...playStory(),
       townPlaced: true,
       dailyDone: '2026-11-14',
-      settings: { easySnap: true, gazeMode: true, xrayHint: false, night: true },
+      settings: { easySnap: true, gazeMode: true, xrayHint: false, night: true, difficulty: 'master' as const },
     };
     const r = parseSave(serializeSave(played));
     expect(r.status).toBe('loaded');
     expect(r.save.townPlaced).toBe(true);
     expect(r.save.dailyDone).toBe('2026-11-14');
-    expect(r.save.settings).toEqual({ easySnap: true, gazeMode: true, xrayHint: false, night: true });
+    expect(r.save.settings).toEqual({ easySnap: true, gazeMode: true, xrayHint: false, night: true, difficulty: 'master' });
     expect(r.save.letters.letter_5).toBe('completed');
     expect(r.save.machines.find((m) => m.blueprintId === 'windmill')).toEqual({ blueprintId: 'windmill', built: true, placed: true, plotId: 'plot_windmill' });
   });
@@ -140,6 +140,8 @@ describe('rejecting corrupt or foreign data (SAVE §9)', () => {
     ['dailyDone unpadded', withField('dailyDone', '2026-1-5')],
     ['settings as array', withField('settings', [])],
     ['setting as text', withField('settings', { ...DEFAULT_SETTINGS, easySnap: 'on' })],
+    ['an unknown difficulty', withField('settings', { ...DEFAULT_SETTINGS, difficulty: 'nightmare' })],
+    ['difficulty as a boolean', withField('settings', { ...DEFAULT_SETTINGS, difficulty: true })],
   ])('rejects a save with %s', (_name, data) => reject(data));
 
   it('rejects an oversized value without parsing it', () => {
@@ -191,5 +193,31 @@ describe('validateSave', () => {
       expect(() => validateSave(junk)).not.toThrow();
       expect(validateSave(junk).ok).toBe(false);
     }
+  });
+});
+
+describe('the difficulty setting (ADR-050, no version bump)', () => {
+  it('is null until the player answers the choice card, in a fresh save and in a save written before it existed', () => {
+    expect(freshSave().settings.difficulty).toBeNull();
+    const old = valid();
+    old.settings = { easySnap: true, gazeMode: false, xrayHint: true, night: false }; // the four booleans of every earlier build
+    const r = parseSave(JSON.stringify(old));
+    expect(r.status).toBe('loaded');
+    expect(r.save.settings).toEqual({ easySnap: true, gazeMode: false, xrayHint: true, night: false, difficulty: null });
+    expect(SAVE_VERSION).toBe(1);
+  });
+
+  it('keeps each of the three levels, and an explicit null, across a reload', () => {
+    for (const difficulty of ['relaxed', 'standard', 'master', null] as const) {
+      const played = { ...playStory(), settings: { ...DEFAULT_SETTINGS, difficulty } };
+      const r = parseSave(serializeSave(played));
+      expect(r.status).toBe('loaded');
+      expect(r.save.settings.difficulty).toBe(difficulty);
+    }
+  });
+
+  it('defaults a missing difficulty without touching the other settings', () => {
+    const r = parseSave(JSON.stringify({ ...valid(), settings: { gazeMode: true } }));
+    expect(r.save.settings).toEqual({ ...DEFAULT_SETTINGS, gazeMode: true, difficulty: null });
   });
 });

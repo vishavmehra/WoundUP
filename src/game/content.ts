@@ -32,6 +32,15 @@ export const MACHINE_PLOT: Readonly<Record<MachineId, PlotId>> = {
   clock_tower: 'plot_clock_tower',
 };
 
+// ---- Build difficulty (INTRICATE_ASSEMBLY_DESIGN §6; ADR-050) ------------------------------------------------------------
+
+/**
+ * How much of the Music Box build the game does and shows (relaxed: the game seats the hardware; standard: the full workshop with hints;
+ * master: no hints until asked). Chosen at the first build and saved as `Settings.difficulty`, so these strings are persisted: never renamed.
+ */
+export const DIFFICULTIES = ['relaxed', 'standard', 'master'] as const;
+export type Difficulty = (typeof DIFFICULTIES)[number];
+
 // ---- Story repairs (PRODUCT_SPEC §8; GAMEPLAY_SYSTEMS §12) ---------------------------------------------------------
 
 /**
