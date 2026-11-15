@@ -1217,9 +1217,9 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
-      "validationEvidence": "node tools/validate-glb.mjs --only gear_spur_16_m1, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt at module m1 = 2.5 mm (ADR-042); 10T and 12T use a solid web.",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only gear_spur_16_m1, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_Pin; every existing helper and the bounding box are unchanged.",
       "verified": {
         "desktop": true,
         "iwer": true,
@@ -1237,9 +1237,20 @@
         "integratedIn": "public/scenes/main.iwsdk.scene.json node gear-16"
       },
       "licence": "Original, project-authored in Blender",
-      "notes": "EXISTS as the M0 asset public/assets/models/props/gear_spur_16_brass.glb and is integrated in the M0 scene (desktop and IWER verified). It breaks the new rules: 16 MiB of embedded texture against 0 (ADR-032, ADR-034), 2.38 MB (2.27 MiB) against 250 KB, finish baked into the id. It is regenerated at 2.5 mm (44.3 mm tip) by the family generator with the ADR-032 profile, then moved in one lead change (ADR-033). No written spec names 16 teeth; the Spur Gear Board and the Gear Assembly Sheet show it. G0-required: it is the Music Box governor wheel (MUSIC_BOX_BLUEPRINT.md section 2.3, ADR-046). Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only); 2026-11-14: rebuilt (ADR-042), so the earlier runtime integration no longer holds; re-integrate in the final wave.",
+      "notes": "EXISTS as the M0 asset public/assets/models/props/gear_spur_16_brass.glb and is integrated in the M0 scene (desktop and IWER verified). It breaks the new rules: 16 MiB of embedded texture against 0 (ADR-032, ADR-034), 2.38 MB (2.27 MiB) against 250 KB, finish baked into the id. It is regenerated at 2.5 mm (44.3 mm tip) by the family generator with the ADR-032 profile, then moved in one lead change (ADR-033). No written spec names 16 teeth; the Spur Gear Board and the Gear Assembly Sheet show it. G0-required: it is the Music Box governor wheel (MUSIC_BOX_BLUEPRINT.md section 2.3, ADR-046). Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only); 2026-11-14: rebuilt (ADR-042), so the earlier runtime integration no longer holds; re-integrate in the final wave. ADR-050 (2026-11-15): added SOCKET_Pin (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
       "colliderRadiusM": 0.0221,
-      "glbSha256": "4765dda60ea6e744ad6ca5023895715266ee8961c0034fab55ad6bd899128d85"
+      "glbSha256": "a214a36927f1f4343a14a0f0675741988e137f345270a547ac36843d9d3289dd",
+      "sockets": [
+        {
+          "name": "SOCKET_Pin",
+          "positionM": [
+            0,
+            -0.00055,
+            0.00605
+          ],
+          "axis": "+Y"
+        }
+      ]
     },
     {
       "id": "gear_spur_12_m1",
@@ -1312,13 +1323,24 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Named in writing (PRODUCT_SPEC section 8, DATA section 4.1 example ids). Tip diameter 49.5 mm matches the helper render of 2026-11-05 (49.537 mm in the export). Status EXPORTED: the forge runner wrote the file at its target path on 2026-11-06 while this entry still said NOT_STARTED; the manifest checker reported that disagreement and the entry now matches the file. Not reviewed, not integrated. Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only);",
+      "notes": "Named in writing (PRODUCT_SPEC section 8, DATA section 4.1 example ids). Tip diameter 49.5 mm matches the helper render of 2026-11-05 (49.537 mm in the export). Status EXPORTED: the forge runner wrote the file at its target path on 2026-11-06 while this entry still said NOT_STARTED; the manifest checker reported that disagreement and the entry now matches the file. Not reviewed, not integrated. Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only); ADR-050 (2026-11-15): added SOCKET_Pin (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
       "colliderRadiusM": 0.0171,
-      "glbSha256": "511f9ccafbb58f55e8d213d3a2d4917274f3bc575f19c7966f57dfcd48ea2d86",
-      "validationEvidence": "node tools/validate-glb.mjs --only gear_spur_12_m1, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt at module m1 = 2.5 mm (ADR-042); 10T and 12T use a solid web."
+      "glbSha256": "cb5729d52f2d6b7bc7973ae9d7803525ddeb252c1051c723b954aed0ae9cc2c6",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only gear_spur_12_m1, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_Pin; every existing helper and the bounding box are unchanged.",
+      "sockets": [
+        {
+          "name": "SOCKET_Pin",
+          "positionM": [
+            0,
+            0.00011,
+            0.0062
+          ],
+          "axis": "+Y"
+        }
+      ]
     },
     {
       "id": "gear_spur_24_m1",
@@ -1466,13 +1488,24 @@
       "owner": "Mechanical library",
       "priority": 10,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Promoted to G0-required by ADR-046: the approved Music Box blueprint uses it (MUSIC_BOX_BLUEPRINT.md section 2.3). Module m1 = 2.5 mm (ADR-042). Decoy selection is open (G-19). Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only);",
+      "notes": "Promoted to G0-required by ADR-046: the approved Music Box blueprint uses it (MUSIC_BOX_BLUEPRINT.md section 2.3). Module m1 = 2.5 mm (ADR-042). Decoy selection is open (G-19). Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only); ADR-050 (2026-11-15): added SOCKET_Pin (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
       "colliderRadiusM": 0.0146,
-      "glbSha256": "b1bc10da41a4f4c35a2eac0671dfe5f782f99a01e0744969e07757cdd544d6fe",
-      "validationEvidence": "node tools/validate-glb.mjs --only gear_spur_10_m1, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt at module m1 = 2.5 mm (ADR-042); 10T and 12T use a solid web."
+      "glbSha256": "6f7f256979e8172df7f23ed7e808b00b7288995443e15d3054a0cc8935ea5035",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only gear_spur_10_m1, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_Pin; every existing helper and the bounding box are unchanged.",
+      "sockets": [
+        {
+          "name": "SOCKET_Pin",
+          "positionM": [
+            0,
+            -0.0002,
+            0.0062
+          ],
+          "axis": "+Y"
+        }
+      ]
     },
     {
       "id": "gear_spur_20_m1",
@@ -1543,13 +1576,24 @@
       "owner": "Mechanical library",
       "priority": 10,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Promoted to G0-required by ADR-046: the approved Music Box blueprint uses it (MUSIC_BOX_BLUEPRINT.md section 2.3). Module m1 = 2.5 mm (ADR-042). Decoy selection is open (G-19). Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only);",
+      "notes": "Promoted to G0-required by ADR-046: the approved Music Box blueprint uses it (MUSIC_BOX_BLUEPRINT.md section 2.3). Module m1 = 2.5 mm (ADR-042). Decoy selection is open (G-19). Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only); ADR-050 (2026-11-15): added SOCKET_Pin (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
       "colliderRadiusM": 0.0271,
-      "glbSha256": "b269486f43f745e40316c9881b36e91e0cb85c21d42d5c4b22cf30217e7cdabf",
-      "validationEvidence": "node tools/validate-glb.mjs --only gear_spur_20_m1, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt at module m1 = 2.5 mm (ADR-042); 10T and 12T use a solid web."
+      "glbSha256": "11c8800c583ee26a755ad621a9b76275fa1236c322fc7cfe8d6361eb3c90bc57",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only gear_spur_20_m1, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_Pin; every existing helper and the bounding box are unchanged.",
+      "sockets": [
+        {
+          "name": "SOCKET_Pin",
+          "positionM": [
+            0,
+            -0.00008,
+            0.00605
+          ],
+          "axis": "+Y"
+        }
+      ]
     },
     {
       "id": "gear_spur_36_m1",
@@ -1772,12 +1816,77 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "shaft_short_walnut / shaft_short_brass appear in DATA section 4.1 (the id keeps the finish; the asset id does not, ADR-033). Lengths and diameters are not specified (the Parts Catalogue shows 0.05 to 0.20 m and 8, 12, 16 mm; board only). Stage 1 proposes them and the lead approves. ADR-042 (2026-11-14): size set to the approved [0.008, 0.008, 0.105] m of TOCKTON_DIMENSIONS section 11; the earlier [0.008, 0.008, 0.09] m (basis proposal) is superseded.105 m (tolerance 1 % or 0.5 mm); rework required.",
-      "validationEvidence": "node tools/validate-glb.mjs --only shaft_short, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt to the approved size (ADR-042) with the assembly-check fit fixes of docs/evidence/ASSEMBLY_CHECK_2026-11-14.md.",
-      "glbSha256": "be6b8324a901360ffe009e5faf7a0d02519bced7e93556597f83ae5ae3ea4d75"
+      "notes": "shaft_short_walnut / shaft_short_brass appear in DATA section 4.1 (the id keeps the finish; the asset id does not, ADR-033). Lengths and diameters are not specified (the Parts Catalogue shows 0.05 to 0.20 m and 8, 12, 16 mm; board only). Stage 1 proposes them and the lead approves. ADR-042 (2026-11-14): size set to the approved [0.008, 0.008, 0.105] m of TOCKTON_DIMENSIONS section 11; the earlier [0.008, 0.008, 0.09] m (basis proposal) is superseded.105 m (tolerance 1 % or 0.5 mm); rework required. ADR-050 (2026-11-15): added SOCKET_Cylinder, SOCKET_WasherL1, SOCKET_WasherL2, SOCKET_WasherR1, SOCKET_WasherR2, SOCKET_WheelL, SOCKET_WheelR (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only shaft_short, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_Cylinder, SOCKET_WasherL1, SOCKET_WasherL2, SOCKET_WasherR1, SOCKET_WasherR2, SOCKET_WheelL, SOCKET_WheelR; every existing helper and the bounding box are unchanged.",
+      "glbSha256": "a40879b5a0eab0281b9a70ad253c357dd0476081360e05d0ea476fd228b30b60",
+      "sockets": [
+        {
+          "name": "SOCKET_Cylinder",
+          "positionM": [
+            0,
+            0,
+            0
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_WasherL1",
+          "positionM": [
+            0,
+            0,
+            -0.0368
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_WasherL2",
+          "positionM": [
+            0,
+            0,
+            -0.0298
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_WasherR1",
+          "positionM": [
+            0,
+            0,
+            0.0298
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_WasherR2",
+          "positionM": [
+            0,
+            0,
+            0.0368
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_WheelL",
+          "positionM": [
+            0,
+            0,
+            -0.0449
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_WheelR",
+          "positionM": [
+            0,
+            0,
+            0.0449
+          ],
+          "axis": "+Z"
+        }
+      ]
     },
     {
       "id": "shaft_long",
@@ -1928,12 +2037,41 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Named in DATA section 4.1 (spring_standard_brass). The Springs and Winding board gives mainspring 8 to 15 mm wide and 60 to 120 mm across (board only). Which spring ships in Letter 1 is open (gap G-03). ADR-042 (2026-11-14): size set to the approved [0.03, 0.03, 0.0332] m of TOCKTON_DIMENSIONS section 11; the earlier [0.04296, 0.04058, 0.01] m (basis proposal) is superseded. Part constants for Agent 2 (option B, MUSIC_BOX_BLUEPRINT section 4.3): angularVelocity 0.8 rad/s, energyPerUnit 1.0, drainRate 0.509296; 33.2 mm arbor; 6.0 mm bevel engagement on the Carousel (section 6.3).0332 m (tolerance 1 % or 0.5 mm) (and 2 more); rework required.",
-      "validationEvidence": "node tools/validate-glb.mjs --only spring_standard, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt to the approved size (ADR-042) with the assembly-check fit fixes of docs/evidence/ASSEMBLY_CHECK_2026-11-14.md.",
-      "glbSha256": "89b708f4ddfbba3a92cb2fefe0c4c7d8d0ba186baaeb2e12ea66421c0f236501"
+      "notes": "Named in DATA section 4.1 (spring_standard_brass). The Springs and Winding board gives mainspring 8 to 15 mm wide and 60 to 120 mm across (board only). Which spring ships in Letter 1 is open (gap G-03). ADR-042 (2026-11-14): size set to the approved [0.03, 0.03, 0.0332] m of TOCKTON_DIMENSIONS section 11; the earlier [0.04296, 0.04058, 0.01] m (basis proposal) is superseded. Part constants for Agent 2 (option B, MUSIC_BOX_BLUEPRINT section 4.3): angularVelocity 0.8 rad/s, energyPerUnit 1.0, drainRate 0.509296; 33.2 mm arbor; 6.0 mm bevel engagement on the Carousel (section 6.3).0332 m (tolerance 1 % or 0.5 mm) (and 2 more); rework required. ADR-050 (2026-11-15): added SOCKET_Key, SOCKET_Pinion, SOCKET_Washer (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only spring_standard, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_Key, SOCKET_Pinion, SOCKET_Washer; every existing helper and the bounding box are unchanged.",
+      "glbSha256": "c27edb0bc4015ef931aef4cc624f0c5c68f9e39a72736ef60a09dcff78f09d87",
+      "sockets": [
+        {
+          "name": "SOCKET_Key",
+          "positionM": [
+            0,
+            0,
+            0.007
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Pinion",
+          "positionM": [
+            0,
+            0,
+            -0.0136
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Washer",
+          "positionM": [
+            0,
+            0,
+            -0.0053
+          ],
+          "axis": "+Z"
+        }
+      ]
     },
     {
       "id": "spring_worn",
@@ -2006,12 +2144,41 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Named in DATA section 4.1 (spring_worn_brass); the finish is brass, so the difference must be geometry. How wear shows is not specified (A-05); Stage 1 proposes it. Which spring the first build contains is open (gap G-03). ADR-042 (2026-11-14): size set to the approved [0.03, 0.03, 0.0332] m of TOCKTON_DIMENSIONS section 11; the earlier [0.04277, 0.03884, 0.01079] m (basis proposal) is superseded. Part constants for Agent 2 (option B, MUSIC_BOX_BLUEPRINT section 4.3): angularVelocity 0.8 rad/s, energyPerUnit 0.15, drainRate 0.8; 33.2 mm arbor.0332 m (tolerance 1 % or 0.5 mm) (and 2 more); rework required.",
-      "validationEvidence": "node tools/validate-glb.mjs --only spring_worn, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt to the approved size (ADR-042) with the assembly-check fit fixes of docs/evidence/ASSEMBLY_CHECK_2026-11-14.md.",
-      "glbSha256": "0f7438e8936f7e406af145bb46f7bf584d8d72a06ee7e6d3c5b95dcb3244a5ef"
+      "notes": "Named in DATA section 4.1 (spring_worn_brass); the finish is brass, so the difference must be geometry. How wear shows is not specified (A-05); Stage 1 proposes it. Which spring the first build contains is open (gap G-03). ADR-042 (2026-11-14): size set to the approved [0.03, 0.03, 0.0332] m of TOCKTON_DIMENSIONS section 11; the earlier [0.04277, 0.03884, 0.01079] m (basis proposal) is superseded. Part constants for Agent 2 (option B, MUSIC_BOX_BLUEPRINT section 4.3): angularVelocity 0.8 rad/s, energyPerUnit 0.15, drainRate 0.8; 33.2 mm arbor.0332 m (tolerance 1 % or 0.5 mm) (and 2 more); rework required. ADR-050 (2026-11-15): added SOCKET_Key, SOCKET_Pinion, SOCKET_Washer (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only spring_worn, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_Key, SOCKET_Pinion, SOCKET_Washer; every existing helper and the bounding box are unchanged.",
+      "glbSha256": "8e6b971ca2d75090bd33f8f9e440c938acb12d64aca8c9e82a0cb1ffa0daa169",
+      "sockets": [
+        {
+          "name": "SOCKET_Key",
+          "positionM": [
+            0,
+            0,
+            0.007
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Pinion",
+          "positionM": [
+            0,
+            0,
+            -0.0136
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Washer",
+          "positionM": [
+            0,
+            0,
+            -0.0053
+          ],
+          "axis": "+Z"
+        }
+      ]
     },
     {
       "id": "governor_standard",
@@ -2084,12 +2251,32 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Required by PRODUCT_SPEC section 6.1 but absent from the 12-row Music Box boards; it appears on the Parts Catalogue (row R) and the Gear Train Guide (governor at the output). Type is unspecified; Stage 1 chooses one from the Parts Catalogue. The folder name governor is a proposal because PartFamily has no governor value (A-01). ADR-042 (2026-11-14): size set to the approved [0.0306, 0.024, 0.0342] m of TOCKTON_DIMENSIONS section 11; the earlier [0.024, 0.024, 0.03] m (basis proposal) is superseded.0342 m (tolerance 1 % or 0.5 mm) (and 1 more); rework required.",
-      "validationEvidence": "node tools/validate-glb.mjs --only governor_standard, 2026-11-14 18:40: 0 FAIL, 0 WARN. Rebuilt to the approved size (ADR-042) with the assembly-check fit fixes of docs/evidence/ASSEMBLY_CHECK_2026-11-14.md. Arm shortened to clear the Seat_Governor pad and forked around its locating peg (re-check failure 6 fixed, 0.21 mm gap).",
-      "glbSha256": "bf5c8c70b9bc927312f937b90d208214233c32317ee2e8be2e609f9facaf93d6"
+      "notes": "Required by PRODUCT_SPEC section 6.1 but absent from the 12-row Music Box boards; it appears on the Parts Catalogue (row R) and the Gear Train Guide (governor at the output). Type is unspecified; Stage 1 chooses one from the Parts Catalogue. The folder name governor is a proposal because PartFamily has no governor value (A-01). ADR-042 (2026-11-14): size set to the approved [0.0306, 0.024, 0.0342] m of TOCKTON_DIMENSIONS section 11; the earlier [0.024, 0.024, 0.03] m (basis proposal) is superseded.0342 m (tolerance 1 % or 0.5 mm) (and 1 more); rework required. ADR-050 (2026-11-15): added SOCKET_FrameScrew, SOCKET_Pinion (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only governor_standard, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_FrameScrew, SOCKET_Pinion; every existing helper and the bounding box are unchanged.",
+      "glbSha256": "8fdf8e02734aee107d7814c12fce74c291af5cc8ffc8ccc432a04e054ce7575e",
+      "sockets": [
+        {
+          "name": "SOCKET_FrameScrew",
+          "positionM": [
+            -0.0095,
+            0,
+            0.0089
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Pinion",
+          "positionM": [
+            0,
+            0,
+            -0.0146
+          ],
+          "axis": "+Z"
+        }
+      ]
     },
     {
       "id": "winding_key",
@@ -2167,9 +2354,20 @@
       "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "ADR-042: size 0.03 x 0.006 x 0.04 m; the 0.06 x 0.045 m of the Parts Catalogue board is board only (ADR-029). One shared key or one per machine is open (A-10); the default here is one shared key. The Windmill is not wound (W-a, MACHINE_SLOT_MAPPINGS Q4). ADR-042 (2026-11-14): size set to the approved [0.03, 0.006, 0.04] m of TOCKTON_DIMENSIONS section 11; the earlier [0.03, 0.006, 0.03988] m (basis proposal) is superseded.",
-      "glbSha256": "a728a74a011b45d325bb3d200b6d6983d031194a97365a92c48acff0538d2525",
-      "validationEvidence": "node tools/validate-glb.mjs (full manifest run, 67 entries), 2026-11-14: winding_key 0 FAIL, 0 WARN."
+      "notes": "ADR-042: size 0.03 x 0.006 x 0.04 m; the 0.06 x 0.045 m of the Parts Catalogue board is board only (ADR-029). One shared key or one per machine is open (A-10); the default here is one shared key. The Windmill is not wound (W-a, MACHINE_SLOT_MAPPINGS Q4). ADR-042 (2026-11-14): size set to the approved [0.03, 0.006, 0.04] m of TOCKTON_DIMENSIONS section 11; the earlier [0.03, 0.006, 0.03988] m (basis proposal) is superseded. ADR-050 (2026-11-15): added SOCKET_Screw (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
+      "glbSha256": "ecba0c3b8881073b9ecd11e0f39872e064778def71220eb329fb497170e75a23",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only winding_key, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_Screw; every existing helper and the bounding box are unchanged.",
+      "sockets": [
+        {
+          "name": "SOCKET_Screw",
+          "positionM": [
+            0,
+            -0.0001,
+            0.0185
+          ],
+          "axis": "+Y"
+        }
+      ]
     },
     {
       "id": "bearing_pillow_block",
@@ -2313,12 +2511,32 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Board-derived: no written spec names it. Identity is provisional until the blueprints exist (G-12). One file serves the Music Box, Carousel and Clock Tower rows; split it only if Stage 1 shows the shapes differ. ADR-042 (2026-11-14): size set to the approved [0.022, 0.039, 0.006] m of TOCKTON_DIMENSIONS section 11; the earlier [0.022, 0.045, 0.006] m (basis proposal) is superseded.039 m (tolerance 1 % or 0.5 mm); rework required.",
-      "validationEvidence": "node tools/validate-glb.mjs --only bracket_support, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt to the approved size (ADR-042) with the assembly-check fit fixes of docs/evidence/ASSEMBLY_CHECK_2026-11-14.md.",
-      "glbSha256": "1995eecb8ea3d79ad4ac0304128571f9d8d5b2e2fbf8f85e67e2c6f76b9fec5e"
+      "notes": "Board-derived: no written spec names it. Identity is provisional until the blueprints exist (G-12). One file serves the Music Box, Carousel and Clock Tower rows; split it only if Stage 1 shows the shapes differ. ADR-042 (2026-11-14): size set to the approved [0.022, 0.039, 0.006] m of TOCKTON_DIMENSIONS section 11; the earlier [0.022, 0.045, 0.006] m (basis proposal) is superseded.039 m (tolerance 1 % or 0.5 mm); rework required. ADR-050 (2026-11-15): added SOCKET_Bush, SOCKET_Screw (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). The shaft seat is now a 12.2 mm bearing seat (boss lip r 6.1 to 6.8 mm) for bush_split_8 instead of the 8.0 mm bore; bounding box unchanged. Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only bracket_support, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_Bush, SOCKET_Screw; every existing helper and the bounding box are unchanged.",
+      "glbSha256": "ce809c83d3269fec2f400b34f5d5eaf60bd95ed6644e008917693bc82de31866",
+      "sockets": [
+        {
+          "name": "SOCKET_Bush",
+          "positionM": [
+            0,
+            0,
+            0
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Screw",
+          "positionM": [
+            -0.0075,
+            -0.027,
+            0.0011
+          ],
+          "axis": "-Z"
+        }
+      ]
     },
     {
       "id": "pulley_standard",
@@ -2685,10 +2903,10 @@
       "owner": "Machines",
       "priority": 3,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "ADR-042: size 0.13 x 0.10 x 0.09 m with the lid closed; the board values 0.24 x 0.14 x 0.16 m are board only (ADR-029). G-02 is resolved by MUSIC_BOX_BLUEPRINT section 2.2: 12 sockets, the case is the frame. The board rows lid, hinge x2, box body, side panel x2 and foot x4 are nodes of this one file (ADR-030 item 4); if the blueprint makes them separate slots the file is split (up to 4 more files). The lid stays open on the bench and on the plot so the cylinder, comb and governor are seen working (MUSIC_BOX_BLUEPRINT section 10.1). Rework in progress 2026-11-14: the GLB is being rewritten, so no validator result or hash is recorded.",
+      "notes": "ADR-042: size 0.13 x 0.10 x 0.09 m with the lid closed; the board values 0.24 x 0.14 x 0.16 m are board only (ADR-029). G-02 is resolved by MUSIC_BOX_BLUEPRINT section 2.2: 12 sockets, the case is the frame. The board rows lid, hinge x2, box body, side panel x2 and foot x4 are nodes of this one file (ADR-030 item 4); if the blueprint makes them separate slots the file is split (up to 4 more files). The lid stays open on the bench and on the plot so the cylinder, comb and governor are seen working (MUSIC_BOX_BLUEPRINT section 10.1). Rework in progress 2026-11-14: the GLB is being rewritten, so no validator result or hash is recorded. ADR-050 (2026-11-15): added SOCKET_SpringAnchor (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). SOCKET_SpringAnchor takes pin_dowel_3 over the existing Post_SpringOuter (axis -X, 10.5 mm exposed). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
       "origin": {
         "x": "centre",
         "y": "min",
@@ -2811,13 +3029,22 @@
             0.045000002
           ],
           "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_SpringAnchor",
+          "positionM": [
+            0.0545,
+            0.04,
+            0.035
+          ],
+          "axis": "-X"
         }
       ],
       "requiredNodes": [
         "PIV_Lid"
       ],
-      "glbSha256": "e9012922d9d47f463ba9d64426a5ed6d9b0f9652da630d7fa58fccb7bbf228cf",
-      "validationEvidence": "node tools/validate-glb.mjs --only music_box_case, 2026-11-14 18:40: 0 FAIL, 0 WARN. Static meshes merged per material to cut draw calls; helpers unchanged except the five sockets moved for the +1.0 mm gear clearance (stage 1 38.5 mm, stage 2 36.0 mm) and the opened key bore (assembly check 2026-11-14). Key bore widened to 4.6 mm for the spring arbor boss (BVH: 0 overlaps, 0.161 mm min clearance to the spring, 1.308 mm to the key). Bracket floor marks are frames around the feet (assembly re-check failure 4 fixed, 0.0 mm3 overlap)."
+      "glbSha256": "88c00c6337b4b7f0194b66f8e138f0035e0998f322dfad38877f992d8837d456",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only music_box_case, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_SpringAnchor; every existing helper and the bounding box are unchanged."
     },
     {
       "id": "cylinder_music_box",
@@ -2894,7 +3121,7 @@
       "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Size (about 0.14 m long, 0.05 m across) is from the Music Box Design board only. Owned by Machines so the cylinder, comb and case are designed together.",
+      "notes": "Size (about 0.14 m long, 0.05 m across) is from the Music Box Design board only. Owned by Machines so the cylinder, comb and case are designed together. ADR-050 (2026-11-15): added SOCKET_CollarL, SOCKET_CollarR (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Both end hubs carry a 10.4 mm x 5.2 mm counterbore for collar_set_8; the drum has 24 facets (was 28) to stay under 1,500 triangles. Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
       "origin": {
         "x": "centre",
         "y": "centre",
@@ -2903,8 +3130,28 @@
       "colliderRadiusM": 0.02,
       "closed": true,
       "rotationAxis": "+Z",
-      "glbSha256": "eabd66ac50c20d7f2647e02655ca3cbf1a811d0d7841defa2f4d2d2d8dbfd139",
-      "validationEvidence": "node tools/validate-glb.mjs (full manifest run, 67 entries), 2026-11-14: cylinder_music_box 0 FAIL, 0 WARN."
+      "glbSha256": "9b243c8807f2ee31c5fa2680a50aff9a480dfacdb967d873f05a95ef279f77d5",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only cylinder_music_box, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_CollarL, SOCKET_CollarR; every existing helper and the bounding box are unchanged.",
+      "sockets": [
+        {
+          "name": "SOCKET_CollarL",
+          "positionM": [
+            0,
+            0,
+            -0.0268
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_CollarR",
+          "positionM": [
+            0,
+            0,
+            0.0268
+          ],
+          "axis": "+Z"
+        }
+      ]
     },
     {
       "id": "comb_music_box",
@@ -2980,15 +3227,35 @@
       "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Tine count is not specified (the Music Box Design board says 15 to 24, board only). Melody length and notes are open (G-17).",
+      "notes": "Tine count is not specified (the Music Box Design board says 15 to 24, board only). Melody length and notes are open (G-17). ADR-050 (2026-11-15): added SOCKET_ClipL, SOCKET_ClipR (carried sockets, docs/blueprints/INTRICATE_ASSEMBLY_DESIGN.md 8.1 and 11.2). Rebuilt with forge --rework (new hash); the validator passes on this file, the lead re-runs it on the merged manifest.",
       "origin": {
         "x": "centre",
         "y": "max",
         "z": "min"
       },
       "closed": true,
-      "glbSha256": "80979b4bd104749e2c13a15777df0dc8bb4863c44e5c7b6ac0e7c7a63397bafb",
-      "validationEvidence": "node tools/validate-glb.mjs (full manifest run, 67 entries), 2026-11-14: comb_music_box 0 FAIL, 0 WARN."
+      "glbSha256": "1d2151358dd4950634274196226578dcdf692511364f19f49027ea3cd9416938",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only comb_music_box, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO). ADR-050 W1: added SOCKET_ClipL, SOCKET_ClipR; every existing helper and the bounding box are unchanged.",
+      "sockets": [
+        {
+          "name": "SOCKET_ClipL",
+          "positionM": [
+            -0.01,
+            -0.0038,
+            0.0246
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_ClipR",
+          "positionM": [
+            0.01,
+            -0.0038,
+            0.0246
+          ],
+          "axis": "+Y"
+        }
+      ]
     },
     {
       "id": "carousel_platform",
@@ -7010,6 +7277,650 @@
         "y": "centre",
         "z": "centre"
       }
+    },
+    {
+      "id": "pin_taper_2",
+      "filename": "pin_taper_2.glb",
+      "displayName": "Taper pin, 2 mm",
+      "category": "tiny_fastener",
+      "family": "A",
+      "productionClass": "A2",
+      "production": "parametric_family",
+      "description": "Taper pin, 2.0 to 1.6 mm by 14 mm, 2.8 mm domed head, polished brass.",
+      "gameplayPurpose": "Locks a gear to its shaft. A gear without its pin leaves the machine incomplete.",
+      "contains": "One mesh: a tapered pin along local Z, head at +Z.",
+      "distinctBecause": "The only tapered radial retainer of a gear hub.",
+      "classification": "G0-required",
+      "worldId": "shared",
+      "sharedOrWorldSpecific": "shared",
+      "reuseEligible": true,
+      "scopeClass": "shared",
+      "relatedMachineOrEnvironment": "Music Box",
+      "specExists": true,
+      "boardExists": false,
+      "specifications": [
+        "blueprints/INTRICATE_ASSEMBLY_DESIGN.md sections 4 and 11",
+        "DECISIONS.md ADR-050",
+        "ASSET_OPTIMISATION_BUDGET.md section 2"
+      ],
+      "blenderSource": "blender/scripts/gen_fastener.py",
+      "glbPath": "public/assets/models/shared/fastener/pin_taper_2.glb",
+      "meshes": [
+        "Pin_Taper2"
+      ],
+      "materials": [
+        "Mat_PolishedBrass"
+      ],
+      "animations": [],
+      "runtimeMotion": null,
+      "colliders": [
+        "COL_Grab (sphere, radius >= 0.012 m, visible mesh not enlarged; INTERACTION_SPEC.md section 7.2)"
+      ],
+      "originAndPivot": "Origin at the box centre (mid-length), +Z along the pin towards the head; the head underside is the seat plane 6.1 mm from the origin; transforms applied (ADR-020)",
+      "approxDimensionsM": [
+        0.0028,
+        0.0028,
+        0.014
+      ],
+      "dimensionsBasis": "measured",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Real size at workbench scale 1:1.",
+      "budgets": {
+        "triangles": 300,
+        "primitives": 1,
+        "materials": 1,
+        "textureMiB": 0,
+        "glbKB": 30,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "owner": "Mechanical library",
+      "priority": 4,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "references": [],
+      "dependencies": [],
+      "usedBy": [
+        "music_box: 4 gear pins"
+      ],
+      "origin": {
+        "x": "centre",
+        "y": "centre",
+        "z": "centre"
+      },
+      "glbSha256": "8520a9d5d7bc7a068e86c0e1892635df5f0afff0c58d16ddc9fd62a0e0d23d08",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only pin_taper_2, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO).",
+      "notes": "ADR-050 P0 hardware (2026-11-15): Taper pin, 2.0 to 1.6 mm by 14 mm, 2.8 mm domed head, polished brass. Built by blender/scripts/gen_fastener.py.",
+      "colliderRadiusM": 0.015
+    },
+    {
+      "id": "pin_dowel_3",
+      "filename": "pin_dowel_3.glb",
+      "displayName": "Dowel pin, 3 mm",
+      "category": "tiny_fastener",
+      "family": "A",
+      "productionClass": "A2",
+      "production": "parametric_family",
+      "description": "Plain dowel 3 x 12 mm, chamfered ends, polished brass.",
+      "gameplayPurpose": "Anchors the mainspring's outer end to the case.",
+      "contains": "One mesh: a plain dowel along local Z.",
+      "distinctBecause": "Plain headless dowel, no taper.",
+      "classification": "G0-required",
+      "worldId": "shared",
+      "sharedOrWorldSpecific": "shared",
+      "reuseEligible": true,
+      "scopeClass": "shared",
+      "relatedMachineOrEnvironment": "Music Box",
+      "specExists": true,
+      "boardExists": false,
+      "specifications": [
+        "blueprints/INTRICATE_ASSEMBLY_DESIGN.md sections 4 and 11",
+        "DECISIONS.md ADR-050",
+        "ASSET_OPTIMISATION_BUDGET.md section 2"
+      ],
+      "blenderSource": "blender/scripts/gen_fastener.py",
+      "glbPath": "public/assets/models/shared/fastener/pin_dowel_3.glb",
+      "meshes": [
+        "Pin_Dowel3"
+      ],
+      "materials": [
+        "Mat_PolishedBrass"
+      ],
+      "animations": [],
+      "runtimeMotion": null,
+      "colliders": [
+        "COL_Grab (sphere, radius >= 0.012 m, visible mesh not enlarged; INTERACTION_SPEC.md section 7.2)"
+      ],
+      "originAndPivot": "Origin at mid-length (the host surface, 6 mm in and 6 mm out), +Z along the dowel; transforms applied (ADR-020)",
+      "approxDimensionsM": [
+        0.003,
+        0.002925,
+        0.012
+      ],
+      "dimensionsBasis": "measured",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Real size at workbench scale 1:1.",
+      "budgets": {
+        "triangles": 300,
+        "primitives": 1,
+        "materials": 1,
+        "textureMiB": 0,
+        "glbKB": 30,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "owner": "Mechanical library",
+      "priority": 4,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "references": [],
+      "dependencies": [],
+      "usedBy": [
+        "music_box: spring anchor"
+      ],
+      "origin": {
+        "x": "centre",
+        "y": "centre",
+        "z": "centre"
+      },
+      "glbSha256": "ac5ea108417d5600314be3fd23423b26fd8ba6720d11fba883df86f102ab8dbf",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only pin_dowel_3, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO).",
+      "notes": "ADR-050 P0 hardware (2026-11-15): Plain dowel 3 x 12 mm, chamfered ends, polished brass. Built by blender/scripts/gen_fastener.py.",
+      "colliderRadiusM": 0.015
+    },
+    {
+      "id": "collar_set_8",
+      "filename": "collar_set_8.glb",
+      "displayName": "Set collar, 8 mm bore",
+      "category": "tiny_fastener",
+      "family": "A",
+      "productionClass": "A2",
+      "production": "parametric_family",
+      "description": "Set collar, bore 8.0 mm, OD 10.0 mm, 5 mm long, chamfered, aged brass.",
+      "gameplayPurpose": "Holds the melody cylinder on its arbor; seats in the cylinder end counterbore.",
+      "contains": "One mesh: a chamfered ring, axis local Z.",
+      "distinctBecause": "The only retaining ring on the arbor.",
+      "classification": "G0-required",
+      "worldId": "shared",
+      "sharedOrWorldSpecific": "shared",
+      "reuseEligible": true,
+      "scopeClass": "shared",
+      "relatedMachineOrEnvironment": "Music Box",
+      "specExists": true,
+      "boardExists": false,
+      "specifications": [
+        "blueprints/INTRICATE_ASSEMBLY_DESIGN.md sections 4 and 11",
+        "DECISIONS.md ADR-050",
+        "ASSET_OPTIMISATION_BUDGET.md section 2"
+      ],
+      "blenderSource": "blender/scripts/gen_fastener.py",
+      "glbPath": "public/assets/models/shared/fastener/collar_set_8.glb",
+      "meshes": [
+        "Collar_Set8"
+      ],
+      "materials": [
+        "Mat_AgedBrass"
+      ],
+      "animations": [],
+      "runtimeMotion": null,
+      "colliders": [
+        "COL_Grab (sphere, radius >= 0.012 m, visible mesh not enlarged; INTERACTION_SPEC.md section 7.2)"
+      ],
+      "originAndPivot": "Origin at the centre of the ring, +Z along the bore; transforms applied (ADR-020)",
+      "approxDimensionsM": [
+        0.01,
+        0.01,
+        0.005
+      ],
+      "dimensionsBasis": "measured",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Real size at workbench scale 1:1.",
+      "budgets": {
+        "triangles": 300,
+        "primitives": 1,
+        "materials": 1,
+        "textureMiB": 0,
+        "glbKB": 30,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "owner": "Mechanical library",
+      "priority": 4,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "references": [],
+      "dependencies": [],
+      "usedBy": [
+        "music_box: 2 cylinder collars"
+      ],
+      "origin": {
+        "x": "centre",
+        "y": "centre",
+        "z": "centre"
+      },
+      "glbSha256": "e7d1b208934010b3f994863b00e50bef7d8419038885d2ae3288fb4e7902d9f3",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only collar_set_8, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO).",
+      "notes": "ADR-050 P0 hardware (2026-11-15): Set collar, bore 8.0 mm, OD 10.0 mm, 5 mm long, chamfered, aged brass. Built by blender/scripts/gen_fastener.py.",
+      "colliderRadiusM": 0.012
+    },
+    {
+      "id": "washer_plain_8",
+      "filename": "washer_plain_8.glb",
+      "displayName": "Plain washer, 8 mm",
+      "category": "tiny_fastener",
+      "family": "A",
+      "productionClass": "A2",
+      "production": "parametric_family",
+      "description": "Plain washer, bore 8.2 mm, OD 14 mm, 0.94 mm thick, aged brass.",
+      "gameplayPurpose": "Fills one 1 mm axial gap so gears and cylinder do not rub or walk.",
+      "contains": "One mesh: a flat chamfered ring, axis local Z.",
+      "distinctBecause": "The only plain flat washer.",
+      "classification": "G0-required",
+      "worldId": "shared",
+      "sharedOrWorldSpecific": "shared",
+      "reuseEligible": true,
+      "scopeClass": "shared",
+      "relatedMachineOrEnvironment": "Music Box",
+      "specExists": true,
+      "boardExists": false,
+      "specifications": [
+        "blueprints/INTRICATE_ASSEMBLY_DESIGN.md sections 4 and 11",
+        "DECISIONS.md ADR-050",
+        "ASSET_OPTIMISATION_BUDGET.md section 2"
+      ],
+      "blenderSource": "blender/scripts/gen_fastener.py",
+      "glbPath": "public/assets/models/shared/fastener/washer_plain_8.glb",
+      "meshes": [
+        "Washer_Plain8"
+      ],
+      "materials": [
+        "Mat_AgedBrass"
+      ],
+      "animations": [],
+      "runtimeMotion": null,
+      "colliders": [
+        "COL_Grab (sphere, radius >= 0.012 m, visible mesh not enlarged; INTERACTION_SPEC.md section 7.2)"
+      ],
+      "originAndPivot": "Origin at the centre of the ring, +Z along the bore; transforms applied (ADR-020)",
+      "approxDimensionsM": [
+        0.014,
+        0.014,
+        0.00094
+      ],
+      "dimensionsBasis": "measured",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Real size at workbench scale 1:1.",
+      "budgets": {
+        "triangles": 300,
+        "primitives": 1,
+        "materials": 1,
+        "textureMiB": 0,
+        "glbKB": 30,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "owner": "Mechanical library",
+      "priority": 4,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "references": [],
+      "dependencies": [],
+      "usedBy": [
+        "music_box: 5 washers"
+      ],
+      "origin": {
+        "x": "centre",
+        "y": "centre",
+        "z": "centre"
+      },
+      "glbSha256": "944c351096b8a37c540cca0e993a01931bedaf1b9a4cfcebc369ad305c4c3539",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only washer_plain_8, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO).",
+      "notes": "ADR-050 P0 hardware (2026-11-15): Plain washer, bore 8.2 mm, OD 14 mm, 0.94 mm thick, aged brass. Built by blender/scripts/gen_fastener.py.",
+      "colliderRadiusM": 0.015
+    },
+    {
+      "id": "bush_split_8",
+      "filename": "bush_split_8.glb",
+      "displayName": "Split bush, 8 mm",
+      "category": "tiny_fastener",
+      "family": "A",
+      "productionClass": "A2",
+      "production": "parametric_family",
+      "description": "C-shaped half bush, 240 degrees, bore 8.2 mm, OD 12 mm, 6 mm long, aged brass.",
+      "gameplayPurpose": "Lines a bracket's bearing seat; the arbor rests in it.",
+      "contains": "One mesh: a 240 degree ring segment, opening towards local +Y.",
+      "distinctBecause": "The only open (split) bearing liner.",
+      "classification": "G0-required",
+      "worldId": "shared",
+      "sharedOrWorldSpecific": "shared",
+      "reuseEligible": true,
+      "scopeClass": "shared",
+      "relatedMachineOrEnvironment": "Music Box",
+      "specExists": true,
+      "boardExists": false,
+      "specifications": [
+        "blueprints/INTRICATE_ASSEMBLY_DESIGN.md sections 4 and 11",
+        "DECISIONS.md ADR-050",
+        "ASSET_OPTIMISATION_BUDGET.md section 2"
+      ],
+      "blenderSource": "blender/scripts/gen_fastener.py",
+      "glbPath": "public/assets/models/shared/fastener/bush_split_8.glb",
+      "meshes": [
+        "Bush_Split8"
+      ],
+      "materials": [
+        "Mat_AgedBrass"
+      ],
+      "animations": [],
+      "runtimeMotion": null,
+      "colliders": [
+        "COL_Grab (sphere, radius >= 0.012 m, visible mesh not enlarged; INTERACTION_SPEC.md section 7.2)"
+      ],
+      "originAndPivot": "Origin on the ring axis (not the box centre), +Z along the shaft, the opening faces +Y; transforms applied (ADR-020)",
+      "approxDimensionsM": [
+        0.011966,
+        0.009,
+        0.006
+      ],
+      "dimensionsBasis": "measured",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Real size at workbench scale 1:1.",
+      "budgets": {
+        "triangles": 300,
+        "primitives": 1,
+        "materials": 1,
+        "textureMiB": 0,
+        "glbKB": 30,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "owner": "Mechanical library",
+      "priority": 4,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "references": [],
+      "dependencies": [],
+      "usedBy": [
+        "music_box: 2 bracket bushes"
+      ],
+      "glbSha256": "88f5cdc08870506465e6bc47f852f7fdded1c759ff7b6e34d8dffc515cf803c5",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only bush_split_8, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO).",
+      "notes": "ADR-050 P0 hardware (2026-11-15): C-shaped half bush, 240 degrees, bore 8.2 mm, OD 12 mm, 6 mm long, aged brass. Built by blender/scripts/gen_fastener.py.",
+      "colliderRadiusM": 0.012
+    },
+    {
+      "id": "screw_slot_m3",
+      "filename": "screw_slot_m3.glb",
+      "displayName": "Slotted screw, M3",
+      "category": "tiny_fastener",
+      "family": "A",
+      "productionClass": "A2",
+      "production": "parametric_family",
+      "description": "Slotted pan-head screw M3: head 6 x 1.8 mm, shank 8 mm, polished brass.",
+      "gameplayPurpose": "Pegs a bracket down, clips the comb, retains the key and the governor frame.",
+      "contains": "One mesh: a domed slotted head on a shank, head at +Z.",
+      "distinctBecause": "The only threaded fastener; turns a quarter turn about local Z as it seats.",
+      "classification": "G0-required",
+      "worldId": "shared",
+      "sharedOrWorldSpecific": "shared",
+      "reuseEligible": true,
+      "scopeClass": "shared",
+      "relatedMachineOrEnvironment": "Music Box",
+      "specExists": true,
+      "boardExists": false,
+      "specifications": [
+        "blueprints/INTRICATE_ASSEMBLY_DESIGN.md sections 4 and 11",
+        "DECISIONS.md ADR-050",
+        "ASSET_OPTIMISATION_BUDGET.md section 2"
+      ],
+      "blenderSource": "blender/scripts/gen_fastener.py",
+      "glbPath": "public/assets/models/shared/fastener/screw_slot_m3.glb",
+      "meshes": [
+        "Screw_SlotM3"
+      ],
+      "materials": [
+        "Mat_PolishedBrass"
+      ],
+      "animations": [],
+      "runtimeMotion": null,
+      "colliders": [
+        "COL_Grab (sphere, radius >= 0.012 m, visible mesh not enlarged; INTERACTION_SPEC.md section 7.2)"
+      ],
+      "originAndPivot": "Origin at the box centre, +Z along the shank towards the head; the head underside is the seat plane 3.1 mm from the origin; turns about local +Z; transforms applied (ADR-020)",
+      "approxDimensionsM": [
+        0.006,
+        0.00585,
+        0.009785
+      ],
+      "dimensionsBasis": "measured",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Real size at workbench scale 1:1.",
+      "budgets": {
+        "triangles": 300,
+        "primitives": 1,
+        "materials": 1,
+        "textureMiB": 0,
+        "glbKB": 30,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "owner": "Mechanical library",
+      "priority": 4,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "references": [],
+      "dependencies": [],
+      "usedBy": [
+        "music_box: 6 screws"
+      ],
+      "origin": {
+        "x": "centre",
+        "y": "centre",
+        "z": "centre"
+      },
+      "glbSha256": "154b17f38792cf43c368a78ba7be6c4d624acfbfb1a4b231c3d097c6e9447665",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only screw_slot_m3, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO).",
+      "notes": "ADR-050 P0 hardware (2026-11-15): Slotted pan-head screw M3: head 6 x 1.8 mm, shank 8 mm, polished brass. Built by blender/scripts/gen_fastener.py.",
+      "colliderRadiusM": 0.015
+    },
+    {
+      "id": "clip_angle_small",
+      "filename": "clip_angle_small.glb",
+      "displayName": "Angle clip, small",
+      "category": "tiny_fastener",
+      "family": "A",
+      "productionClass": "A2",
+      "production": "parametric_family",
+      "description": "Small angle clip 16 x 6 x 8 mm with an M3 hole in the plate, aged brass.",
+      "gameplayPurpose": "Holds the comb to its seat; takes one screw.",
+      "contains": "One mesh: an L-shaped clip with a clearance hole; one SOCKET_Screw.",
+      "distinctBecause": "The only angle clip.",
+      "classification": "G0-required",
+      "worldId": "shared",
+      "sharedOrWorldSpecific": "shared",
+      "reuseEligible": true,
+      "scopeClass": "shared",
+      "relatedMachineOrEnvironment": "Music Box",
+      "specExists": true,
+      "boardExists": false,
+      "specifications": [
+        "blueprints/INTRICATE_ASSEMBLY_DESIGN.md sections 4 and 11",
+        "DECISIONS.md ADR-050",
+        "ASSET_OPTIMISATION_BUDGET.md section 2"
+      ],
+      "blenderSource": "blender/scripts/gen_fastener.py",
+      "glbPath": "public/assets/models/shared/fastener/clip_angle_small.glb",
+      "meshes": [
+        "Clip_AngleSmall"
+      ],
+      "materials": [
+        "Mat_AgedBrass"
+      ],
+      "animations": [],
+      "runtimeMotion": null,
+      "colliders": [
+        "COL_Grab (sphere, radius >= 0.012 m, visible mesh not enlarged; INTERACTION_SPEC.md section 7.2)"
+      ],
+      "originAndPivot": "Origin at the box centre; +Z points away from the host, the plate underside (z +2.4 mm) is the seat plane and the flange hangs 6.4 mm below it on the host far side; transforms applied (ADR-020)",
+      "approxDimensionsM": [
+        0.016,
+        0.006,
+        0.008
+      ],
+      "dimensionsBasis": "measured",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Real size at workbench scale 1:1.",
+      "budgets": {
+        "triangles": 300,
+        "primitives": 1,
+        "materials": 1,
+        "textureMiB": 0,
+        "glbKB": 30,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "owner": "Mechanical library",
+      "priority": 4,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "references": [],
+      "dependencies": [],
+      "usedBy": [
+        "music_box: 2 comb clips"
+      ],
+      "origin": {
+        "x": "centre",
+        "y": "centre",
+        "z": "centre"
+      },
+      "sockets": [
+        {
+          "name": "SOCKET_Screw",
+          "positionM": [
+            0,
+            0,
+            0.0009
+          ],
+          "axis": "+Z"
+        }
+      ],
+      "glbSha256": "a2142d05a1f2bb4cd8d235983302eb430b87cc0b98cca2e1b42caa1a9cffda4c",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only clip_angle_small, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO).",
+      "notes": "ADR-050 P0 hardware (2026-11-15): Small angle clip 16 x 6 x 8 mm with an M3 hole in the plate, aged brass. Built by blender/scripts/gen_fastener.py.",
+      "colliderRadiusM": 0.012
+    },
+    {
+      "id": "fastener_caddy",
+      "filename": "fastener_caddy.glb",
+      "displayName": "Fastener caddy",
+      "category": "prop",
+      "family": "B",
+      "productionClass": "B",
+      "production": "hand_modelled",
+      "description": "Walnut caddy with four dished brass bins at 3.8 cm pitch that hands out one live fastener at a time.",
+      "gameplayPurpose": "Holds the hardware of the current stage; only the current step bin is live (a pooled glow lights its PIV_Lamp). Master shows all four bins live.",
+      "contains": "Caddy_Body (walnut base) and Caddy_Bins (four brass bins with lamp bezels); SOCKET_Bin1 to SOCKET_Bin4 at the bin mouths and PIV_Lamp1 to PIV_Lamp4 at the bezels.",
+      "distinctBecause": "The only dispenser for the fastener family.",
+      "classification": "G0-required",
+      "worldId": "tockton",
+      "sharedOrWorldSpecific": "world-specific",
+      "reuseEligible": true,
+      "scopeClass": "reused",
+      "relatedMachineOrEnvironment": "Trunk and workshop",
+      "specExists": true,
+      "boardExists": false,
+      "specifications": [
+        "blueprints/INTRICATE_ASSEMBLY_DESIGN.md sections 4 and 11",
+        "DECISIONS.md ADR-050",
+        "ASSET_OPTIMISATION_BUDGET.md section 2"
+      ],
+      "blenderSource": "blender/scripts/gen_workshop.py",
+      "glbPath": "public/assets/models/tockton/workshop/fastener_caddy.glb",
+      "meshes": [
+        "Caddy_Body",
+        "Caddy_Bins"
+      ],
+      "materials": [
+        "Mat_Walnut",
+        "Mat_AgedBrass"
+      ],
+      "animations": [],
+      "runtimeMotion": null,
+      "colliders": [],
+      "originAndPivot": "Origin at the centre of the floor-contact face, +Y up (ADR-020)",
+      "approxDimensionsM": [
+        0.162,
+        0.03,
+        0.042
+      ],
+      "dimensionsBasis": "measured",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Real size at workbench scale 1:1.",
+      "budgets": {
+        "triangles": 3000,
+        "primitives": 3,
+        "materials": 2,
+        "textureMiB": 0,
+        "glbKB": 200,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "owner": "World",
+      "priority": 2,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "closed": true,
+      "origin": {
+        "x": "centre",
+        "y": "min",
+        "z": "centre"
+      },
+      "usedBy": [
+        "workshop bench: front strip of the build zone"
+      ],
+      "sockets": [
+        {
+          "name": "SOCKET_Bin1",
+          "positionM": [
+            -0.057,
+            0.03,
+            -0.0025
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Bin2",
+          "positionM": [
+            -0.019,
+            0.03,
+            -0.0025
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Bin3",
+          "positionM": [
+            0.019,
+            0.03,
+            -0.0025
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_Bin4",
+          "positionM": [
+            0.057,
+            0.03,
+            -0.0025
+          ],
+          "axis": "+Y"
+        }
+      ],
+      "glbSha256": "a65932abc23137eb195213201ea2984518a071608d77bcf79c7fa4cb500c92fa",
+      "validationEvidence": "node tools/validate-glb.mjs --manifest <scratch manifest> --only fastener_caddy, 2026-11-15: 0 FAIL, 0 WARN (blender/scripts/forge.py, Blender 5.2.1, GPU vertex AO).",
+      "notes": "ADR-050 P0 hardware (2026-11-15): Walnut caddy with four dished brass bins at 3.8 cm pitch that hands out one live fastener at a time. Built by blender/scripts/gen_workshop.py.",
+      "references": [],
+      "dependencies": []
     }
   ]
 }
