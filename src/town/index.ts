@@ -33,6 +33,7 @@ import { loadModel, loadTown } from './scene';
 import type { ModelSource } from './scene';
 import { TownSystem } from './system';
 import { createWakeUniforms, installWakeShading } from './wake-shader';
+import type { WakeUniforms } from './wake-shader';
 
 export { makeCarriable } from './carry';
 export { MACHINE_SNAP_PART, PLOTS, WAKE_GROUP, WAKE_SOURCES } from './layout';
@@ -69,6 +70,24 @@ export interface InstallTownOptions {
   source?: ModelSource;
   /** False leaves out the houses, props and lamp posts (the gift page never shows the town). Default true. */
   dressing?: boolean;
+  /** The uniforms `prepareTownShading` made, when the shared materials were patched ahead of the town. Omitted: this call patches them. */
+  uniforms?: WakeUniforms;
+}
+
+/** A translation that puts every fragment far outside the town's volume, so no fragment counts as scenery while there is no town to ask (`prepareTownShading`). */
+const NO_TOWN_M = 1000;
+
+/**
+ * Patches the shared library materials with the wake shader (wake-shader.ts) WITHOUT a town: the page that draws its first picture
+ * before the town's models are in (a first-time player's, src/index.ts `deferTown`) must patch them before anything is compiled, or every
+ * material drawn first would compile twice. Pass the result as `InstallTownOptions.uniforms`. Until a town exists the matrix that maps the
+ * world into the town's frame puts everything outside it, so the trunk and the bench are never taken for scenery; `TownRuntime` writes it every frame afterwards.
+ */
+export function prepareTownShading(registry: MaterialRegistry): WakeUniforms {
+  const uniforms = createWakeUniforms();
+  installWakeShading(registry, uniforms);
+  uniforms.uWuToTown.value.makeTranslation(NO_TOWN_M, NO_TOWN_M, NO_TOWN_M);
+  return uniforms;
 }
 
 /**
@@ -78,10 +97,15 @@ export interface InstallTownOptions {
 export async function installTown(world: World, options: InstallTownOptions): Promise<TownRuntime> {
   const stage = world.getSceneObject(STAGE_NODE_ID);
   if (!stage) throw new Error(`Scene node "${STAGE_NODE_ID}" is missing; the town has nothing to stand on.`);
-  const uniforms = createWakeUniforms();
-  installWakeShading(options.registry, uniforms);
+  let uniforms = options.uniforms;
+  if (!uniforms) {
+    uniforms = createWakeUniforms();
+    installWakeShading(options.registry, uniforms);
+  }
   const town = await loadTown(options.source ?? loadModel, options.registry, options.dressing ?? true);
+  performance.mark('wu:town-built'); // User Timing: where the time of a town that loads behind the page goes (docs/evidence/WEBPERF_2026-11-15.md)
   bakeTown(town); // the town's static meshes, one per library material (bake.ts); the town is never taken down
+  performance.mark('wu:town-baked');
   stage.add(town.group);
   const placement = world.getSystem(StageSystem);
   if (placement && placement.placement !== 'idle') town.group.scale.setScalar(placement.townScale); // the choice was made while the town loaded

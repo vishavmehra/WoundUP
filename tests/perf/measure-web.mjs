@@ -119,6 +119,8 @@ async function loadOnce(profile) {
   await page.goto(URL_BASE, { waitUntil: 'commit' });
   await page.waitForFunction(() => window.__wp?.usable > 0, null, { timeout: 180_000, polling: 100 });
   const usableWall = Date.now() - t;
+  // A page that loads the town after it is usable (WU_WAIT_TOWN=1) writes the mark `wu:town` when the town stands in the scene: wait for it, and for what it still downloads.
+  if (process.env.WU_WAIT_TOWN === '1') await page.waitForFunction(() => performance.getEntriesByName('wu:town').length > 0, null, { timeout: 120_000, polling: 100 }).catch(() => undefined);
   await page.waitForTimeout(3000); // anything still downloading after the page is usable (idle prefetch) shows up here
   const wp = await page.evaluate(() => window.__wp);
   const marks = await page.evaluate(() => Object.fromEntries(performance.getEntriesByType('mark').filter((m) => m.name.startsWith('wu:')).map((m) => [m.name.slice(3), Math.round(m.startTime)])));
@@ -159,10 +161,15 @@ async function loadOnce(profile) {
     loadEventMs: Math.round(nav.load),
     beforeUsable: sumTo(usableAt),
     afterUsable3s: sumTo(usableAt + 3),
+    townMs: marks.town ?? null,
+    beforeTown: marks.town ? sumTo(marks.town / 1000) : null,
     all: sumTo(Infinity),
     longTasksToUsable: { n: longTo(wp.usable).length, tbtMs: Math.round(tbt(wp.usable)), maxMs: Math.round(Math.max(0, ...longTo(wp.usable).map(([, d]) => d))) },
     longTasksToFcp: { n: longTo(wp.paint['first-contentful-paint'] ?? 0).length, tbtMs: Math.round(tbt(wp.paint['first-contentful-paint'] ?? 0)) },
     longTasksAll: { n: wp.long.length, tbtMs: Math.round(tbt(Infinity)) },
+    // What happens on the main thread once the page is usable: the town's models being built (a page that defers the town), before the 3 s idle wait ends.
+    longListAfterUsable: wp.long.filter(([s]) => s > wp.usable).map(([s, d]) => [Math.round(s), Math.round(d)]),
+    longTasksAfterUsable: { n: wp.long.filter(([s]) => s > wp.usable).length, tbtMs: Math.round(tbt(Infinity) - tbt(wp.usable)), maxMs: Math.round(Math.max(0, ...wp.long.filter(([s]) => s > wp.usable).map(([, d]) => d))) },
     duplicateDownloads: [...perUrl.entries()].filter(([, n]) => n > 1).map(([u]) => u.replace(URL_BASE, '')),
     errors,
     failed,

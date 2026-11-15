@@ -8,7 +8,7 @@ import type { InteractionIntent } from '../../src/interaction/intents';
 import { SocketSnapSystem } from '../../src/interaction/socket-snap-system';
 import { ReturnsToRest } from '../../src/returns-to-rest-component';
 import { STAGE_NODE_ID, TOWN_NODE_ID } from '../../src/stage';
-import { installTown } from '../../src/town';
+import { installTown, prepareTownShading } from '../../src/town';
 import { makeCarriable } from '../../src/town/carry';
 import { MACHINE_SNAP_PART } from '../../src/town/layout';
 import { NIGHT_LOOK } from '../../src/town/night';
@@ -102,6 +102,23 @@ describe('installTown', () => {
     expect(world.getSceneObject(TOWN_NODE_ID)).toBe(runtime.town.group);
     expect(world.getSystem(TownSystem)).toBeDefined();
     expect(() => tick(world)).not.toThrow();
+  });
+
+  it('takes the uniforms of prepareTownShading (the materials were patched before the town existed) and patches nothing again', async () => {
+    const { world, stage } = boot();
+    world.registerSystem(SocketSnapSystem, { priority: 10 });
+    const registry = libraryRegistry();
+    const uniforms = prepareTownShading(registry);
+    const material = registry.get(registry.names()[0], false);
+    const patched = material.onBeforeCompile;
+    expect(patched.toString()).toContain('patchWakeShader'); // the wake shading is on
+    // With no town yet, every point of the world maps far outside the town's volume: nothing the page shows counts as scenery.
+    expect(new Vector3().applyMatrix4(uniforms.uWuToTown.value).length()).toBeGreaterThan(100);
+    const runtime = await installTown(world, { registry, uniforms, source: sourceOf(models) });
+    expect(runtime.town.group.parent).toBe(stage);
+    expect(material.onBeforeCompile).toBe(patched); // installTown did not patch a second time
+    tick(world);
+    expect(new Vector3().applyMatrix4(uniforms.uWuToTown.value).length()).toBeLessThan(1); // the runtime took the matrix over: the town is the origin here
   });
 
   it('calls keepAwake every frame while the town is changing, and stops once it has settled', async () => {

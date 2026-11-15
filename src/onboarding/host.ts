@@ -41,7 +41,8 @@ export interface GameplayView {
   readonly world: World;
   readonly session: GameSession;
   readonly ui: FlowUi;
-  readonly town: TownRuntime;
+  /** The town, or null while its models are still loading (a first-time player's page is usable before they are in). */
+  town(): TownRuntime | null;
   /** The stage root: the UI's spots (the latch, the letter, the bench) are in its frame. */
   readonly stage: Object3D;
   townScale(): number;
@@ -168,9 +169,11 @@ export function createGuideHost(game: GameplayView): GuideHost {
         case 'place': {
           const carried = game.carried();
           if (!carried) return false;
+          const town = game.town();
+          if (!town) return false;
           const plot = PLOTS[MACHINE_PLOT[carried.rig.machineId]];
           carried.rig.root.getWorldPosition(out.from);
-          game.town.town.group.localToWorld(out.to.set(plot.x, PAD_TOP_M, plot.z));
+          town.town.group.localToWorld(out.to.set(plot.x, PAD_TOP_M, plot.z));
           out.radius = 0.035;
           return finish(out, true);
         }
