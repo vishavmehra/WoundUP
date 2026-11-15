@@ -23,6 +23,7 @@ from lib import empties
 from mathutils import Vector
 
 import gen_mech_common as mc
+import gen_fastener as fast
 
 FAMILY = "winding_key"
 PARAMS = {"winding_key": dict(grab_radius=0.018)}              # the key is small: a 18 mm pinch target at the bow, mesh not enlarged
@@ -53,7 +54,9 @@ def build(entry: dict, params: dict):
     obj = mc.make_object(bm, name, entry["materials"])
     obj["wu"] = dict(id=entry["id"], family=FAMILY, turnAxis="+Z", driveSquareMm=5.0, bowMm=[30.0, 24.0])
     col = empties.add_collider(obj, "Grab", "sphere", params["grab_radius"], loc_g=(0.0, 0.0, BOW_Z * mc.MM))
-    return [obj, col], dict(closed=True)
+    # ADR-050: the retaining screw sits on the bow's spine (top face y +3.0, the visible side with the lid open), 18.5 mm out from the drive square's centre
+    screw = fast.hw_socket(obj, "Screw", "screw_slot_m3", (0.0, TUBE_T * mc.MM, 18.5e-3), (0.0, 1.0, 0.0), slot="screw_key", carried=True, note="on the spine of the bow")
+    return [obj, col, screw], dict(closed=True)
 
 
 if __name__ == "__main__":

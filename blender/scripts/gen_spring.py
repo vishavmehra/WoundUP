@@ -33,6 +33,7 @@ from lib import empties, vertex_ao
 from mathutils import Matrix, Vector
 
 import gen_mech_common as mc
+import gen_fastener as fz
 from gen_gear_spur import dome_shell
 
 FAMILY = "spring"
@@ -220,13 +221,21 @@ def build(entry: dict, params: dict):
     obj["wu"] = dict(id=entry["id"], family=FAMILY, worn=bool(wear), coilTurns=turns, ribbonMm=[T_RIB, W_RIB], rotationAxis="+Z",
                      arborMm=dict(zLo=Z_LO, zHi=Z_HI, radius=R_SHAFT, keySquare=SQUARE, keySquareFromZ=SQ_Z0, counterboreRadius=CB_R, counterboreFromZ=CB_Z0))
     col = empties.add_collider(obj, "Grab", "sphere", params["grab_radius"])
+    # ADR-050 / INTRICATE_ASSEMBLY_DESIGN 8.1, 11.2: what the spring carries. +Z points to the key; the pinion hub spans z -21.2 to -6.0 (the arbor's inboard end),
+    # the lower flange face is at z -4.6, so the washer sits in the 1.4 mm between; the key's 5 mm drive square (key z -4 to +3) goes into the arbor socket
+    # at z 3.0 to 10.0 and its 6 mm collar into the counterbore at z 10.6 to 12.0.
+    socks = [fz.hw_socket(obj, "Washer", "washer_plain_8", (0.0, 0.0, -5.3e-3), (0.0, 0.0, 1.0), slot="washer_spring", carried=True, note="between the pinion and the coil"),
+             empties.add_socket(obj, "Pinion", (0.0, 0.0, -13.6e-3), ["spur_gear"], axis_g=(0.0, 0.0, 1.0), slot="spring_pinion", carried=True,
+                                note="gear plane centre; slides on from the inboard end (-Z)"),
+             empties.add_socket(obj, "Key", (0.0, 0.0, 7.0e-3), ["winding_key"], axis_g=(0.0, 0.0, 1.0), slot="winding_key", carried=True,
+                                note="centre of the key's drive square; the square enters the arbor socket from the outboard end (+Z)")]
     checks = []
     if params.get("tarnish"):
         def dark(g, objs):
             tarnish(obj, params["tarnish"])
             g.info["tarnishFactor"] = params["tarnish"]
         checks.append(dark)
-    return [obj, col], dict(closed=True, checks=checks)
+    return [obj, col] + socks, dict(closed=True, checks=checks)
 
 
 if __name__ == "__main__":
