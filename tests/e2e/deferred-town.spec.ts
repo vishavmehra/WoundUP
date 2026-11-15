@@ -68,6 +68,20 @@ test.describe('the town loads after the page is usable (first-time player)', () 
   });
 });
 
+test.describe('a town that cannot be loaded', () => {
+  test('is reported on the page, which stays usable, and whatever waits for the town hears the failure', async ({ page }) => {
+    await page.route(TOWN_GROUND, (route) => route.abort());
+    await page.goto('./?debug');
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'none', { timeout: 90_000 });
+    await expect(page.locator('.wu-slip')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('.wu-slip')).toContainText('The town could not be unpacked');
+    await expect(page.getByRole('button', { name: 'Preview in this browser' })).toBeEnabled(); // the trunk and the stand still work
+    expect(await page.evaluate(() => (window as any).__wu.town)).toBeNull();
+    // `townReady` rejects: the bench steps that need the town stop with that error and say so, they do not carry on as if it stood.
+    expect(await page.evaluate(() => (window as any).__wu.townReady.then(() => 'in', () => 'failed'))).toBe('failed');
+  });
+});
+
 test.describe('a returning player waits for the town', () => {
   test('after the trunk has been opened once, the buttons stay locked until the town stands in the scene', async ({ page }) => {
     await page.goto('./?debug');
