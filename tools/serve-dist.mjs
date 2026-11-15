@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Serves dist/ the way Vercel will: static files only, with the `headers` rules of vercel.json applied to every response.
-// For testing the CSP and the other security headers locally (tests/e2e/csp.spec.ts, playwright.csp.config.ts); not part of the build.
+// For testing the CSP and the other security headers locally (tests/csp/csp.spec.ts, playwright.csp.config.ts); not part of the build.
 //
 //   node tools/serve-dist.mjs [port]      default port 5194, or the PORT environment variable; binds 127.0.0.1 only
 //
