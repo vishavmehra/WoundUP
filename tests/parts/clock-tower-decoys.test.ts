@@ -80,8 +80,9 @@ describe('Letter 6: the decoys of the Clock Tower (build plan)', () => {
 
   it('is what it was for the machines a hand builds: the Music Box keeps its twelve parts; a repair starts from the machine as it stood', () => {
     const box = getBlueprint('music_box')!;
+    const hardware = box.sockets.filter((s) => s.family === 'fastener').map((s) => s.id).sort();
     const all = planBuild(box, null, 12, () => true);
-    expect(all.fixed).toEqual({});
+    expect(Object.keys(all.fixed).sort()).toEqual(hardware); // nobody hands out hardware without a level (ADR-050): the game seats all 22 pieces, the player the 12 parts
     expect(all.trayIds).toHaveLength(12);
     expect(all.handBuilt).toBe(true);
     expect(all.seatNow).toEqual([]);
@@ -89,8 +90,10 @@ describe('Letter 6: the decoys of the Clock Tower (build plan)', () => {
     const start = repairStart(REPAIRS.worn_spring)!;
     const repair = planBuild(box, REPAIRS.worn_spring, 12, () => true);
     expect(repair.trayIds).toEqual(start.tray.map((t) => t.partId)); // the one standard spring
-    expect(repair.seatNow.map(([id]) => id).sort()).toEqual(Object.keys(start.assembly).sort()); // the machine as it stood goes on the bench
-    expect(repair.spawnIds).toHaveLength(start.tray.length + Object.keys(start.assembly).length);
+    const big = Object.keys(start.assembly).filter((id) => !hardware.includes(id)).sort();
+    expect(repair.seatNow.map(([id]) => id).sort()).toEqual(big); // the machine as it stood goes on the bench: its 12 parts, with the hardware seated by the game
+    expect(Object.keys(repair.fixed).sort()).toEqual(hardware);
+    expect(repair.spawnIds).toHaveLength(start.tray.length + big.length);
     expect(repair.handBuilt).toBe(true);
   });
 

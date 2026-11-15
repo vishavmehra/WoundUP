@@ -1,7 +1,7 @@
 import { VisibilityState, World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { AudioEngine, bindInteractionAudio } from './audio/index.js';
-import { giftCatalogue, verifyGift } from './content/blueprints/index.js';
+import { getBlueprint, giftCatalogue, INTRICATE_ASSEMBLY, verifyGift } from './content/blueprints/index.js';
 import { demoRequest, DEMO_HINT, installDemo } from './debug/demo.js';
 import { Gameplay, installGameplay } from './gameplay.js';
 import { GameSession } from './game/session.js';
@@ -23,7 +23,7 @@ import { StageSystem } from './stage.js';
 import { machineFrame, stageFrame, type Insets, type StageBox } from './stage-framing.js';
 import { addWorkshopLantern, emptyTownSource, installTown, loadModel, showGiftPlate } from './town/index.js';
 import { precompileNight } from './town/night.js';
-import { browserShareEnv, installFlowUi, mountGiftViewer, type FlowEvent } from './ui/index.js';
+import { browserShareEnv, installFlowUi, MASTER_AVAILABLE, mountGiftViewer, type FlowEvent } from './ui/index.js';
 import { detectXrSupport, enterXR } from './xr-entry.js';
 import { installXrTuning } from './xr-tuning.js';
 
@@ -100,10 +100,10 @@ async function installGame(
 ): Promise<ReturnType<Gameplay['debug']>> {
   const session = new GameSession();
   // Easy Snap and gaze mode from the save reach the interaction systems before the flow UI reads them (the pause menu changes both later).
-  installInteraction(gameWorld, { easySnap: session.save.settings.easySnap, gazeMode: session.save.settings.gazeMode });
+  installInteraction(gameWorld, { easySnap: session.save.settings.easySnap, gazeMode: session.save.settings.gazeMode, level: session.save.settings.difficulty ?? 'standard' });
   const audio = new AudioEngine();
   audio.installGestureUnlock();
-  bindInteractionAudio(audio);
+  bindInteractionAudio(audio, { snaps: false }); // the game loop plays every snap itself, in the voice of the part's material (src/assembly/feedback.ts)
   const play = new Gameplay(gameWorld, { session, materials, audio, texturesReady, keepAwake: () => budget.wake() });
   progress(0.55);
   play.town = await installTown(gameWorld, { registry: materials, audio, events: play.townEvents, keepAwake: () => budget.wake() });
@@ -113,6 +113,13 @@ async function installGame(
     session,
     townScale: () => gameWorld.getSystem(StageSystem)?.townScale ?? 1,
     materials,
+    // Difficulty, the Helper and the step list (ADR-050): only a build told in stages (the Music Box's first build) asks for a level. Turn the fallback off in
+    // src/content/blueprints/index.ts (INTRICATE_ASSEMBLY) and none of this appears.
+    assembly: {
+      enabled: INTRICATE_ASSEMBLY,
+      deepBuild: (letter) => letter?.objective.type === 'build_and_run' && getBlueprint(letter.objective.blueprintId)?.stages !== undefined,
+      masterAvailable: MASTER_AVAILABLE,
+    },
     // The Night setting (PRODUCT_SPEC F16) is the town's: its lamps, windows and the room lights; the loop handles every other event.
     onEvent: (event: FlowEvent) => {
       if (event.type === 'setting' && event.key === 'night') play.town.setNight(event.value);

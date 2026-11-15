@@ -91,6 +91,19 @@ describe('Dispenser: one live piece a bin (design §3.5)', () => {
     expect(c.dispenser.stockOf('bin1')).toBe(4);
   });
 
+  it('does not take back a piece that is seated, even when the game stops wanting its bin before the dispenser has heard of the seat', () => {
+    // The game loop's handler of a `snapped` intent runs before the dispenser's own: its next step may already drop the bin of the piece just seated (the
+    // last bush of a stage), and a withdrawal then would destroy a part that stands in its socket.
+    const c = caddy([{ id: 'bin1', partId: 'bush_split_8_brass', stock: 2, x: 0.2 }]);
+    c.dispenser.setWanted(['bin1']);
+    for (let i = 0; i < ROLL_FRAMES; i++) c.dispenser.update(1 / 72);
+    const live = c.dispenser.liveOf('bin1')!;
+    live.addComponent(SnappedTo, { socket: c.world.createEntity() }); // seated, the intent not yet delivered
+    c.dispenser.setWanted([]);
+    expect(c.discarded).toHaveLength(0);
+    expect(c.dispenser.liveOf('bin1')).toBe(live);
+  });
+
   it('rolls the next piece when the live one is seated, and a seated piece can never be grabbed again', () => {
     const c = caddy([{ id: 'bin1', partId: 'pin_taper_2_polished_brass', stock: 2, x: 0.2 }]);
     const h = housing(c.world, c.scene, [{ name: 'Pin', x: 0.05, accepts: ['pin_taper_2_polished_brass'] }]);

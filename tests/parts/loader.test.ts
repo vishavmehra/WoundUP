@@ -333,6 +333,60 @@ describe('PartLoader.spawnMachine', () => {
   });
 });
 
+describe('hardware a part carries (ADR-050)', () => {
+  /** A bracket GLB as the asset agent wrote it: a bush seat and a screw seat of its own, and a seat for a gear that no blueprint socket of a build in place names. */
+  function bracketScene(): Object3D {
+    const scene = fakeScene('bracket_support');
+    const body = scene.children[0];
+    body.add(socketEmpty('Bush', ['bush_split_8']));
+    body.add(socketEmpty('Screw', ['screw_slot_m3']));
+    body.add(socketEmpty('WheelL', ['spur_gear']));
+    return scene;
+  }
+  const seatOf = (part: { sockets: readonly Entity[] }, name: string): Entity => part.sockets.find((e) => e.getValue(Socket, 'name') === name)!;
+
+  it('binds the seats of a seated part to the blueprint ids of its carrier, takes them back when it leaves, and keeps every unnamed seat shut', async () => {
+    const { loader, scene, source } = setup();
+    source.scenes.set('bracket_support', bracketScene());
+    const machine = await loader.spawnMachine('music_box', { parent: scene });
+    const bracket = await loader.spawnPart(idOf('bracket_support'), { parent: scene, machine });
+    // Nothing the bracket carries is a socket of the machine until the bracket stands in a socket, and none of its empties takes a piece before that.
+    expect(machine.sockets.has('bush_left')).toBe(false);
+    expect(bracket.sockets).toHaveLength(3);
+    for (const e of bracket.sockets) expect(e.getValue(Socket, 'armed'), String(e.getValue(Socket, 'name'))).toBe(false);
+
+    expect(machine.bindCarried(bracket, 'bracket_left').sort()).toEqual(['bush_left', 'screw_bracket_left']);
+    expect(machine.sockets.get('bush_left')).toBe(seatOf(bracket, 'Bush'));
+    expect(machine.sockets.get('screw_bracket_left')).toBe(seatOf(bracket, 'Screw'));
+    expect(machine.sockets.has('bush_right')).toBe(false); // the other bracket's
+
+    // The same part seated in the other bracket socket carries the other ids; the first binding is let go.
+    expect(machine.bindCarried(bracket, 'bracket_right').sort()).toEqual(['bush_right', 'screw_bracket_right']);
+    expect(machine.sockets.has('bush_left')).toBe(false);
+
+    machine.sockets.get('bush_right')!.setValue(Socket, 'armed', true);
+    expect(machine.unbindCarried(bracket).sort()).toEqual(['bush_right', 'screw_bracket_right']);
+    expect(machine.sockets.has('bush_right')).toBe(false);
+    expect(seatOf(bracket, 'Bush').getValue(Socket, 'armed')).toBe(false); // shut again
+    expect(machine.unbindCarried(bracket)).toEqual([]);
+
+    machine.bindCarried(bracket, 'bracket_left');
+    bracket.dispose();
+    expect(machine.sockets.has('bush_left')).toBe(false); // gone with the part
+  });
+
+  it('spawns a part in the very frame it is asked for once its file is loaded, and not grabbable when told so', async () => {
+    const { loader, scene } = setup();
+    await loader.load('gear_spur_10_m1');
+    const loose = loader.spawnLoaded(idOf('gear_spur_10_m1'), { parent: scene, loose: true });
+    expect(loose.entity.hasComponent(SnapPart)).toBe(true);
+    expect(loose.entity.hasComponent(ReturnsToRest)).toBe(false);
+    const held = loader.spawnLoaded(idOf('gear_spur_10_m1'), { parent: scene });
+    expect(held.entity.hasComponent(ReturnsToRest)).toBe(true);
+    expect(() => loader.spawnLoaded(idOf('winding_key'), { parent: scene })).toThrow('not in the cache');
+  });
+});
+
 describe('machineAssetIds', () => {
   it('lists the housing first, then each GLB the build can use once, decoys and repair parts included', () => {
     const music = machineAssetIds(MUSIC_BOX, ['spring_worn_brass']);

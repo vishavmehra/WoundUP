@@ -191,7 +191,7 @@ describe('SocketSnapSystem', () => {
     tick(world);
     letGo(far);
     expect(types()).toEqual(['snapped']);
-    for (let i = 0; i < 12; i++) tick(world);
+    for (let i = 0; i < 24; i++) tick(world); // the 120 ms flight and the 90 ms settle (ADR-050)
     expect(far.object3D!.position.length()).toBeLessThan(1e-6); // and it settles onto the socket
     glb.dispose();
 

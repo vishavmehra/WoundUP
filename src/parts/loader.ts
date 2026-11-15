@@ -31,6 +31,8 @@ export interface PartSpawnOptions extends SpawnOptions {
    * Windmill tower's rotor): its sockets are bound to the machine's blueprint and join `machine.sockets`.
    */
   machine?: MachineInstance;
+  /** The part is not grabbable (no `ReturnsToRest`): a caddy piece becomes grabbable only when it reaches its bin's mouth (`Dispenser`), a piece the game seats never is. */
+  loose?: boolean;
 }
 
 export interface PartInstance {
@@ -39,6 +41,8 @@ export interface PartInstance {
   readonly object: Object3D;
   /** Problems the GLB reader found (malformed `SOCKET_` or `COL_` empties). Log them. */
   readonly warnings: readonly string[];
+  /** The socket entities of this part's own GLB empties (a gear's pin seat, a spring's washer seat). Hardware seats are bound to the blueprint when the part is seated (`MachineInstance.bindCarried`). */
+  readonly sockets: readonly Entity[];
   /** Destroys the entity, its colliders and its own sockets. Geometry and materials are shared and stay. Safe to call twice. */
   dispose(): void;
 }
@@ -51,6 +55,8 @@ export class MachineInstance {
   /** Blueprint socket id to the socket entity. Only sockets whose GLB empty exists appear (see `unbound`). */
   readonly sockets = new Map<string, Entity>();
   private readonly parts = new Map<PartInstance, readonly string[]>();
+  /** Hardware sockets bound to a seated carrier's own empties, by carrier part (ADR-050): they join `sockets` while the carrier stands in its socket. */
+  private readonly carried = new Map<PartInstance, readonly string[]>();
   private disposed = false;
 
   constructor(
@@ -86,6 +92,38 @@ export class MachineInstance {
   forget(part: PartInstance): void {
     for (const id of this.parts.get(part) ?? []) this.sockets.delete(id);
     this.parts.delete(part);
+    this.unbindCarried(part);
+  }
+
+  /**
+   * `part` was seated in blueprint socket `carrierId`: the hardware sockets that name it as their carrier (`SocketDefinition.carrier`) are now the empties of
+   * this very part, so they join `sockets` under their blueprint ids (a gear's `Pin` is `pin_governor_wheel` only while the gear stands in `governor_wheel`).
+   * Returns the ids bound. Whatever an earlier binding of the same part held is let go first.
+   */
+  bindCarried(part: PartInstance, carrierId: string): string[] {
+    this.unbindCarried(part);
+    const bound: string[] = [];
+    for (const def of this.blueprint.sockets) {
+      if (def.carrier !== carrierId || def.family !== 'fastener' || def.node === undefined) continue;
+      const entity = part.sockets.find((e) => e.getValue(Socket, 'name') === def.node);
+      if (!entity) continue;
+      this.sockets.set(def.id, entity);
+      bound.push(def.id);
+    }
+    if (bound.length > 0) this.carried.set(part, bound);
+    return bound;
+  }
+
+  /** `part` left its socket: its hardware seats are no longer sockets of the machine and stop taking pieces. Returns the ids let go. */
+  unbindCarried(part: PartInstance): string[] {
+    const ids = this.carried.get(part) ?? [];
+    for (const id of ids) {
+      const entity = this.sockets.get(id);
+      this.sockets.delete(id);
+      if (entity?.hasComponent(Socket)) entity.setValue(Socket, 'armed', false);
+    }
+    this.carried.delete(part);
+    return [...ids];
   }
 
   /**
@@ -135,9 +173,18 @@ export class PartLoader {
 
   /** Spawns one part as an entity: a grabbable one (ReturnsToRest, SnapPart) when its GLB has a grab collider, otherwise placed by the game. */
   async spawnPart(partId: string, options: PartSpawnOptions = {}): Promise<PartInstance> {
+    await this.load(requirePart(partId).visual.assetId);
+    return this.spawnLoaded(partId, options);
+  }
+
+  /**
+   * `spawnPart` for an asset that is already loaded (`load` resolved): the same part, made in this call. The caddy's dispenser and the pieces the game seats
+   * need a part in the very frame they ask for it. Throws when the asset is not in the cache.
+   */
+  spawnLoaded(partId: string, options: PartSpawnOptions = {}): PartInstance {
     const def = requirePart(partId);
     const assetId = def.visual.assetId;
-    const root = await this.instantiate(assetId);
+    const root = this.cloneLoaded(assetId);
     root.name = partId;
     if (def.visual.scale !== 1) root.scale.setScalar(def.visual.scale);
     const machine = options.machine;
@@ -151,6 +198,7 @@ export class PartLoader {
       entity,
       object: root,
       warnings: interaction.warnings,
+      sockets: interaction.sockets,
       dispose: () => {
         if (disposed) return;
         disposed = true;
@@ -161,14 +209,22 @@ export class PartLoader {
       },
     };
     if (interaction.sockets.length > 0) {
-      if (machine) machine.adopt(part, socketsById(machine.blueprint, interaction.sockets));
+      if (machine) {
+        const bound = socketsById(machine.blueprint, interaction.sockets);
+        // An empty of the part that no blueprint socket names yet takes nothing: the hardware seats of a part (a gear's pin, a spring's washer) belong to whichever
+        // blueprint socket the part is seated in, which is not known until it is (`bindCarried`), and the seats of a unit built on a stand (a spring's `Pinion`) are not
+        // sockets of a build in place at all.
+        const named = new Set(bound.values());
+        for (const socket of interaction.sockets) if (!named.has(socket)) socket.setValue(Socket, 'armed', false);
+        machine.adopt(part, bound);
+      }
       // Without a blueprint the GLB's own `accepts` (asset ids) stay, and no part id ever matches them: say so instead of failing silently.
       else interaction.warnings.push(`${partId}: carries sockets but was spawned without \`machine\`, so nothing can be placed in them`);
     }
 
     // Order matters: ReturnsToRest records the pose it sees when it qualifies, so the pose is final by now.
     entity.addComponent(SnapPart, { partId, family: def.family });
-    if (def.grab.enabled) entity.addComponent(ReturnsToRest, {});
+    if (def.grab.enabled && options.loose !== true) entity.addComponent(ReturnsToRest, {});
     return part;
   }
 
@@ -235,6 +291,10 @@ export class PartLoader {
 
   private async instantiate(assetId: string): Promise<Object3D> {
     await this.load(assetId);
+    return this.cloneLoaded(assetId);
+  }
+
+  private cloneLoaded(assetId: string): Object3D {
     const root = this.source.clone(assetId);
     if (!root) throw new Error(`asset "${assetId}" is not in the cache`);
     this.live.set(assetId, (this.live.get(assetId) ?? 0) + 1);
@@ -255,11 +315,18 @@ export class PartLoader {
   }
 }
 
-/** Socket entities of a model by blueprint socket id. An entity whose empty no blueprint socket names (the base handle) is left out. */
+/** True when `node` is the empty of a piece of hardware that a part carries (a gear's `Pin`): bound to its blueprint socket only while the part is seated (`MachineInstance.bindCarried`). */
+function isCarriedHardware(blueprint: MachineBlueprint, node: string): boolean {
+  return blueprint.sockets.some((s) => s.family === 'fastener' && s.carrier !== undefined && s.node === node);
+}
+
+/** Socket entities of a model by blueprint socket id. An entity whose empty no blueprint socket names (the base handle) is left out, and so is hardware a part carries. */
 function socketsById(blueprint: MachineBlueprint, entities: readonly Entity[]): Map<string, Entity> {
   const out = new Map<string, Entity>();
   for (const entity of entities) {
-    const id = socketIdOfNode(blueprint, entity.getValue(Socket, 'name') as string);
+    const name = entity.getValue(Socket, 'name') as string;
+    if (isCarriedHardware(blueprint, name)) continue;
+    const id = socketIdOfNode(blueprint, name);
     if (id !== undefined) out.set(id, entity);
   }
   return out;

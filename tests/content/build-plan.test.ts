@@ -20,10 +20,9 @@ describe('planBuild with hardware', () => {
     expect(plan.stages.stages.flatMap((st) => st.bag.hardware)).toHaveLength(22);
   });
 
-  it('is the build as it was while no GLB carries the hardware sockets yet: the game seats the 21 it cannot reach and the player places the 12 parts', () => {
+  it('is the build as it was when no director hands out hardware (a repair, the fallback): the game seats all 22 pieces and the player places the 12 parts', () => {
     const plan = planBuild(MUSIC_BOX, null, housing.size, (id) => housing.has(id));
-    const carried = hardware.filter((id) => !housing.has(id));
-    expect(Object.keys(plan.fixed).sort()).toEqual([...carried].sort());
+    expect(Object.keys(plan.fixed).sort()).toEqual([...hardware].sort()); // the spring's anchor too, though the case has an empty for it
     expect(plan.trayIds).toHaveLength(12);
     expect(plan.handBuilt).toBe(true);
   });

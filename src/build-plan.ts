@@ -50,8 +50,11 @@ export function planBuild(
   // With a difficulty the director runs the bags and the caddy (design §3.5): hardware sits on a part's own empty, which no `hasSocket` can answer before that
   // part is built into the machine, so it is the player's (or the bundle's) and never seated by the game just because the housing has no socket for it.
   const directed = difficulty !== undefined && INTRICATE_ASSEMBLY;
-  const handPlaced = (socketId: string, partId: string): boolean =>
-    (hasSocket(socketId) || (directed && requirePart(partId).family === 'fastener')) && requirePart(partId).grab.enabled;
+  // Without a director nobody hands out hardware: a repair, the daily repair and the fallback seat every pin and screw themselves, whether the housing has an empty for it or not.
+  const handPlaced = (socketId: string, partId: string): boolean => {
+    const hardware = requirePart(partId).family === 'fastener';
+    return (hardware ? directed : hasSocket(socketId)) && requirePart(partId).grab.enabled;
+  };
   const fixed: Record<string, string> = {};
   const seatedAtStart = new Set(stages.seat === 'at-start' ? stages.atStart : []);
   for (const [socketId, partId] of Object.entries(start ? start.assembly : blueprint.intended)) {

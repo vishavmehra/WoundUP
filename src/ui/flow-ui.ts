@@ -435,6 +435,16 @@ export class FlowUi {
     if (this.pops.length) this.stepPops(dt);
   }
 
+  /** True while the bench is still sliding in or the parcel is opening: what stands on it is still moving (the caddy's bin mouths, ADR-050). */
+  benchMoving(): boolean {
+    return this.slide.moving || this.parcelFlap.moving || this.reveal.moving || this.parcelAway.moving;
+  }
+
+  /** True while a panel (pause, gift, restart, the difficulty card) is on screen: the Helper is quiet then (ADR-050). */
+  panelOpen(): boolean {
+    return this.panelKind !== 'none';
+  }
+
   dispose(): void {
     this.closeLinkBox?.();
     for (const g of this.glbs) g.dispose();

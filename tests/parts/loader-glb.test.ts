@@ -54,7 +54,7 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
     // The parts that carry sockets of their own are built into their machine, as the game does.
     const carrier: Record<string, string> = { carousel_canopy: 'carousel', windmill_tower: 'windmill', clock_face: 'clock_tower' };
     for (const def of PART_DEFINITIONS) {
-      const machineId = carrier[def.visual.assetId];
+      const machineId = carrier[def.visual.assetId] ?? 'music_box'; // the Music Box's gears, spring and brackets carry hardware seats (ADR-050): built into it too
       const machine = machineId === undefined ? undefined : await loader.spawnMachine(machineId, { parent: scene });
       const part = await loader.spawnPart(def.id, { parent: scene, machine });
       expect(part.warnings, def.id).toEqual([]);

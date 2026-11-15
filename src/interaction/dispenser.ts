@@ -216,7 +216,9 @@ export class Dispenser {
       bin.roll = null;
     }
     const live = bin.live;
-    if (live === null || (!force && live.hasComponent(Grabbed))) return;
+    // A piece that is seated is no longer the bin's to take back, and may be so a moment before `onIntent` hears of it: the game loop's handler of the same
+    // `snapped` runs first, and its next step can already stop wanting this bin.
+    if (live === null || live.hasComponent(SnappedTo) || (!force && live.hasComponent(Grabbed))) return;
     bin.live = null;
     this.options.discard(live);
   }
