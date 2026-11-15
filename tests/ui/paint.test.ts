@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CLOSING_CARD, ENGRAVINGS, LETTERS, MACHINE_IDS } from '../../src/game/content';
 import { MACHINE_NAMES, SETTING_ROWS, describeResult, windLabel } from '../../src/ui/copy';
 import { PX_PER_M, paintBlueprint, paintClosing, paintLetter, paintPanel, paintPlaque, paintSlip, resultSlip } from '../../src/ui/paint';
+import { RUN_SIGN_SLIP } from '../../src/ui/layout';
 import { FONT_DISPLAY } from '../../src/ui/palette';
 import { fakeCanvas } from './fake-canvas';
 
@@ -77,8 +78,8 @@ describe('paper and plaque painters', () => {
   });
 
   it('paints a result and a wind counter as a title and one line', () => {
-    const w = px(0.15);
-    const h = px(0.056);
+    const w = px(RUN_SIGN_SLIP.w);
+    const h = px(RUN_SIGN_SLIP.h);
     for (const r of [describeResult({ status: 'runs' }), describeResult({ status: 'jams', jamReason: 'module_mismatch' }), describeResult({ status: 'incomplete', missingSockets: ['a', 'b', 'c'] })]) {
       const c = fakeCanvas(w, h);
       resultSlip(c.getContext('2d') as CanvasRenderingContext2D, w, h, r);
