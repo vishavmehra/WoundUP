@@ -20,12 +20,13 @@ import wu_common as wu
 from lib import empties
 
 import gen_mech_common as mc
+import gen_fastener as fz
 
 FAMILY = "shaft"
 BORE_R = 4.0                           # the gears' bore radius (gen_gear_spur GearParams.bore / 2)
 R_BODY, R_COLLAR, R_JOURNAL = 3.8, 4.0, 3.2
 PARAMS = {
-    "shaft_short": dict(length=105.0),  # ADR-042 / MUSIC_BOX_BLUEPRINT 6.1: arbor x -58 to +47 through both wheels (gear planes 2 and 1)
+    "shaft_short": dict(length=105.0, music_box=True),  # ADR-042 / MUSIC_BOX_BLUEPRINT 6.1: arbor x -58 to +47 through both wheels (gear planes 2 and 1)
     "shaft_long": dict(length=180.0),   # ADR-042 / MACHINE_SLOT_MAPPINGS 6: the Windmill main shaft and Clock Tower drive shaft
 }
 
@@ -52,6 +53,20 @@ def build(entry: dict, params: dict):
     obj = mc.make_object(bm, name, [entry["materials"][0]])
     obj["wu"] = dict(id=entry["id"], family=FAMILY, lengthMm=L, boreFitRadiusMm=BORE_R, rotationAxis="+Z")
     col = empties.add_collider(obj, "Grab", "box", (0.012, 0.012, h * mc.MM))   # 12 mm half-extent across, the whole length along
+    socks = []
+    if params.get("music_box"):
+        # ADR-050 / INTRICATE_ASSEMBLY_DESIGN 8.1, 11.2: the arbor carries what sits on it. Local z (mm) = Music Box x + 5.5 (the shaft is centred at x -5.5);
+        # every socket is identity-oriented (+Z along the shaft), so a gear seats with its own +Z on the shaft axis.
+        for name, z, accepts, slot in (("WheelL", -44.9, ["spur_gear"], "governor_wheel"), ("WheelR", 44.9, ["spur_gear"], "cylinder_wheel"),
+                                       ("Cylinder", 0.0, ["cylinder_music_box"], "cylinder")):
+            socks.append(empties.add_socket(obj, name, (0.0, 0.0, z * mc.MM), accepts, axis_g=(0.0, 0.0, 1.0), slot=slot, carried=True,
+                                            note="gear plane centre" if accepts == ["spur_gear"] else "melody cylinder centre"))
+        # four of the five 1.0 mm gaps of MUSIC_BOX_BLUEPRINT 6.1 hold arbor washers (the fifth is on the spring): L1 outer-left (gear / bracket), L2 inner-left
+        # (bracket / cylinder), R1 inner-right, R2 outer-right
+        for name, z, slot in (("WasherL1", -36.8, "washer_arbor_l1"), ("WasherL2", -29.8, "washer_arbor_l2"),
+                              ("WasherR1", 29.8, "washer_arbor_r1"), ("WasherR2", 36.8, "washer_arbor_r2")):
+            socks.append(fz.hw_socket(obj, name, "washer_plain_8", (0.0, 0.0, z * mc.MM), (0.0, 0.0, 1.0), slot=slot, carried=True,
+                                      note="1.0 mm gap: gear/bracket (outer) or bracket/cylinder (inner)"))
 
     def fits_the_bore(g, objs):
         c = np.empty(len(obj.data.vertices) * 3)
@@ -64,7 +79,7 @@ def build(entry: dict, params: dict):
         if abs((c[:, 1].max() - c[:, 1].min()) * 1000 - L) > 0.01:
             g.fail("Q13", f"shaft length is not {L} mm")
 
-    return [obj, col], dict(origin=("centre", "centre", "centre"), closed=True, checks=[fits_the_bore])
+    return [obj, col] + socks, dict(origin=("centre", "centre", "centre"), closed=True, checks=[fits_the_bore])
 
 
 if __name__ == "__main__":

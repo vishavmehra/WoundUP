@@ -46,7 +46,7 @@ def _family() -> str:
 
 FAMILY = _family()
 PARAMS = {i: {} for i in ("trunk_main", "workbench", "parts_tray", "parcel", "letter_envelope", "blueprint_sheet",
-                          "machine_base_handle", "gift_box")}
+                          "machine_base_handle", "gift_box", "fastener_caddy")}
 M = lambda cm: cm / 100.0                                          # centimetres -> metres (helper empties are placed in metres)
 
 
@@ -565,8 +565,42 @@ def build_gift(entry, p):
 
 
 # ======================================================================================
+# ======================================================================================
+# fastener_caddy (ADR-050, INTRICATE_ASSEMBLY_DESIGN 3.5 and 11.1): 16.2 x 3.0 x 4.2 cm walnut base with four brass bins at 3.8 cm pitch
+# ======================================================================================
+CADDY_X = (-5.7, -1.9, 1.9, 5.7)         # bin centres (cm); the pitch is the 3.8 cm of the Master-level spacing test
+CADDY_BASE_H, CADDY_BIN_H, CADDY_BIN_R = 1.0, 2.0, 1.75
+CADDY_Z = -0.25                          # bin centres sit towards the back so a 6 mm strip of base is left in front for the lamp bezels
+CADDY_LAMP_Z = 1.82
+
+
+def build_caddy(entry, p):
+    """Walnut base (Caddy_Body) and four dished brass bins with a lamp bezel each (Caddy_Bins): 2 materials, 2 primitives. The runtime hands out one live
+    piece at a time at SOCKET_Bin<k> (the bin's mouth, +Y) and lights the bin's PIV_Lamp<k> with its own pooled glow (the caddy ships no emissive material)."""
+    body = Part("Caddy_Body", ["Mat_Walnut"])
+    bins = Part("Caddy_Bins", ["Mat_AgedBrass"])
+    body.add(rbox((0.0, 0.0, 0.0), (16.2, CADDY_BASE_H, 4.2), r_edge=0.2, r_plan=0.5, k=3, mat=0, space=2.6))
+    R = CADDY_BIN_R
+    pts = [(0.0, 0.0), (R - 0.14, 0.0), (R, 0.14), (R, CADDY_BIN_H - 0.18), (R - 0.07, CADDY_BIN_H), (R - 0.25, CADDY_BIN_H), (R - 0.3, CADDY_BIN_H - 0.14),
+           (R - 0.3, 0.5), (0.0, 0.5)]
+    prof = make_profile(pts, [0, 0.0, 0.0, 0.05, 0.0, 0.0, 0.05, 0.0, 0], [0] * 8, n=1)
+    for x in CADDY_X:                                                # dished bins: outer wall, a rolled rim, an inner wall and a floor 5 mm above the base
+        bins.add(lathe(prof, (x, CADDY_BASE_H, CADDY_Z), (0.0, 1.0, 0.0), 20))
+        bins.add(cylinder((x, CADDY_BASE_H - 0.02, CADDY_LAMP_Z), (0.0, 1.0, 0.0), 0.28, 0.14, nseg=14, r_end=0.04, mat=0))      # the lamp bezel
+    root = _root(body.build(), entry)
+    root["wu"] = dict(id=entry["id"], family=FAMILY, binPitchCm=3.8, binCount=4, mouthYCm=CADDY_BASE_H + CADDY_BIN_H, hardwareIds=list(HW_IDS))
+    objs = [root, bins.build(parent=root)]
+    for k, x in enumerate(CADDY_X, start=1):
+        objs.append(empties.add_socket(root, f"Bin{k}", (M(x), M(CADDY_BASE_H + CADDY_BIN_H), M(CADDY_Z)), list(HW_IDS), (0.0, 1.0, 0.0), bin=k, lamp=f"PIV_Lamp{k}",
+                                       note="the bin's mouth: the one live piece waits here, +Y out of the bin"))
+        objs.append(empties.add_pivot(root, f"Lamp{k}", (M(x), M(CADDY_BASE_H + 0.12), M(CADDY_LAMP_Z)), (0.0, 1.0, 0.0), "lamp", "+Y"))
+    return objs, dict(origin=("centre", "min", "centre"), closed=True)
+
+
+HW_IDS = ("pin_taper_2", "pin_dowel_3", "collar_set_8", "washer_plain_8", "bush_split_8", "screw_slot_m3", "clip_angle_small")
+
 BUILDERS = {"machine_base_handle": build_handle, "trunk_main": build_trunk, "workbench": build_workbench, "parts_tray": build_tray,
-            "parcel": build_parcel, "letter_envelope": build_letter, "blueprint_sheet": build_blueprint, "gift_box": build_gift}
+            "parcel": build_parcel, "letter_envelope": build_letter, "blueprint_sheet": build_blueprint, "gift_box": build_gift, "fastener_caddy": build_caddy}
 
 
 def build(entry: dict, params: dict):

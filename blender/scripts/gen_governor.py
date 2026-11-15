@@ -34,6 +34,7 @@ import wu_common as wu
 from lib import empties
 
 import gen_mech_common as mc
+import gen_fastener as fast
 
 FAMILY = "governor"
 BORE_R = 4.0                                                  # the 12T pinion's bore radius
@@ -99,6 +100,12 @@ def build(entry: dict, params: dict):
     weights["wu"] = dict(id=entry["id"], family=FAMILY, role="moving", rotationAxis="+Z", spindleRadiusMm=R_SPINDLE)
     col = empties.add_collider(frame, "Grab", "sphere", params["grab_radius"])
     piv = empties.add_pivot(frame, "WeightsAxis", (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), "rotation_axis", "+Z")
+    # ADR-050 / INTRICATE_ASSEMBLY_DESIGN 8.1, 11.2: the pinion's hub spans z -22.2 to -7.0 (centre -14.6, the blueprint's gear spacing is radial, not axial); the frame
+    # screw sits on the bearing plate's outer face (z +12.0), 9.5 mm from the spindle towards the front wall (local -X), well inside the 30.3 mm oval.
+    socks = [empties.add_socket(frame, "Pinion", (0.0, 0.0, -14.6e-3), ["spur_gear"], axis_g=(0.0, 0.0, 1.0), slot="governor_pinion", carried=True,
+                                note="gear plane centre, slides on from the outboard (-Z) end"),
+             fast.hw_socket(frame, "FrameScrew", "screw_slot_m3", (-9.5e-3, 0.0, 12.0e-3), (0.0, 0.0, 1.0), slot="screw_governor_frame", carried=True,
+                            note="on the bearing plate's outer face")]
 
     def verts_mm(o):
         """Mesh vertices in model space, mm: Blender (x, y, z) -> model (x, -z, y); the spindle is model Z = Blender Y... see wu.g2b."""
@@ -129,7 +136,7 @@ def build(entry: dict, params: dict):
         if bore_min < R_SPINDLE + 0.3:
             g.fail("Q13", f"plate bore {bore_min:.2f} mm does not clear the {R_SPINDLE} mm spindle")
 
-    return [frame, weights, col, piv], dict(closed=True, checks=[fits])
+    return [frame, weights, col, piv] + socks, dict(closed=True, checks=[fits])
 
 
 if __name__ == "__main__":

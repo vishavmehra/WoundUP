@@ -35,6 +35,7 @@ import bpy
 from mathutils import Matrix
 
 import wu_common as wu
+import gen_fastener as fast
 from lib import empties, vertex_ao
 from gen_mb_common import Builder, finish, offset_polyline, rrect, volute
 
@@ -517,6 +518,11 @@ def build(entry: dict, params: dict):
                                         note=f"slot {no} of 12", **prop))
     socks.append(empties.add_socket(root, "BaseHandle", m((0.0, 1.0, 4.5)), ["machine_base_handle"], axis_g=(0, 0, 1), slot="base_handle", partFamily="fitting",
                                     note="fixed fitting of every machine base, not one of the 12 slots; front centre, 1 cm up", **prop))
+    # ADR-050: the dowel that anchors the coil's outer end stands on the right wall at Post_SpringOuter, axis -X (into the cavity). 12 mm long, 1.5 mm buried in the
+    # wall and 10.5 mm out: it covers the post's stem (r 1.2 mm, 10 mm tall) and the post's bead (r 1.9 mm, 8.8 to 9.6 mm) reads as a collar on the dowel.
+    anchor = fast.hw_socket(root, "SpringAnchor", "pin_dowel_3", m((IW / 2 - 0.45, 4.00, 3.50)), (-1.0, 0.0, 0.0), slot="anchor_spring", note="the dowel's origin is 4.5 mm in from the wall's inner face",
+                            wallSurfaceM=m((IW / 2, 4.00, 3.50)), exposedMm=10.5)
+    socks_all = socks + [anchor]
     root["wu"]["features"] = dict(
         Bush_SpringArbor=list(BUSH), Post_SpringOuter=[IW / 2, 4.00, 3.50], Seat_Comb=dict(x=[CYL_X - 3.2, CYL_X + 3.2], y=[Y_FLOOR, 2.5], z=[COMB_Z0, COMB_Z1]),
         Seat_Governor=[SEAT_GOV_X, GOV[1], ID / 2], KeyBoreRadiusCm=KEY_BORE, BracketFloorMarks=[[BRK_L_X, Y_FLOOR, ARB_Z], [BRK_R_X, Y_FLOOR, ARB_Z]], unitsCm=True)
@@ -531,7 +537,7 @@ def build(entry: dict, params: dict):
                 g.fail("Q13", f"{s.name} at {[round(c * 100, 2) for c in pg]} cm is outside the interior")
         g.info["sockets"] = [s.name for s in socks]
 
-    return [root, lid_o, col, piv] + socks, dict(origin=("centre", "min", "centre"), closed=True, checks=[check])
+    return [root, lid_o, col, piv] + socks_all, dict(origin=("centre", "min", "centre"), closed=True, checks=[check])
 
 
 if __name__ == "__main__":
