@@ -243,6 +243,22 @@
       "licenceFile": "public/assets/xr/generic-hand/LICENSE.md",
       "usedBy": "src/hands.ts",
       "note": "Third party, not a production deliverable."
+    },
+    {
+      "id": "controller_touch_plus_left",
+      "path": "public/assets/xr/profiles/meta-quest-touch-plus/left.glb",
+      "licence": "MIT (WebXR Input Profiles 1.0.20)",
+      "licenceFile": "public/assets/xr/profiles/LICENSE.md",
+      "usedBy": "src/hands.ts",
+      "note": "Third party, not a production deliverable. Quest 3/3S controller model, byte-identical to the upstream file (ADR-025, docs/CREDITS.md)."
+    },
+    {
+      "id": "controller_touch_plus_right",
+      "path": "public/assets/xr/profiles/meta-quest-touch-plus/right.glb",
+      "licence": "MIT (WebXR Input Profiles 1.0.20)",
+      "licenceFile": "public/assets/xr/profiles/LICENSE.md",
+      "usedBy": "src/hands.ts",
+      "note": "Third party, not a production deliverable. Quest 3/3S controller model, byte-identical to the upstream file (ADR-025, docs/CREDITS.md)."
     }
   ],
   "machineSlotPlans": [
@@ -1212,12 +1228,14 @@
       "dependencies": [],
       "usedBy": [
         "M0 scene: node gear-16 (legacy file)",
-        "music_box: governor wheel"
+        "music_box: governor wheel",
+        "well: repair fault slow_pump (wrong 16T cam gear) and tray decoy",
+        "belfry: tray decoy"
       ],
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "validationEvidence": "node tools/validate-glb.mjs --only gear_spur_16_m1, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt at module m1 = 2.5 mm (ADR-042); 10T and 12T use a solid web.",
       "verified": {
@@ -1307,12 +1325,14 @@
       ],
       "usedBy": [
         "windmill: repair gear (wrong tooth count)",
-        "music_box: governor pinion"
+        "music_box: governor pinion",
+        "belfry: pinion (12T)",
+        "well: decoy in the tray (wrong gear, repair slow_pump is the 16T)"
       ],
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Named in writing (PRODUCT_SPEC section 8, DATA section 4.1 example ids). Tip diameter 49.5 mm matches the helper render of 2026-11-05 (49.537 mm in the export). Status EXPORTED: the forge runner wrote the file at its target path on 2026-11-06 while this entry still said NOT_STARTED; the manifest checker reported that disagreement and the entry now matches the file. Not reviewed, not integrated. Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only);",
@@ -1385,12 +1405,13 @@
         "gear_spur_16_m1"
       ],
       "usedBy": [
-        "windmill: designated 24-tooth position"
+        "windmill: designated 24-tooth position",
+        "belfry: tray decoy"
       ],
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Named in writing (PRODUCT_SPEC section 8, DATA section 4.1 example ids). Status EXPORTED: the forge runner wrote the file at its target path on 2026-11-06 while this entry still said NOT_STARTED; the manifest checker reported that disagreement and the entry now matches the file. The 5,024-triangle figure in older notes belongs to the retired helper mesh in blender/exports/variants/, not to this file (3,712 triangles). Not reviewed, not integrated. Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only);",
@@ -1461,12 +1482,13 @@
         "gear_spur_16_m1"
       ],
       "usedBy": [
-        "music_box: spring pinion"
+        "music_box: spring pinion",
+        "well: cam gear (10T)"
       ],
       "owner": "Mechanical library",
       "priority": 10,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Promoted to G0-required by ADR-046: the approved Music Box blueprint uses it (MUSIC_BOX_BLUEPRINT.md section 2.3). Module m1 = 2.5 mm (ADR-042). Decoy selection is open (G-19). Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only);",
@@ -1538,12 +1560,14 @@
         "gear_spur_16_m1"
       ],
       "usedBy": [
-        "music_box: cylinder wheel"
+        "music_box: cylinder wheel",
+        "well: drive gear (20T)",
+        "belfry: drive gear (20T)"
       ],
       "owner": "Mechanical library",
       "priority": 10,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Promoted to G0-required by ADR-046: the approved Music Box blueprint uses it (MUSIC_BOX_BLUEPRINT.md section 2.3). Module m1 = 2.5 mm (ADR-042). Decoy selection is open (G-19). Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only);",
@@ -1616,7 +1640,7 @@
       "owner": "Mechanical library",
       "priority": 10,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Named only as an id example (gear_spur_36_m1_brass). At 136 mm tip diameter it is large for the workbench; confirm the size at Stage 1. Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only);",
@@ -1689,12 +1713,13 @@
       "dependencies": [],
       "usedBy": [
         "carousel: bevel gear (input)",
-        "windmill: input bevel gear (two per machine: Carousel and Windmill)"
+        "windmill: input bevel gear (two per machine: Carousel and Windmill)",
+        "belfry: bevel A and bevel B (right-angle drive)"
       ],
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Named in DATA section 4.1 as gear_bevel_12_brass. G0-required because both Must machines (Carousel, Windmill) show an input bevel gear on their 20- and 24-row boards (provisional, gap G-11). No written machine uses a bevel gear, and the final tooth count comes with the blueprints. Size is not specified. Rework: (module m1 = 2.5 mm; m2 = 3.6158 mm exists in data only);",
@@ -1772,7 +1797,7 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "shaft_short_walnut / shaft_short_brass appear in DATA section 4.1 (the id keeps the finish; the asset id does not, ADR-033). Lengths and diameters are not specified (the Parts Catalogue shows 0.05 to 0.20 m and 8, 12, 16 mm; board only). Stage 1 proposes them and the lead approves. ADR-042 (2026-11-14): size set to the approved [0.008, 0.008, 0.105] m of TOCKTON_DIMENSIONS section 11; the earlier [0.008, 0.008, 0.09] m (basis proposal) is superseded.105 m (tolerance 1 % or 0.5 mm); rework required.",
@@ -1845,12 +1870,13 @@
       "usedBy": [
         "carousel: central shaft",
         "windmill: main shaft",
-        "clock_tower: drive shaft"
+        "clock_tower: drive shaft",
+        "belfry: vertical shaft"
       ],
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "shaft_long_walnut / shaft_long_brass appear in DATA section 4.1 (the id keeps the finish; the asset id does not, ADR-033). Lengths and diameters are not specified (the Parts Catalogue shows 0.05 to 0.20 m and 8, 12, 16 mm; board only). Stage 1 proposes them and the lead approves. ADR-042 (2026-11-14): size set to the approved [0.008, 0.008, 0.18] m of TOCKTON_DIMENSIONS section 11; the earlier [0.008, 0.008, 0.15] m (basis proposal) is superseded.18 m (tolerance 1 % or 0.5 mm); rework required.",
@@ -1923,12 +1949,14 @@
       },
       "dependencies": [],
       "usedBy": [
-        "music_box: main spring"
+        "music_box: main spring",
+        "well: main spring",
+        "belfry: main spring"
       ],
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Named in DATA section 4.1 (spring_standard_brass). The Springs and Winding board gives mainspring 8 to 15 mm wide and 60 to 120 mm across (board only). Which spring ships in Letter 1 is open (gap G-03). ADR-042 (2026-11-14): size set to the approved [0.03, 0.03, 0.0332] m of TOCKTON_DIMENSIONS section 11; the earlier [0.04296, 0.04058, 0.01] m (basis proposal) is superseded. Part constants for Agent 2 (option B, MUSIC_BOX_BLUEPRINT section 4.3): angularVelocity 0.8 rad/s, energyPerUnit 1.0, drainRate 0.509296; 33.2 mm arbor; 6.0 mm bevel engagement on the Carousel (section 6.3).0332 m (tolerance 1 % or 0.5 mm) (and 2 more); rework required.",
@@ -2006,7 +2034,7 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Named in DATA section 4.1 (spring_worn_brass); the finish is brass, so the difference must be geometry. How wear shows is not specified (A-05); Stage 1 proposes it. Which spring the first build contains is open (gap G-03). ADR-042 (2026-11-14): size set to the approved [0.03, 0.03, 0.0332] m of TOCKTON_DIMENSIONS section 11; the earlier [0.04277, 0.03884, 0.01079] m (basis proposal) is superseded. Part constants for Agent 2 (option B, MUSIC_BOX_BLUEPRINT section 4.3): angularVelocity 0.8 rad/s, energyPerUnit 0.15, drainRate 0.8; 33.2 mm arbor.0332 m (tolerance 1 % or 0.5 mm) (and 2 more); rework required.",
@@ -2084,7 +2112,7 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Required by PRODUCT_SPEC section 6.1 but absent from the 12-row Music Box boards; it appears on the Parts Catalogue (row R) and the Gear Train Guide (governor at the output). Type is unspecified; Stage 1 chooses one from the Parts Catalogue. The folder name governor is a proposal because PartFamily has no governor value (A-01). ADR-042 (2026-11-14): size set to the approved [0.0306, 0.024, 0.0342] m of TOCKTON_DIMENSIONS section 11; the earlier [0.024, 0.024, 0.03] m (basis proposal) is superseded.0342 m (tolerance 1 % or 0.5 mm) (and 1 more); rework required.",
@@ -2159,7 +2187,9 @@
       "usedBy": [
         "music_box: winding key",
         "carousel: winding key",
-        "clock_tower: winding key"
+        "clock_tower: winding key",
+        "well: winding key",
+        "belfry: winding key"
       ],
       "owner": "Mechanical library",
       "priority": 4,
@@ -2232,7 +2262,9 @@
       "dependencies": [],
       "usedBy": [
         "carousel: shaft bearing",
-        "windmill: bearing support"
+        "windmill: bearing support",
+        "well: top bearing",
+        "belfry: foot bearing"
       ],
       "owner": "Mechanical library",
       "priority": 4,
@@ -2313,7 +2345,7 @@
       "owner": "Mechanical library",
       "priority": 4,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Board-derived: no written spec names it. Identity is provisional until the blueprints exist (G-12). One file serves the Music Box, Carousel and Clock Tower rows; split it only if Stage 1 shows the shapes differ. ADR-042 (2026-11-14): size set to the approved [0.022, 0.039, 0.006] m of TOCKTON_DIMENSIONS section 11; the earlier [0.022, 0.045, 0.006] m (basis proposal) is superseded.039 m (tolerance 1 % or 0.5 mm); rework required.",
@@ -2381,7 +2413,10 @@
         "basis": "ADR-034 category ceiling, not an allowance"
       },
       "dependencies": [],
-      "usedBy": [],
+      "usedBy": [
+        "well: drive pulley",
+        "well: idle pulley"
+      ],
       "owner": "Mechanical library",
       "priority": 10,
       "status": "VALIDATED",
@@ -2457,7 +2492,9 @@
         "basis": "ADR-034 category ceiling, not an allowance"
       },
       "dependencies": [],
-      "usedBy": [],
+      "usedBy": [
+        "well: cam (pump stroke)"
+      ],
       "owner": "Mechanical library",
       "priority": 10,
       "status": "VALIDATED",
@@ -2528,7 +2565,9 @@
         "basis": "ADR-034 category ceiling, not an allowance"
       },
       "dependencies": [],
-      "usedBy": [],
+      "usedBy": [
+        "well: follower (pump rod)"
+      ],
       "owner": "Mechanical library",
       "priority": 10,
       "status": "VALIDATED",
@@ -2602,7 +2641,7 @@
       "owner": "Mechanical library",
       "priority": 10,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Cranks are an ART section 11 category and PartFamily crank exists. No written machine uses one (A-06). ADR-042 (2026-11-14): size set to the approved [0.04, 0.012, 0.008] m of TOCKTON_DIMENSIONS section 11; the earlier [0.0384, 0.01188, 0.008] m (basis derived) is superseded.04 m (tolerance 1 % or 0.5 mm); rework required.",
@@ -2685,7 +2724,7 @@
       "owner": "Machines",
       "priority": 3,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "ADR-042: size 0.13 x 0.10 x 0.09 m with the lid closed; the board values 0.24 x 0.14 x 0.16 m are board only (ADR-029). G-02 is resolved by MUSIC_BOX_BLUEPRINT section 2.2: 12 sockets, the case is the frame. The board rows lid, hinge x2, box body, side panel x2 and foot x4 are nodes of this one file (ADR-030 item 4); if the blueprint makes them separate slots the file is split (up to 4 more files). The lid stays open on the bench and on the plot so the cylinder, comb and governor are seen working (MUSIC_BOX_BLUEPRINT section 10.1). Rework in progress 2026-11-14: the GLB is being rewritten, so no validator result or hash is recorded.",
@@ -3404,7 +3443,7 @@
       "owner": "Machines",
       "priority": 7,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Board-derived (Carousel boards). Column supports are the library bracket_support, not part of this file. ADR-042 (2026-11-14): size set to the approved [0.125, 0.066, 0.125] m of TOCKTON_DIMENSIONS section 11; the earlier [0.125, 0.09, 0.125] m (basis derived) is superseded.066 m (tolerance 1 % or 0.5 mm); rework required.",
@@ -3491,7 +3530,7 @@
       "owner": "Machines",
       "priority": 7,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Board-derived (Carousel 20-Part). Overall Carousel size on the boards is 0.36 x 0.32 m; that does not fit the 0.45 x 0.25 m workbench (gap G-08), so Stage 1 proposes a size. ADR-042 (2026-11-14): size set to the approved [0.13, 0.048, 0.13] m of TOCKTON_DIMENSIONS section 11; the earlier [0.13, 0.03, 0.13] m (basis derived) is superseded.048 m (tolerance 1 % or 0.5 mm); rework required.",
@@ -3761,7 +3800,7 @@
       "owner": "Machines",
       "priority": 6,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Classed as a machine in PRODUCT_SPEC section 6.3 but filed as a building in ART section 6 and 15 (A I-07); here it is a Tockton hero tower. The spec has no door or shutter; they are decorative nodes. Eleven board rows are grouped; splitting them adds up to 10 files. Overall size 0.34 x 0.34 x 0.46 m is board only and does not fit the workbench (G-08). ADR-042 (2026-11-14): size set to the approved [0.085, 0.187, 0.085] m of TOCKTON_DIMENSIONS section 11; the earlier [0.085, 0.195, 0.085] m (basis spec) is superseded.187 m (tolerance 1 % or 0.5 mm); rework required.",
@@ -3983,7 +4022,7 @@
       "owner": "Machines",
       "priority": 6,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "The Bakery has no part count in the specs; the Bakery Awakening board says 16 and shows a mixer, conveyor and bread, which the spec does not mention. Static model first, behaviour added later (BUILD_ROADMAP section 7). Size 0.13 x 0.19 x 0.095 m at 1:48 (ADR-042). Frozen and awakened looks are runtime material states, not two files. Rework in progress 2026-11-14: the GLB is being rewritten, so no validator result or hash is recorded.",
@@ -4086,7 +4125,7 @@
       "owner": "Machines",
       "priority": 5,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "No reference board shows the facade (B section 2). Size 0.20 x 0.18 x 0.055 m (ADR-042). The doors open only if the Clock Tower is built; they stay closed otherwise. The curtain mechanism, stage and grand performance belong to G5 (CLAUDE.md section 14). Rework in progress 2026-11-14: the GLB is being rewritten, so no validator result or hash is recorded.",
@@ -4507,7 +4546,9 @@
       ],
       "animations": [],
       "runtimeMotion": "Striker swings about its pivot on each hour strike (runtime event).",
-      "colliders": [],
+      "colliders": [
+        "COL_Grab (sphere, radius 0.015 m, at the bell's centre; added for the Belfry's player-placed bell, BELFRY_BLUEPRINT section 12 item 9)"
+      ],
       "originAndPivot": "Origin at the bell suspension point, +Y up; striker pivot PIV_Striker",
       "approxDimensionsM": [
         0.03,
@@ -4529,7 +4570,8 @@
       ],
       "usedBy": [
         "clock_tower: bell",
-        "clock_tower: bell striker"
+        "clock_tower: bell striker",
+        "belfry: bell"
       ],
       "owner": "Machines",
       "priority": 10,
@@ -4537,14 +4579,15 @@
       "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Bell sound and strike count are open (SIMULATION section 11; procedural audio, no file).",
+      "notes": "Bell sound and strike count are open (SIMULATION section 11; procedural audio, no file). ADR-048: a COL_Grab sphere (r 15 mm, centre y -14 mm) was added so the bell can be placed by hand in the Belfry (BELFRY_BLUEPRINT Q6); no mesh changed.",
       "origin": {
         "x": "centre",
         "y": "max",
         "z": "centre"
       },
-      "glbSha256": "7828ca8b61ccd55066418c0de215ef6cbd791f88695c70f25b90cb7f9ed6fef7",
-      "validationEvidence": "node tools/validate-glb.mjs (full manifest run, 67 entries), 2026-11-14: clock_bell 0 FAIL, 0 WARN."
+      "colliderRadiusM": 0.015,
+      "glbSha256": "341d2d114f11644090683f5057f105e4c805989ecc7e2b73b50e1d9767b118f5",
+      "validationEvidence": "node tools/validate-glb.mjs --only clock_bell, 2026-11-15: 0 FAIL, 0 WARN. 1,228 triangles, 2 primitives, 2 materials. COL_Grab r 15 mm added; meshes unchanged."
     },
     {
       "id": "pendulum_clock",
@@ -5030,7 +5073,7 @@
       "owner": "World",
       "priority": 1,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Size is the spec: 35 cm wide, 25 cm deep, 20 cm high (PRODUCT_SPEC section 3.2); the 0.60 x 0.34 x 0.32 m on the trunk and workbench boards is wrong (ruling I-5). Board trunk variants (basic, workshop, collector red) are not in the spec and not entered. First Blender priority (ART section 18). Contact shadow is a runtime decal. ADR-042: after the unfolding the trunk withdraws (T1, the recommendation of TOCKTON_DIMENSIONS Q3). Rework in progress 2026-11-14: the GLB is being rewritten, so no validator result or hash is recorded.",
@@ -5508,7 +5551,7 @@
       "owner": "World",
       "priority": 2,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "No reference board and no size (B section 2). The spec forbids presenting a letter as a generic notification (UI_UX section 8). Letter 6 is G0-optional, but the same file serves it. Rework in progress 2026-11-14: the GLB is being rewritten, so no validator result or hash is recorded.",
@@ -5670,7 +5713,9 @@
         "music_box_case",
         "carousel_base",
         "windmill_base",
-        "clock_tower_base"
+        "clock_tower_base",
+        "well_base",
+        "belfry_base"
       ],
       "owner": "World",
       "priority": 3,
@@ -5923,7 +5968,7 @@
       "owner": "World",
       "priority": 1,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "validationEvidence": "node tools/validate-glb.mjs --only tockton_base_round, 2026-11-14: 0 FAIL, 0 WARN. Rebuilt as the 0.64 x 0.045 x 0.59 m plinth of TOCKTON_DIMENSIONS section 9 (ADR-042); 3,120 triangles, 132,484 bytes.",
       "verified": {
@@ -6012,9 +6057,11 @@
       "dependencies": [
         "town_ground"
       ],
-      "usedBy": "Town paths (instanced)",
+      "usedBy": [
+        "Town paths (instanced)"
+      ],
       "owner": "World",
-      "priority": "pilot",
+      "priority": 9,
       "status": "VALIDATED",
       "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
@@ -6034,9 +6081,9 @@
       "family": "G",
       "productionClass": "C",
       "production": "hand_modelled",
-      "description": "Low diorama ground with small streets and four machine plots (Music Box, Carousel, Windmill, Clock Tower).",
+      "description": "Low diorama ground with small streets and six machine plots (Music Box, Carousel, Windmill, Clock Tower, Well, Belfry).",
       "gameplayPurpose": "The ground Tockton stands on when it sits on the real table; plots glow when valid and show frozen or awakened state.",
-      "contains": "Ground slab, street surface and four plot pads as named nodes (PLOT_ empties for placement); no buildings. The four plot empties sit at the TOCKTON_DIMENSIONS section 3.3 centres: PLOT_MusicBox (-0.110, 0.006, 0.080), PLOT_Carousel (0.110, 0.006, 0.065), PLOT_Windmill (0.2425, 0.006, 0.0647) and PLOT_ClockTower (-0.2425, 0.006, 0.0825); the aisle, street and kerb belong to the ground; the COL_Plot boxes match the pads.",
+      "contains": "Ground slab, street surface and four plot pads as named nodes (PLOT_ empties for placement); no buildings. The four older plot empties sit at the TOCKTON_DIMENSIONS section 3.3 centres: PLOT_MusicBox (-0.110, 0.006, 0.080), PLOT_Carousel (0.110, 0.006, 0.065), PLOT_Windmill (0.2425, 0.006, 0.0647) and PLOT_ClockTower (-0.2425, 0.006, 0.0825); the aisle, street and kerb belong to the ground; the COL_Plot boxes match the pads. ADR-048 adds PLOT_Well (0.1770, 0.006, -0.0460) and PLOT_Belfry (0.2560, 0.006, -0.0460): two pads side by side in the right dressing zone's front half, z -7.6 to -1.6 cm (x 14.3 to 21.1 and 21.6 to 29.6), as SOCKET_PlotWell and SOCKET_PlotBelfry with COL_PlotWell and COL_PlotBelfry.",
       "distinctBecause": "The only town ground; buildings are separate files.",
       "classification": "G0-required",
       "worldId": "tockton",
@@ -6057,7 +6104,10 @@
         "ART_ASSET_PIPELINE.md section 18",
         "UI_UX_SPEC.md section 7",
         "TOCKTON_DIMENSIONS.md section 11",
-        "DECISIONS.md ADR-042"
+        "DECISIONS.md ADR-042",
+        "blueprints/WELL_FOUNTAIN_BLUEPRINT.md section 9.1",
+        "blueprints/BELFRY_BLUEPRINT.md section 9.1",
+        "DECISIONS.md ADR-048"
       ],
       "blenderSource": "blender/scripts/gen_tockton_environment.py",
       "glbPath": "public/assets/models/tockton/environment/town_ground.glb",
@@ -6077,7 +6127,9 @@
         "COL_PlotMusicBox (box)",
         "COL_PlotCarousel (box)",
         "COL_PlotWindmill (box)",
-        "COL_PlotClockTower (box)"
+        "COL_PlotClockTower (box)",
+        "COL_PlotWell (box)",
+        "COL_PlotBelfry (box)"
       ],
       "originAndPivot": "Origin at the centre of the floor-contact face, +Y up (ADR-020)",
       "approxDimensionsM": [
@@ -6097,15 +6149,15 @@
       },
       "dependencies": [],
       "usedBy": [
-        "town: ground under the plots"
+        "town: ground under the plots (six pads)"
       ],
       "owner": "World",
       "priority": 5,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
-      "notes": "Footprint 60 x 30 cm (option A, ADR-042); the 60 cm width is the spec ceiling, scalable to 75 percent, kept low so the town reads as standing on the table. G-07 is closed for the plots by TOCKTON_DIMENSIONS section 3.3 (ADR-042); the dressing zones stay reserved for town_houses and town_props_set. Contact shadows are runtime decals. Rework in progress 2026-11-14: the GLB is being rewritten, so no validator result or hash is recorded. Known cosmetic: the Windmill and Clock Tower pad blocks overlap the east and west kerb by 1.75 mm (section 3.3 puts both pads at x +/-29.5 cm).",
+      "notes": "Footprint 60 x 30 cm (option A, ADR-042); the 60 cm width is the spec ceiling, scalable to 75 percent, kept low so the town reads as standing on the table. G-07 is closed for the plots by TOCKTON_DIMENSIONS section 3.3 (ADR-042); the dressing zones stay reserved for town_houses and town_props_set. Contact shadows are runtime decals. Rework in progress 2026-11-14: the GLB is being rewritten, so no validator result or hash is recorded. Known cosmetic: the Windmill and Clock Tower pad blocks overlap the east and west kerb by 1.75 mm (section 3.3 puts both pads at x +/-29.5 cm). ADR-048 (2026-11-15): two pads added by gen_tockton_environment.py (PLOTS_M56); every other paver and block is unchanged (the displaced pavers still draw their random numbers).",
       "origin": {
         "x": "centre",
         "y": "min",
@@ -6148,10 +6200,28 @@
             0.0825
           ],
           "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_PlotWell",
+          "positionM": [
+            0.177,
+            0.006,
+            -0.046
+          ],
+          "axis": "+Y"
+        },
+        {
+          "name": "SOCKET_PlotBelfry",
+          "positionM": [
+            0.256,
+            0.006,
+            -0.046
+          ],
+          "axis": "+Y"
         }
       ],
-      "glbSha256": "7abd1a01f29f5176b3561750b25ecbb1d4b16033b8163ef041143a0d738c5e87",
-      "validationEvidence": "node tools/validate-glb.mjs --only town_ground, 2026-11-14: 0 FAIL, 0 WARN. 7,358 triangles, 447,020 bytes (was 1.2 MB); plots at TOCKTON_DIMENSIONS section 13 item 1."
+      "glbSha256": "f5b0950947dda9523f160296a3935a3c8d9bc29fc96f1107d1b711ef1376b904",
+      "validationEvidence": "node tools/validate-glb.mjs --only town_ground, 2026-11-15: 0 FAIL, 0 WARN. 7,248 triangles, 4 primitives, 3 materials, 455,280 bytes. Six pads (SOCKET_PlotWell and SOCKET_PlotBelfry added); every older paver and block vertex is unchanged (checked against the previous GLB)."
     },
     {
       "id": "town_houses",
@@ -6399,7 +6469,7 @@
       "owner": "World",
       "priority": 6,
       "status": "VALIDATED",
-      "validationStatus": "FAIL",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "Otto is the baker (owner decision 2026-11-06, ADR-039; closes gap G-10). He is the sender of Letters 4 and 5 and the figure that performs the kneading animation in the Bakery when the Windmill runs (PRODUCT_SPEC sections 6.3 and 7). The board baker \"Oswald\" is not used (ruling I-8); the Character Board is appearance only (ADR-029). Height is unspecified; board heights (Oswald 1.9 m) are real-world scale and unusable. Scale and placement come from the canonical dimensions table, which is a separate task. The Bakery socket keeps the name SOCKET_Baker: it names the place, not the person. ADR-042: miniature scale 1:48 and the positions of TOCKTON_DIMENSIONS section 7 (Q7).",
@@ -6551,7 +6621,7 @@
       "owner": "World",
       "priority": 8,
       "status": "VALIDATED",
-      "validationStatus": "NOT_RUN",
+      "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
       "licence": "Original, project-authored in Blender",
       "notes": "No reference board and no size (B section 2). Teal ribbons are named in PROJECT_BIBLE section 4. The ribbon icon on finished machines (PRODUCT_SPEC section 13) is UI, not this file. The viewer works on desktop and phone, so the file must be light. ADR-042: size 0.20 x 0.20 x 0.20 m; the viewer scales the whole box uniformly (TOCKTON_DIMENSIONS section 5.2). Rework in progress 2026-11-14: the GLB is being rewritten, so no validator result or hash is recorded.",
@@ -6657,14 +6727,14 @@
       "productionClass": "A2",
       "production": "parametric_family",
       "description": "Toothed ratchet wheel for one-way drives.",
-      "gameplayPurpose": "G2 Advanced engineering: needs a mechanical engine v2 edge type that the five solver edge types cannot express (audit A section 2.2, A-01). Not built before delivery.",
+      "gameplayPurpose": "Back-stop on the Well's cam axle: it turns freely one way and the pawl holds it the other (a presentation rule: the solver has no ratchet edge).",
       "contains": "One mesh, ratchet wheel.",
       "distinctBecause": "The only ratchet in the library.",
-      "classification": "G2 Advanced engineering",
+      "classification": "G0-optional",
       "worldId": "shared",
       "sharedOrWorldSpecific": "shared",
       "reuseEligible": true,
-      "scopeClass": "future-planned",
+      "scopeClass": "shared",
       "relatedMachineOrEnvironment": "Future shared mechanical library (proposal)",
       "specExists": false,
       "boardExists": true,
@@ -6677,7 +6747,7 @@
         "docs/directives/2026-11-05_PRODUCTION_DIRECTIVE.md Part 5.2 A"
       ],
       "blenderSource": "blender/scripts/gen_ratchet.py",
-      "glbPath": "assets/future/shared/ratchet/ratchet_wheel.glb",
+      "glbPath": "public/assets/models/shared/ratchet/ratchet_wheel.glb",
       "meshes": [
         "Ratchet_Wheel"
       ],
@@ -6706,22 +6776,23 @@
         "basis": "ADR-034 category ceiling, not an allowance"
       },
       "dependencies": [],
-      "usedBy": [],
+      "usedBy": [
+        "well: back-stop (ratchet)"
+      ],
       "owner": "Mechanical library",
       "priority": 11,
       "status": "VALIDATED",
       "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
-      "futureGroup": "free_build_components",
       "licence": "Original, project-authored in Blender",
-      "notes": "Proposal. The Springs and Winding board and the Parts Catalogue show ratchet and pawl; no G0 spec uses them. A one-way edge is outside the five solver edge types (MECHANICAL_SOLVER_SPEC.md section 8).",
+      "notes": "Proposal. The Springs and Winding board and the Parts Catalogue show ratchet and pawl; no G0 spec uses them. A one-way edge is outside the five solver edge types (MECHANICAL_SOLVER_SPEC.md section 8). ADR-048: promoted from G2 to G0-optional; GLB moved from assets/future/shared/ to public/assets/models/shared/ (git mv, bytes unchanged).",
       "origin": {
         "x": "centre",
         "y": "centre",
         "z": "centre"
       },
       "glbSha256": "9305babd8b6405592e4b29c376623955ec24d8462adacda8bfecd4f0b0db17c9",
-      "validationEvidence": "node tools/validate-glb.mjs (full manifest run, 67 entries), 2026-11-14: ratchet_wheel 0 FAIL, 0 WARN."
+      "validationEvidence": "Bytes unchanged, moved with git mv from assets/future/. node tools/validate-glb.mjs --only ratchet_wheel, 2026-11-15: 0 FAIL, 0 WARN. 1,438 triangles."
     },
     {
       "id": "pawl_standard",
@@ -6732,14 +6803,14 @@
       "productionClass": "A2",
       "production": "parametric_family",
       "description": "Pawl that engages a ratchet wheel.",
-      "gameplayPurpose": "G2 Advanced engineering: needs a mechanical engine v2 edge type that the five solver edge types cannot express (audit A section 2.2, A-01). Not built before delivery.",
+      "gameplayPurpose": "Holds the Well's ratchet and clicks once per tooth while it turns (a trigger target in the solver).",
       "contains": "One mesh, pawl.",
       "distinctBecause": "The only pawl in the library.",
-      "classification": "G2 Advanced engineering",
+      "classification": "G0-optional",
       "worldId": "shared",
       "sharedOrWorldSpecific": "shared",
       "reuseEligible": true,
-      "scopeClass": "future-planned",
+      "scopeClass": "shared",
       "relatedMachineOrEnvironment": "Future shared mechanical library (proposal)",
       "specExists": false,
       "boardExists": true,
@@ -6752,7 +6823,7 @@
         "docs/directives/2026-11-05_PRODUCTION_DIRECTIVE.md Part 5.2 A"
       ],
       "blenderSource": "blender/scripts/gen_pawl.py",
-      "glbPath": "assets/future/shared/pawl/pawl_standard.glb",
+      "glbPath": "public/assets/models/shared/pawl/pawl_standard.glb",
       "meshes": [
         "Pawl_Standard"
       ],
@@ -6781,17 +6852,18 @@
         "basis": "ADR-034 category ceiling, not an allowance"
       },
       "dependencies": [],
-      "usedBy": [],
+      "usedBy": [
+        "well: back-stop (pawl)"
+      ],
       "owner": "Mechanical library",
       "priority": 11,
       "status": "VALIDATED",
       "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
-      "futureGroup": "free_build_components",
       "licence": "Original, project-authored in Blender",
-      "notes": "Proposal. Partner of ratchet_wheel.",
+      "notes": "Proposal. Partner of ratchet_wheel. ADR-048: promoted from G2 to G0-optional; GLB moved from assets/future/shared/ to public/assets/models/shared/ (git mv, bytes unchanged).",
       "glbSha256": "d1ad253a08b1f76d4d2400726d156d93d022a2483a42a502cb480625f0bd0880",
-      "validationEvidence": "node tools/validate-glb.mjs (full manifest run, 67 entries), 2026-11-14: pawl_standard 0 FAIL, 0 WARN."
+      "validationEvidence": "Bytes unchanged, moved with git mv from assets/future/. node tools/validate-glb.mjs --only pawl_standard, 2026-11-15: 0 FAIL, 0 WARN. 946 triangles."
     },
     {
       "id": "flywheel_standard",
@@ -6802,14 +6874,14 @@
       "productionClass": "A2",
       "production": "parametric_family",
       "description": "Heavy flywheel that smooths rotation.",
-      "gameplayPurpose": "G2 Advanced engineering: needs a mechanical engine v2 edge type that the five solver edge types cannot express (audit A section 2.2, A-01). Not built before delivery.",
+      "gameplayPurpose": "The Belfry's flywheel on the vertical shaft; it carries no inertia in the solver, a missing one makes the machine incomplete.",
       "contains": "One mesh, flywheel.",
       "distinctBecause": "The only flywheel in the library.",
-      "classification": "G2 Advanced engineering",
+      "classification": "G0-optional",
       "worldId": "shared",
       "sharedOrWorldSpecific": "shared",
       "reuseEligible": true,
-      "scopeClass": "future-planned",
+      "scopeClass": "shared",
       "relatedMachineOrEnvironment": "Future shared mechanical library (proposal)",
       "specExists": false,
       "boardExists": true,
@@ -6821,7 +6893,7 @@
         "docs/directives/2026-11-05_PRODUCTION_DIRECTIVE.md Part 5.2 A"
       ],
       "blenderSource": "blender/scripts/gen_flywheel.py",
-      "glbPath": "assets/future/shared/flywheel/flywheel_standard.glb",
+      "glbPath": "public/assets/models/shared/flywheel/flywheel_standard.glb",
       "meshes": [
         "Flywheel_Standard"
       ],
@@ -6850,22 +6922,23 @@
         "basis": "ADR-034 category ceiling, not an allowance"
       },
       "dependencies": [],
-      "usedBy": [],
+      "usedBy": [
+        "belfry: flywheel"
+      ],
       "owner": "Mechanical library",
       "priority": 11,
       "status": "VALIDATED",
       "validationStatus": "PASS",
       "integrationStatus": "NOT_INTEGRATED",
-      "futureGroup": "free_build_components",
       "licence": "Original, project-authored in Blender",
-      "notes": "Proposal. Parts Catalogue only; needs inertia in the engine, which the G0 solver does not model.",
+      "notes": "Proposal. Parts Catalogue only; needs inertia in the engine, which the G0 solver does not model. ADR-048: promoted from G2 to G0-optional; GLB moved from assets/future/shared/ to public/assets/models/shared/ (git mv, bytes unchanged).",
       "origin": {
         "x": "centre",
         "y": "centre",
         "z": "centre"
       },
       "glbSha256": "6f27931593a4fc64b3c457a82e2c42f9530c85412adc13da4101352f33872fb8",
-      "validationEvidence": "node tools/validate-glb.mjs (full manifest run, 67 entries), 2026-11-14: flywheel_standard 0 FAIL, 0 WARN."
+      "validationEvidence": "Bytes unchanged, moved with git mv from assets/future/. node tools/validate-glb.mjs --only flywheel_standard, 2026-11-15: 0 FAIL, 0 WARN. 1,442 triangles."
     },
     {
       "id": "coupling_rigid",
@@ -7010,6 +7083,482 @@
         "y": "centre",
         "z": "centre"
       }
+    },
+    {
+      "id": "well_base",
+      "filename": "well_base.glb",
+      "displayName": "Well housing",
+      "category": "machine_housing",
+      "family": "E",
+      "productionClass": "C",
+      "production": "hand_modelled",
+      "description": "Stone well house of the fifth machine: a slab and a back wall of laid blocks, walnut stiles and corner posts, a drip tray on two legs, the fountain basin with its spout lip and nozzle, the pump barrel, a feed pipe, and a teal tiled gable roof on a walnut frame.",
+      "gameplayPurpose": "The fifth machine. The player seats eleven parts on three studs (spring and key, a 20T to 10T gear train, cam and follower, ratchet and pawl, two pulleys and a bearing); a bucket chain then lifts water and the fountain basin fills and jets.",
+      "contains": "Well_Plate (all static geometry), Pump_Barrel, Well_Nozzle (emitter y 0.176), Bucket_Template (runtime instances it 10 times), Well_WaterLevel (runtime water surface); the 11 SOCKET_ empties of WELL_FOUNTAIN_BLUEPRINT section 7.1 plus SOCKET_BaseHandle at (0, 0.010, 0.026); PIV_ChainDrive, PIV_ChainIdle, PIV_FollowerRod, PIV_Spout, PIV_Nozzle; COL_Case.",
+      "distinctBecause": "The only static housing of the Well; every mechanism part is a separate file.",
+      "classification": "G0-optional",
+      "worldId": "tockton",
+      "sharedOrWorldSpecific": "world-specific",
+      "reuseEligible": false,
+      "scopeClass": "world-specific",
+      "relatedMachineOrEnvironment": "Well",
+      "specExists": true,
+      "boardExists": false,
+      "references": [],
+      "specifications": [
+        "blueprints/WELL_FOUNTAIN_BLUEPRINT.md section 8",
+        "DECISIONS.md ADR-048",
+        "DECISIONS.md ADR-030",
+        "DECISIONS.md ADR-034"
+      ],
+      "blenderSource": "blender/scripts/gen_well.py",
+      "glbPath": "public/assets/models/tockton/well/well_base.glb",
+      "meshes": [
+        "Well_Plate",
+        "Pump_Barrel",
+        "Well_Nozzle",
+        "Bucket_Template",
+        "Well_WaterLevel"
+      ],
+      "materials": [
+        "Mat_Stone",
+        "Mat_Walnut",
+        "Mat_AgedBrass",
+        "Mat_PolishedBrass",
+        "Mat_TealPaint",
+        "Mat_WarmGlass"
+      ],
+      "animations": [],
+      "runtimeMotion": null,
+      "colliders": [
+        "COL_Case (box, for placement and X-ray)"
+      ],
+      "originAndPivot": "Origin at the centre of the floor-contact face, +Y up (ADR-020)",
+      "approxDimensionsM": [
+        0.066,
+        0.23,
+        0.052
+      ],
+      "dimensionsBasis": "spec",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Authored at workbench scale 1:1; the runtime applies the town scale when the machine settles on its plot (INTERACTION_SPEC.md section 3).",
+      "budgets": {
+        "triangles": 60000,
+        "primitives": 48,
+        "materials": 6,
+        "textureMiB": 0,
+        "glbKB": 3072,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "dependencies": [],
+      "usedBy": [
+        "well: housing"
+      ],
+      "owner": "Machines",
+      "priority": 8,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "notes": "Size and sockets from the blueprint. Studs are 7.4 mm (the bores are 8 mm), no stud has a cap (parts seat along -Z). The drip tray sits behind the key bow (z 13.6 to 20.1) because the ratchet and the cam occupy z up to 12.4 at the pool's blueprint position. Mat_WarmGlass is the barrel's sight glass and the runtime water disc (hiddenAtRest). Manifest family E: directive Part 5.2 letters stop at J, so Letter E stands in for the Well (its forge family and folder are \"well\").",
+      "origin": {
+        "x": "centre",
+        "y": "min",
+        "z": "centre"
+      },
+      "sockets": [
+        {
+          "name": "SOCKET_BearingTop",
+          "positionM": [
+            0.017,
+            0.195,
+            0.0064
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_GearDrive",
+          "positionM": [
+            -0.004,
+            0.036,
+            -0.0114
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Spring",
+          "positionM": [
+            -0.004,
+            0.036,
+            0.0022
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Key",
+          "positionM": [
+            -0.004,
+            0.036,
+            0.0092
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_GearCam",
+          "positionM": [
+            -0.004,
+            0.0745,
+            -0.0114
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Cam",
+          "positionM": [
+            -0.004,
+            0.0745,
+            0.0012
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Follower",
+          "positionM": [
+            -0.004,
+            0.09,
+            0.0012
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Ratchet",
+          "positionM": [
+            -0.004,
+            0.0745,
+            0.0093
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Pawl",
+          "positionM": [
+            0.0149,
+            0.1081,
+            0.0093
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_PulleyDrive",
+          "positionM": [
+            -0.004,
+            0.0745,
+            0.0184
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_PulleyIdle",
+          "positionM": [
+            0.017,
+            0.195,
+            0.0184
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_BaseHandle",
+          "positionM": [
+            0,
+            0.01,
+            0.026
+          ],
+          "axis": "+Z"
+        }
+      ],
+      "requiredNodes": [
+        "PIV_ChainDrive",
+        "PIV_ChainIdle",
+        "PIV_FollowerRod",
+        "PIV_Spout",
+        "PIV_Nozzle"
+      ],
+      "closed": true,
+      "allowAlpha": [
+        "Mat_WarmGlass"
+      ],
+      "glbSha256": "727f694269b22c626fec5f7606640713551c0d71d71fc812a1614d37e817dcf5",
+      "validationEvidence": "node tools/validate-glb.mjs --only well_base, 2026-11-15: 0 FAIL, 0 WARN. 12,720 triangles, 12 primitives, 6 materials. blender/previews/well/fit_check.txt: 0 crossing triangles against the 11 intended parts at rest and through their motions; the 20T to 10T mesh at 38.5 mm has a clean phase (largest gap 0.18 mm)."
+    },
+    {
+      "id": "belfry_base",
+      "filename": "belfry_base.glb",
+      "displayName": "Belfry housing",
+      "category": "machine_housing",
+      "family": "F",
+      "productionClass": "C",
+      "production": "hand_modelled",
+      "description": "Stone belfry tower of the sixth machine: a stepped plinth, a back wall of laid stone blocks that becomes a cream belfry wall with three arched louvres, a walnut timber frame (four posts, girts, braces), the belfry deck, a bell beam with two brass hooks, a flat teal cap with a fascia, and the brass seats of the bevel, bearing and flywheel.",
+      "gameplayPurpose": "The sixth machine. The player seats eleven parts (spring and key, a 12T to 20T reduction, a 90-degree bevel pair, an 18 cm vertical shaft with a bearing and a flywheel, a weathervane and the bell): the vane sweeps, the flywheel turns and the bell rocks and tolls.",
+      "contains": "Belfry_Plinth (all static geometry, one mesh node); the 11 SOCKET_ empties of BELFRY_BLUEPRINT section 7.1 plus SOCKET_BaseHandle at (0, 0.010, 0.029); COL_Case; PIV_BellSwing and PIV_ShaftAxis (axes for the runtime).",
+      "distinctBecause": "The only static housing of the Belfry; every mechanism part is a separate file.",
+      "classification": "G0-optional",
+      "worldId": "tockton",
+      "sharedOrWorldSpecific": "world-specific",
+      "reuseEligible": false,
+      "scopeClass": "world-specific",
+      "relatedMachineOrEnvironment": "Belfry",
+      "specExists": true,
+      "boardExists": false,
+      "references": [],
+      "specifications": [
+        "blueprints/BELFRY_BLUEPRINT.md section 8",
+        "DECISIONS.md ADR-048",
+        "DECISIONS.md ADR-030",
+        "DECISIONS.md ADR-034"
+      ],
+      "blenderSource": "blender/scripts/gen_belfry.py",
+      "glbPath": "public/assets/models/tockton/belfry/belfry_base.glb",
+      "meshes": [
+        "Belfry_Plinth"
+      ],
+      "materials": [
+        "Mat_Stone",
+        "Mat_Walnut",
+        "Mat_PaintedWood",
+        "Mat_TealPaint",
+        "Mat_AgedBrass",
+        "Mat_PolishedBrass"
+      ],
+      "animations": [],
+      "runtimeMotion": null,
+      "colliders": [
+        "COL_Case (box, for placement and X-ray)"
+      ],
+      "originAndPivot": "Origin at the centre of the floor-contact face, +Y up (ADR-020)",
+      "approxDimensionsM": [
+        0.076,
+        0.276,
+        0.058
+      ],
+      "dimensionsBasis": "spec",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Authored at workbench scale 1:1; the runtime applies the town scale when the machine settles on its plot (INTERACTION_SPEC.md section 3).",
+      "budgets": {
+        "triangles": 60000,
+        "primitives": 48,
+        "materials": 6,
+        "textureMiB": 0,
+        "glbKB": 3072,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "dependencies": [],
+      "usedBy": [
+        "belfry: housing"
+      ],
+      "owner": "Machines",
+      "priority": 8,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "notes": "Size and sockets from the blueprint. The bell sits in two brass hooks (cheeks round its gudgeon pins) under a walnut beam. The front and the right side (the bell's side) are open. The flywheel horseshoe keeps 1 mm under the part; bevel B now sits 3.6 mm above its shelf, and the bevel pair is seated out from the apex (A 1.0 mm back, B 2.4 mm up: SOCKET_BevelA z 0.0007, SOCKET_BevelB y 0.1124) so the library gear clears; the studs are 7.4 mm and uncapped (parts seat along -Z). Manifest family F: directive Part 5.2 letters stop at J, so Letter F stands in for the Belfry (its forge family and folder are \"belfry\").",
+      "origin": {
+        "x": "centre",
+        "y": "min",
+        "z": "centre"
+      },
+      "sockets": [
+        {
+          "name": "SOCKET_GearPinion",
+          "positionM": [
+            -0.005,
+            0.059,
+            -0.0144
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Spring",
+          "positionM": [
+            -0.005,
+            0.059,
+            -0.0008
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_Key",
+          "positionM": [
+            -0.005,
+            0.059,
+            0.0062
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_GearDrive",
+          "positionM": [
+            -0.005,
+            0.1,
+            -0.0144
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_BevelB",
+          "positionM": [
+            -0.005,
+            0.1124,
+            0.0117
+          ],
+          "axis": "-Y"
+        },
+        {
+          "name": "SOCKET_BevelA",
+          "positionM": [
+            -0.005,
+            0.1,
+            0.0007
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_BearingFoot",
+          "positionM": [
+            -0.005,
+            0.128,
+            0.0117
+          ],
+          "axis": "-Y"
+        },
+        {
+          "name": "SOCKET_Flywheel",
+          "positionM": [
+            -0.005,
+            0.175,
+            0.0117
+          ],
+          "axis": "-Y"
+        },
+        {
+          "name": "SOCKET_Shaft",
+          "positionM": [
+            -0.005,
+            0.194,
+            0.0117
+          ],
+          "axis": "-Y"
+        },
+        {
+          "name": "SOCKET_Vane",
+          "positionM": [
+            -0.005,
+            0.28,
+            0.0117
+          ],
+          "axis": "-Y"
+        },
+        {
+          "name": "SOCKET_Bell",
+          "positionM": [
+            0.02,
+            0.27,
+            0
+          ],
+          "axis": "+Z"
+        },
+        {
+          "name": "SOCKET_BaseHandle",
+          "positionM": [
+            0,
+            0.01,
+            0.029
+          ],
+          "axis": "+Z"
+        }
+      ],
+      "requiredNodes": [
+        "PIV_BellSwing",
+        "PIV_ShaftAxis"
+      ],
+      "closed": true,
+      "glbSha256": "4b12622f1f0e0605ee74a5636c9411eafb53c01c5451aa5499eda4e9ee03e1a2",
+      "validationEvidence": "node tools/validate-glb.mjs --only belfry_base, 2026-11-15: 0 FAIL, 0 WARN. 10,800 triangles, 6 primitives, 6 materials. blender/previews/belfry/fit_check.txt and bevel_fit.txt (GLB as rebuilt, sockets BevelA z 0.7 mm, BevelB y 112.4 mm): no clashes at rest or through the part motions (bell swing included); the 12T to 20T mesh at 41.0 mm has a clean phase (largest gap 0.23 mm); the bevel pair clears at 120 of 120 phases (smallest gap 0.38 mm)."
+    },
+    {
+      "id": "belfry_vane",
+      "filename": "belfry_vane.glb",
+      "displayName": "Belfry weathervane",
+      "category": "mechanical_part",
+      "family": "F",
+      "productionClass": "B",
+      "production": "hand_modelled",
+      "description": "Brass weathervane: a hub with a blind 8 mm bore, a turned spike with a cross and four ball ends, a flat arrow with a swallow tail and a ball finial. Modelled finial-down.",
+      "gameplayPurpose": "The output of the Belfry: seated on the top of the vertical shaft, it sweeps at 0.48 rad/s.",
+      "contains": "One mesh, hub, spike, cross, arrow and finial in two materials; COL_Grab sphere r 0.016 m at the arrow's centre.",
+      "distinctBecause": "The only weathervane.",
+      "classification": "G0-optional",
+      "worldId": "tockton",
+      "sharedOrWorldSpecific": "world-specific",
+      "reuseEligible": false,
+      "scopeClass": "world-specific",
+      "relatedMachineOrEnvironment": "Belfry",
+      "specExists": true,
+      "boardExists": false,
+      "references": [],
+      "specifications": [
+        "blueprints/BELFRY_BLUEPRINT.md section 8.2",
+        "DECISIONS.md ADR-048"
+      ],
+      "blenderSource": "blender/scripts/gen_belfry.py",
+      "glbPath": "public/assets/models/tockton/belfry/belfry_vane.glb",
+      "meshes": [
+        "Belfry_Vane"
+      ],
+      "materials": [
+        "Mat_PolishedBrass",
+        "Mat_AgedBrass"
+      ],
+      "animations": [],
+      "runtimeMotion": "Rotates about local +Z at the solver's vane speed (+0.48 rad/s); seated with Rx(+90) so the finial stands up.",
+      "colliders": [
+        "COL_Grab (sphere, radius 0.016 m, visible mesh not enlarged; INTERACTION_SPEC.md section 7.2)"
+      ],
+      "originAndPivot": "Origin on the hub's bore axis, mid-height of the hub; rotation axis local +Z; finial at local -Z; transforms applied (ADR-020)",
+      "approxDimensionsM": [
+        0.064,
+        0.016,
+        0.031
+      ],
+      "dimensionsBasis": "spec",
+      "scaleConvention": "Metres, 1 unit = 1 m, transforms applied (ADR-020). Real size at workbench scale 1:1.",
+      "budgets": {
+        "triangles": 1500,
+        "primitives": 2,
+        "materials": 2,
+        "textureMiB": 0,
+        "glbKB": 250,
+        "basis": "ADR-034 category ceiling, not an allowance"
+      },
+      "dependencies": [
+        "belfry_base"
+      ],
+      "usedBy": [
+        "belfry: vane"
+      ],
+      "owner": "Machines",
+      "priority": 8,
+      "status": "VALIDATED",
+      "validationStatus": "PASS",
+      "integrationStatus": "NOT_INTEGRATED",
+      "licence": "Original, project-authored in Blender",
+      "notes": "BELFRY_BLUEPRINT section 8.2. The bore is blind (1.1 mm skin) so a spike can stand on the hub; the shaft's top end stops 0.1 mm under the ceiling. Arrow, finial and cross are Mat_PolishedBrass, hub Mat_AgedBrass. Manifest family F: directive Part 5.2 letters stop at J, so Letter F stands in for the Belfry (its forge family and folder are \"belfry\").",
+      "rotationAxis": "+Z",
+      "closed": true,
+      "requiredNodes": [
+        "PIV_Axis"
+      ],
+      "glbSha256": "d8f176aa2cfe81e6d21c21da7dfcc9e8cd3f0ba9cebd0330ebfb1688f142e717",
+      "validationEvidence": "node tools/validate-glb.mjs --only belfry_vane, 2026-11-15: 0 FAIL, 0 WARN. 1,208 triangles, 2 primitives, 2 materials."
     }
   ]
 }
