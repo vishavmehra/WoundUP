@@ -593,20 +593,47 @@ describe('the Difficulty row in Pause', () => {
     expect(captionY - half).toBeGreaterThan(buttons + 0.017);
   });
 
-  it('cycles the level, saves it each time and tells the director', async () => {
+  it('cycles the level and saves it each time, and tells the director the level Pause closes on, once', async () => {
     const r = await rig({ assembly: ON, difficulty: 'relaxed' });
     await toParcel(r);
     await pause(r);
+    const before = r.events.length;
     const walk: Difficulty[] = [];
     for (let i = 0; i < 4; i++) {
       expect(click(r, 'UI_Difficulty')).toBe(true);
       walk.push(r.game.save.settings.difficulty as Difficulty);
-      expect(last(real(r))).toEqual({ type: 'difficulty', value: last(walk), first: false });
     }
     expect(walk).toEqual(['standard', 'master', 'relaxed', 'standard']);
     expect(allText(r)).toContain('Difficulty: Master');
     expect(parseSave(r.storage.data.get(SAVE_KEY) ?? null).save.settings.difficulty).toBe('standard');
     expect(r.ui.currentView?.panel).toBe('pause'); // still paused
+    expect(r.events.slice(before).filter((e) => e.type === 'difficulty')).toEqual([]); // nothing re-plans while the player is still choosing
+    click(r, 'UI_PanelLeft'); // Resume
+    expect(r.events.slice(before).filter((e) => e.type === 'difficulty')).toEqual([{ type: 'difficulty', value: 'standard', first: false }]);
+  });
+
+  it('from Standard to Relaxed passes Master on the row but never tells the director Master, so no tray is put out for it', async () => {
+    const r = await rig({ assembly: ON, difficulty: 'standard' });
+    await toParcel(r);
+    await pause(r);
+    const before = r.events.length;
+    click(r, 'UI_Difficulty'); // master
+    click(r, 'UI_Difficulty'); // relaxed
+    expect(r.game.save.settings.difficulty).toBe('relaxed');
+    click(r, 'UI_PanelLeft');
+    expect(r.ui.currentView?.panel).toBe('none');
+    expect(r.events.slice(before).filter((e) => e.type === 'difficulty')).toEqual([{ type: 'difficulty', value: 'relaxed', first: false }]);
+  });
+
+  it('says nothing to the director when Pause closes on the level it opened on', async () => {
+    const r = await rig({ assembly: ON, difficulty: 'standard' });
+    await toParcel(r);
+    await pause(r);
+    const before = r.events.length;
+    for (let i = 0; i < 3; i++) click(r, 'UI_Difficulty'); // master, relaxed, standard
+    click(r, 'UI_PanelLeft');
+    expect(r.game.save.settings.difficulty).toBe('standard');
+    expect(r.events.slice(before).filter((e) => e.type === 'difficulty')).toEqual([]);
   });
 
   it('skips Master while it is not available', async () => {

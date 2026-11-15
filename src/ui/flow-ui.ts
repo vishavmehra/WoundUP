@@ -99,7 +99,10 @@ export type FlowEvent =
   | { type: 'town-retry' }
   /** A sound cue for the audio layer, at the moment of the action (UI_UX_SPEC section 22): the latch, paper, and every other press. */
   | { type: 'cue'; cue: 'latch' | 'paper' | 'button' }
-  /** The build difficulty was chosen on the first-build card (`first`) or changed in Pause; it is already in the save (ADR-050, design §6). */
+  /**
+   * The build difficulty was chosen on the first-build card (`first`), or Pause closed on a level other than the one it opened on (once, however often the row
+   * was pressed); it is already in the save (ADR-050, design §6).
+   */
   | { type: 'difficulty'; value: Difficulty; first: boolean }
   /** The Helper medallion was pressed: a tap, or `long` for a hold in hands mode (design §7.2). The ladder (show, demonstrate, place) is the director's. */
   | { type: 'helper'; long: boolean };
@@ -292,6 +295,11 @@ export class FlowUi {
   private helperHold = -1;
   /** Seconds left of the Master "?" showing the current step. */
   private stepReveal = 0;
+  /**
+   * The level before the first press of the Pause row in this pause, or null. The director hears the level only when Pause closes, so cycling Standard to
+   * Relaxed (through Master, whose trays, once out, stay out) never re-plans the build through a level the player only passed on the way.
+   */
+  private levelBeforeCycle: Difficulty | null = null;
   private masterOn: boolean;
   private runHot!: Hot;
   private adjustHot!: Hot;
@@ -874,6 +882,7 @@ export class FlowUi {
     // Panels
     this.showPanel(view.panel);
     this.facedYaw = this.stage.object3D?.rotation.y ?? 0;
+    if (this.levelBeforeCycle !== null && view.panel !== 'pause' && view.panel !== 'restart') this.settleDifficulty();
   }
 
   /** The stage turned (the table anchor settled, or the player recentred): every billboard that is showing turns to face the player again. */
@@ -1320,15 +1329,23 @@ export class FlowUi {
     this.sync();
   }
 
-  /** The Pause row: relaxed, standard, master, round again (Master skipped while it is not available). */
+  /** The Pause row: relaxed, standard, master, round again (Master skipped while it is not available). Saved at once; the director hears it as Pause closes. */
   private cycleDifficulty(): void {
     const current = this.session.save.settings.difficulty;
     if (current === null || this.panelKind !== 'pause') return;
     const value = nextDifficulty(current, this.masterOn);
     if (!this.session.setDifficulty(value)) return;
+    this.levelBeforeCycle ??= current;
     this.cue('button');
-    this.opt.onEvent?.({ type: 'difficulty', value, first: false });
     this.sync();
+  }
+
+  /** Pause has closed after the row was pressed: the level the player left it at goes to the director, once, unless it is the one the build already had. */
+  private settleDifficulty(): void {
+    const before = this.levelBeforeCycle;
+    this.levelBeforeCycle = null; // first: the director's answer may sync the UI again
+    const value = this.session.save.settings.difficulty;
+    if (value !== null && value !== before) this.opt.onEvent?.({ type: 'difficulty', value, first: false });
   }
 
   private paintHelper(): void {
