@@ -47,7 +47,11 @@ export function planBuild(
   const target: Assembly = start ? start.assembly : {};
   const trayIds: string[] = [];
   for (const entry of start ? start.tray : blueprint.tray) for (let i = 0; i < entry.quantity; i++) trayIds.push(entry.partId);
-  const handPlaced = (socketId: string, partId: string): boolean => hasSocket(socketId) && requirePart(partId).grab.enabled;
+  // With a difficulty the director runs the bags and the caddy (design §3.5): hardware sits on a part's own empty, which no `hasSocket` can answer before that
+  // part is built into the machine, so it is the player's (or the bundle's) and never seated by the game just because the housing has no socket for it.
+  const directed = difficulty !== undefined && INTRICATE_ASSEMBLY;
+  const handPlaced = (socketId: string, partId: string): boolean =>
+    (hasSocket(socketId) || (directed && requirePart(partId).family === 'fastener')) && requirePart(partId).grab.enabled;
   const fixed: Record<string, string> = {};
   const seatedAtStart = new Set(stages.seat === 'at-start' ? stages.atStart : []);
   for (const [socketId, partId] of Object.entries(start ? start.assembly : blueprint.intended)) {

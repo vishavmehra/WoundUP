@@ -5,7 +5,7 @@ import type { Entity, World } from '@iwsdk/core';
 import { Box3, Matrix4, Quaternion, Vector3, type Mesh, type Object3D } from 'three';
 import { bindClockTowerAudio } from './audio';
 import type { AudioEngine } from './audio';
-import { getBlueprint, solveAssembly } from './content/blueprints';
+import { getBlueprint, solveAssembly, withImplied } from './content/blueprints';
 import type { MachineId } from './game/content';
 import type { Gift } from './game/gift';
 import { clockTowerEvents, startClockTower } from './machines/clock-tower';
@@ -68,7 +68,7 @@ export async function showGiftMachine(world: World, town: TownRuntime, materials
     previous.rig.root.removeFromParent();
     previous.tower?.destroy();
   }
-  const outcome = solveAssembly(blueprint, Object.fromEntries(gift.placements.map((p) => [p.socketId, p.partId])), MAX_WIND_UNITS);
+  const outcome = solveAssembly(blueprint, withImplied(blueprint, Object.fromEntries(gift.placements.map((p) => [p.socketId, p.partId]))), MAX_WIND_UNITS); // hardware is implied (ADR-050)
   rig.result = outcome.ok ? outcome.result : null;
   rig.running = true;
   rig.root.position.set(0, 0, STAND_CENTRE_Z_M);

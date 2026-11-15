@@ -93,12 +93,14 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
         const asset = PART_DEFINITIONS.find((p) => p.id === partId)!.visual.assetId;
         if (asset === 'carousel_canopy' || asset === 'windmill_tower') await loader.spawnPart(partId, { parent: scene, machine });
       }
-      const withNode = bp.sockets.filter((s) => s.node !== undefined).map((s) => s.id);
+      // Hardware sits on the empty of the part that carries it (a gear's Pin): the loader binds the housing's and the nested parts', not those yet (ADR-050).
+      const carried = bp.sockets.filter((s) => s.family === 'fastener' && s.carrier !== undefined).map((s) => s.id);
+      const withNode = bp.sockets.filter((s) => s.node !== undefined && !carried.includes(s.id)).map((s) => s.id);
       expect(withNode.filter((id) => !machine.sockets.has(id)), `${bp.id}: sockets whose empty was not found`).toEqual([]);
       for (const [id, entity] of machine.sockets) {
         expect(entity.getValue(Socket, 'accepts'), `${bp.id}/${id}`).toEqual(bp.sockets.find((s) => s.id === id)!.acceptedPartIds);
       }
-      if (bp.id === 'music_box') expect(machine.unbound()).toEqual([]);
+      if (bp.id === 'music_box') expect(machine.unbound().sort()).toEqual([...carried].sort());
       machine.dispose();
     }
   });
@@ -107,7 +109,7 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
     const { scene, loader } = setup();
     const machine = await loader.spawnMachine('music_box', { parent: scene });
     const group = new Group();
-    for (const s of BLUEPRINTS[0].sockets) {
+    for (const s of BLUEPRINTS[0].sockets.filter((x) => x.position !== undefined)) {
       const node = machine.sockets.get(s.id)!.getValue(Socket, 'node') as Object3D;
       expect(node.getWorldPosition(group.position).toArray(), s.id).toEqual(s.position!.map((v) => expect.closeTo(v, 9)));
       const want = new Quaternion(...(s.rotation ?? [0, 0, 0, 1])).normalize();

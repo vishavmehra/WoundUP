@@ -51,6 +51,7 @@ export interface Settings {
 
 /** The settings that are plain on/off switches (the Pause menu's toggle rows). */
 const BOOLEAN_SETTINGS = ['easySnap', 'gazeMode', 'xrayHint', 'night'] as const;
+export type BooleanSettingKey = (typeof BOOLEAN_SETTINGS)[number];
 
 export interface SaveV1 {
   readonly version: 1;

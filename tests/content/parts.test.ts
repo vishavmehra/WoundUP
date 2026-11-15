@@ -3,11 +3,14 @@ import {
   FINISH_SUFFIX,
   getPart,
   hasPart,
+  isFastener,
   MODEL_PATHS,
   modelUrl,
   PART_DEFINITIONS,
   partIdsForAsset,
   partIdsOfFamily,
+  partVoice,
+  PART_VOICES,
   requirePart,
   SOLVER_CATALOGUE,
   SPRING_ANGULAR_VELOCITY,
@@ -142,5 +145,47 @@ describe('springs (MUSIC_BOX_BLUEPRINT §4.2)', () => {
     expect(standard.drainRate).toBe(STANDARD_DRAIN_RATE);
     expect(worn.drainRate).toBe(WORN_DRAIN_RATE);
     expect(WORN_DRAIN_RATE).toBeGreaterThan(STANDARD_DRAIN_RATE);
+  });
+});
+
+describe('hardware (ADR-050, INTRICATE_ASSEMBLY_DESIGN §4.1)', () => {
+  // asset id, finish word, grab radius in metres (1.5 cm on the thin pieces whose mesh is 1 to 6 mm, 1.2 cm on the rest), snap voice
+  const HARDWARE = [
+    ['pin_taper_2', 'polished_brass', 0.015, 'pin'],
+    ['pin_dowel_3', 'polished_brass', 0.015, 'pin'],
+    ['collar_set_8', 'brass', 0.012, 'collar'],
+    ['washer_plain_8', 'brass', 0.015, 'washer'],
+    ['bush_split_8', 'brass', 0.012, 'bush'],
+    ['screw_slot_m3', 'polished_brass', 0.015, 'screw'],
+    ['clip_angle_small', 'brass', 0.012, 'clip'],
+  ] as const;
+
+  it('catalogues the seven P0 ids as family `fastener`, each with its collider and its snap voice, and no mechanical data', () => {
+    expect([...partIdsOfFamily('fastener')].sort()).toEqual(HARDWARE.map(([asset, finish]) => `${asset}_${finish}`).sort());
+    for (const [asset, finish, grab, voice] of HARDWARE) {
+      const p = requirePart(`${asset}_${finish}`);
+      expect(p.family, asset).toBe('fastener');
+      expect(p.visual.assetId, asset).toBe(asset);
+      expect(p.grab, asset).toEqual({ enabled: true, colliderRadius: grab });
+      expect(p.feedback?.voice, asset).toBe(voice);
+      expect(p.mechanical, asset).toBeUndefined();
+      expect(isFastener(p.id), asset).toBe(true);
+      expect(MODEL_PATHS[asset], asset).toBe(`shared/fastener/${asset}.glb`);
+    }
+  });
+
+  it('uses brass only, from the existing library: no new material (design §4.1)', () => {
+    for (const id of partIdsOfFamily('fastener')) expect(['Mat_AgedBrass', 'Mat_PolishedBrass']).toContain(requirePart(id).visual.finish);
+  });
+
+  it('answers a snap voice for every part: its own, else wood for a structural part and brass for the rest', () => {
+    for (const p of PART_DEFINITIONS) expect(PART_VOICES).toContain(partVoice(p.id));
+    expect(partVoice('gear_spur_10_m1_brass')).toBe('brass');
+    expect(partVoice('spring_standard_brass')).toBe('brass');
+    expect(partVoice('bracket_support_brass')).toBe('wood');
+    expect(partVoice('screw_slot_m3_polished_brass')).toBe('screw');
+    expect(partVoice('constructor')).toBe('brass');
+    expect(isFastener('gear_spur_10_m1_brass')).toBe(false);
+    expect(isFastener('constructor')).toBe(false);
   });
 });

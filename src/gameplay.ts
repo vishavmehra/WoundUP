@@ -26,7 +26,7 @@ import type { Entity, Object3D, World } from '@iwsdk/core';
 import { bindClockTowerAudio } from './audio';
 import type { AudioEngine } from './audio';
 import { planBuild } from './build-plan';
-import { getBlueprint, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
+import { getBlueprint, giftPlacements, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
 import type { Assembly, MachineBlueprint } from './content/blueprints';
 import { requirePart } from './content/parts';
 import { MACHINE_PLOT, REPAIRS } from './game/content';
@@ -396,7 +396,7 @@ export class Gameplay {
     }
     this.ui.showBlueprint({
       title: blueprint.name,
-      slots: blueprint.sockets.map((s) => ({ id: s.id, label: requirePart(blueprint.intended[s.id]).name })),
+      slots: blueprint.sockets.filter((s) => s.family !== 'fastener').map((s) => ({ id: s.id, label: requirePart(blueprint.intended[s.id]).name })), // hardware is not a slot (ADR-050)
     });
     this.windUnits = 0;
     for (const socketId of Object.keys(fixed)) this.ui.setSlotFilled(socketId, true);
@@ -648,7 +648,7 @@ export class Gameplay {
     return {
       blueprintId: machineId,
       blueprintVersion: blueprint.version,
-      placements: Object.entries(assembly).map(([socketId, partId]) => ({ socketId, partId })),
+      placements: giftPlacements(blueprint, assembly), // the big parts only: hardware is implied (ADR-050)
       engraving,
     };
   }

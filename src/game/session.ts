@@ -30,7 +30,7 @@ import {
   trunkOpened,
   type ProgressionOptions,
 } from './progression';
-import { freshSave, serializeSave, type LoadStatus, type SaveV1, type Settings } from './save';
+import { freshSave, serializeSave, type BooleanSettingKey, type LoadStatus, type SaveV1 } from './save';
 import { browserStorage, createSaveStore, type SaveStore, type StorageLike } from './store';
 
 export interface GameSessionInit {
@@ -198,7 +198,7 @@ export class GameSession {
   }
 
   /** Changes one setting (a save trigger). */
-  setSetting(key: keyof Settings, value: boolean): boolean {
+  setSetting(key: BooleanSettingKey, value: boolean): boolean {
     if (this.currentSave.settings[key] === value) return false;
     return this.commit({ ...this.currentSave, settings: { ...this.currentSave.settings, [key]: value } });
   }

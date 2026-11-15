@@ -178,6 +178,7 @@ describe.skipIf(missing.length > 0)('Windmill gear sockets on the real GLBs (Let
       const ids = blueprint.tray.flatMap((e) => Array.from({ length: e.quantity }, () => e.partId));
       const fixed: Record<string, string> = {};
       for (const [socketId, partId] of Object.entries(blueprint.intended)) {
+        if (requirePart(partId).family === 'fastener') continue; // hardware is the stage bags' and the caddy's (ADR-050), never a tray part or the game's
         if (!(machine.sockets.has(socketId) && requirePart(partId).grab.enabled)) fixed[socketId] = partId;
       }
       dropSeatedByGame(ids, fixed);
