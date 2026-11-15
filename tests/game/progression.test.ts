@@ -21,6 +21,13 @@ import { acceptAndRepair, advance, buildAndPlace, deepFreeze, playStory } from '
 
 const TOWER = { clockTower: true } as const;
 const OUT = { clockTower: false } as const;
+const NO_BELFRY = { clockTower: true, belfry: false } as const;
+const NO_WELL = { clockTower: true, well: false } as const;
+
+/** The save with `letter` accepted and its machine built, but not placed. */
+function buildAndPlaceUntilBuilt(save: SaveV1, letter: 'letter_7' | 'letter_8', machine: 'well' | 'belfry'): SaveV1 {
+  return machineBuilt(acceptLetter(save, letter), machine);
+}
 
 /** A save frozen at some point of the story, to prove nothing mutates its input. */
 const frozen = (save: SaveV1) => deepFreeze(structuredClone(save));
@@ -152,7 +159,7 @@ describe('the whole story', () => {
     expect(closingCard(s)).toBeNull();
     playStory(undefined, (step) => {
       s = step;
-      if (step.letters.letter_6 !== 'completed') expect(closingCard(step)).toBeNull();
+      if (step.letters.letter_8 !== 'completed') expect(closingCard(step)).toBeNull();
     });
     expect(closingCard(s)).toBe(CLOSING_CARD);
   });
@@ -160,7 +167,7 @@ describe('the whole story', () => {
   it('adds Letter 6 and moves the closing card after it when the Clock Tower is in', () => {
     expect(letterSequence(TOWER)).toEqual(LETTER_IDS);
     expect(letterSequence(OUT)).toEqual(LETTER_IDS.slice(0, 5));
-    expect(DEFAULT_PROGRESSION).toEqual(TOWER); // ADR-047: the Clock Tower is the fourth playable machine
+    expect(DEFAULT_PROGRESSION).toEqual({ clockTower: true, well: true, belfry: true }); // ADR-047 and ADR-048: all six machines are in the build
     expect(letterSequence(DEFAULT_PROGRESSION)).toEqual(LETTER_IDS);
     let atLetter5Done: SaveV1 | undefined;
     const end = playStory(TOWER, (s) => {
@@ -170,6 +177,43 @@ describe('the whole story', () => {
     expect(closingCard(atLetter5Done as SaveV1, TOWER)).toBeNull();
     expect(end.letters.letter_6).toBe('completed');
     expect(closingCard(end, TOWER)).toBe(CLOSING_CARD);
+  });
+
+  it('chains Letters 7 and 8 behind Letter 6 and puts the closing card behind Letter 8 (ADR-048)', () => {
+    let atLetter6Done: SaveV1 | undefined;
+    let atLetter7Done: SaveV1 | undefined;
+    const end = playStory(undefined, (s) => {
+      if (s.letters.letter_6 === 'completed' && !atLetter6Done) atLetter6Done = s;
+      if (s.letters.letter_7 === 'completed' && !atLetter7Done) atLetter7Done = s;
+    });
+    expect(atLetter6Done?.letters).toMatchObject({ letter_7: 'available', letter_8: 'locked' });
+    expect(closingCard(atLetter6Done as SaveV1)).toBeNull();
+    expect(atLetter7Done?.letters).toMatchObject({ letter_8: 'available' });
+    expect(closingCard(atLetter7Done as SaveV1)).toBeNull();
+    expect(end.letters).toMatchObject({ letter_7: 'completed', letter_8: 'completed' });
+    expect(end.machines.map((m) => m.blueprintId).sort()).toEqual(['belfry', 'carousel', 'clock_tower', 'music_box', 'well', 'windmill']);
+    expect(closingCard(end)).toBe(CLOSING_CARD);
+    expect(activeLetter(end)).toBeNull();
+    // Letter 7 builds the Well, Letter 8 the Belfry, each on its own plot only.
+    const built = buildAndPlaceUntilBuilt(atLetter6Done as SaveV1, 'letter_7', 'well');
+    expect(machinePlaced(built, 'well', 'plot_belfry')).toBe(built); // not its plot
+    expect(machinePlaced(built, 'well', 'plot_well').letters.letter_7).toBe('completed');
+  });
+
+  it('cuts the Belfry, then the Well, then the Clock Tower, each taking the letters after it (ADR-048 cut order)', () => {
+    expect(letterSequence(NO_BELFRY)).toEqual(LETTER_IDS.slice(0, 7));
+    expect(letterSequence(NO_WELL)).toEqual(LETTER_IDS.slice(0, 6));
+    expect(letterSequence({ clockTower: true, well: false, belfry: true })).toEqual(LETTER_IDS.slice(0, 6)); // the Belfry's letter follows the Well's
+    expect(letterSequence({ clockTower: false, well: true, belfry: true })).toEqual(LETTER_IDS.slice(0, 5)); // and the Well's follows the Tower's
+    const noBelfryEnd = playStory(NO_BELFRY);
+    expect(storyComplete(noBelfryEnd, NO_BELFRY)).toBe(true);
+    expect(closingCard(noBelfryEnd, NO_BELFRY)).toBe(CLOSING_CARD);
+    expect(noBelfryEnd.letters.letter_8).toBe('locked');
+    expect(settle(noBelfryEnd, NO_BELFRY)).toBe(noBelfryEnd);
+    expect(settle(noBelfryEnd, TOWER).letters.letter_8).toBe('available'); // switched back on: the next load offers it
+    const noWellEnd = playStory(NO_WELL);
+    expect(noWellEnd.letters).toMatchObject({ letter_6: 'completed', letter_7: 'locked', letter_8: 'locked' });
+    expect(closingCard(noWellEnd, NO_WELL)).toBe(CLOSING_CARD);
   });
 
   it('keeps Letter 6 locked while the Clock Tower is out, and unlocks it when settle runs with the Tower on', () => {
@@ -203,7 +247,7 @@ describe('letters and objectives', () => {
       const id = activeLetter(s)?.id;
       if (id && order[order.length - 1] !== id) order.push(id);
     });
-    expect(order).toEqual(['letter_1', 'letter_2', 'letter_3', 'letter_4', 'letter_5', 'letter_6']);
+    expect(order).toEqual(['letter_1', 'letter_2', 'letter_3', 'letter_4', 'letter_5', 'letter_6', 'letter_7', 'letter_8']);
     expect(LETTERS[order[0] as 'letter_1'].sender).toBe('Mira');
   });
 

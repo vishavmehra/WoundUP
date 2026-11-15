@@ -23,6 +23,7 @@ function playAll(audio: AudioEngine): void {
   audio.tick(1);
   audio.bell(1, 3);
   audio.bell(3, 3);
+  audio.toll();
   for (const plot of PLOT_IDS) audio.chime(plot);
 }
 
@@ -169,6 +170,19 @@ describe('AudioEngine after unlock', () => {
       .map((g) => g.gain.ramps[0]);
     expect(peaks).toHaveLength(2);
     expect(peaks[1]).toBeCloseTo(peaks[0] / 2, 9);
+  });
+
+  it("tolls the Belfry bell at a pitch of its own, a fourth above the tower's, with the same partials (ADR-048)", () => {
+    const { ctx, audio } = engine();
+    audio.unlock();
+    audio.bell(1, 3);
+    const tower = ctx.ofKind('oscillator').map((n) => n.frequency.value);
+    const before = ctx.ofKind('oscillator').length;
+    audio.toll();
+    const belfry = ctx.ofKind('oscillator').slice(before).map((n) => n.frequency.value);
+    expect(belfry).toHaveLength(tower.length); // one oscillator for each partial of the bell
+    belfry.forEach((hz, i) => expect(hz / tower[i], `partial ${i}`).toBeCloseTo(262 / 196, 9));
+    expect(ctx.leaks()).toEqual([]);
   });
 
   it('resumes a context the browser suspended again', () => {

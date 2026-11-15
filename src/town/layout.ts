@@ -26,6 +26,21 @@ export const PLOTS: Readonly<Record<PlotId, PlotLayout>> = {
   plot_carousel: { id: 'plot_carousel', socket: 'PlotCarousel', x: 0.11, z: 0.065, halfW: 0.07, halfD: 0.07 },
   // MACHINE_SLOT_MAPPINGS §8 (Q5): the Windmill pad is 10.5 x 14.06 cm, centred at z 0.0647, as town_ground.glb now has it.
   plot_windmill: { id: 'plot_windmill', socket: 'PlotWindmill', x: 0.2425, z: 0.0647, halfW: 0.0525, halfD: 0.0703 },
+  // ADR-048, WELL_FOUNTAIN_BLUEPRINT §9.1 and BELFRY_BLUEPRINT §9.1: side by side in the right dressing zone's front half, behind the
+  // Windmill, the Well at the aisle end (pad 6.8 x 6.0 cm) and the Belfry beside it (8.0 x 6.0 cm), 0.5 cm apart.
+  plot_well: { id: 'plot_well', socket: 'PlotWell', x: 0.177, z: -0.046, halfW: 0.034, halfD: 0.03 },
+  plot_belfry: { id: 'plot_belfry', socket: 'PlotBelfry', x: 0.256, z: -0.046, halfW: 0.04, halfD: 0.03 },
+};
+
+/**
+ * How near a held machine must come to its plot socket to settle onto it, metres (INTERACTION_SPEC §8 asks 4 cm, 7 cm with Easy Snap). The
+ * Well and the Belfry stand 64.8 and 67.1 cm from the chest on the stand, beyond the 60 cm reach of INTERACTION_SPEC §3, so the owner gave
+ * these two plots alone a larger drop zone (ADR-048, 2026-11-14): 9 cm, 11 cm with Easy Snap. Only a machine's own plot takes it, and the
+ * two pads are 7.9 cm apart, so the wider radius cannot capture the wrong machine. The other plots keep the global radii.
+ */
+export const PLOT_CAPTURE_M: Readonly<Partial<Record<PlotId, { readonly radius: number; readonly easyRadius: number }>>> = {
+  plot_well: { radius: 0.09, easyRadius: 0.11 },
+  plot_belfry: { radius: 0.09, easyRadius: 0.11 },
 };
 
 /** Where each building group's origin (floor-contact centre) stands. */
@@ -49,6 +64,8 @@ export const WAKE_GROUP = {
   bakery: 32,
   theatre: 64,
   mira: 128,
+  padWell: 256,
+  padBelfry: 512,
 } as const;
 
 /** The group a plot wakes besides the street: its own pad. Dressing (houses, props, lamps) names one of these as "wakes with" (dressing-table.ts). */
@@ -57,6 +74,8 @@ export const PLOT_WAKE_GROUP: Readonly<Record<PlotId, number>> = {
   plot_carousel: WAKE_GROUP.padCarousel,
   plot_windmill: WAKE_GROUP.padWindmill,
   plot_clock_tower: WAKE_GROUP.padClockTower,
+  plot_well: WAKE_GROUP.padWell,
+  plot_belfry: WAKE_GROUP.padBelfry,
 };
 
 /**
@@ -81,6 +100,9 @@ export const WAKE_SOURCES: readonly WakeSource[] = [
   sourceAt('plot_carousel', 0.16, WAKE_GROUP.street | WAKE_GROUP.padCarousel),
   sourceAt('plot_windmill', 0.36, WAKE_GROUP.street | WAKE_GROUP.padWindmill | WAKE_GROUP.bakery),
   sourceAt('plot_clock_tower', 0.34, WAKE_GROUP.street | WAKE_GROUP.padClockTower | WAKE_GROUP.theatre),
+  // The Well and the Belfry wake the street and their own pad; the dressing beside them names them in its rows (dressing-table.ts).
+  sourceAt('plot_well', 0.14, WAKE_GROUP.street | WAKE_GROUP.padWell),
+  sourceAt('plot_belfry', 0.16, WAKE_GROUP.street | WAKE_GROUP.padBelfry),
 ];
 /** Fixed size of the shader's uniform array; unused slots stay frozen. */
 export const MAX_WAKE_SOURCES = 6;
@@ -107,6 +129,8 @@ export const SCENERY_BOXES: readonly Box[] = [
   padBox(PLOTS.plot_carousel, WAKE_GROUP.padCarousel),
   padBox(PLOTS.plot_windmill, WAKE_GROUP.padWindmill),
   padBox(PLOTS.plot_clock_tower, WAKE_GROUP.padClockTower),
+  padBox(PLOTS.plot_well, WAKE_GROUP.padWell),
+  padBox(PLOTS.plot_belfry, WAKE_GROUP.padBelfry),
   { min: [BAKERY_AT.x - 0.065, -0.01, BAKERY_AT.z - 0.0478], max: [BAKERY_AT.x + 0.065, 0.2, BAKERY_AT.z + 0.0478], group: WAKE_GROUP.bakery }, // Otto inside it
   { min: [THEATRE_AT.x - 0.1, -0.01, THEATRE_AT.z - 0.0275], max: [THEATRE_AT.x + 0.1, 0.19, THEATRE_AT.z + 0.0275], group: WAKE_GROUP.theatre },
   { min: [MIRA_AT.x - 0.0075, STREET_TOP_M - 0.0005, MIRA_AT.z - 0.0055], max: [MIRA_AT.x + 0.0075, 0.037, MIRA_AT.z + 0.0055], group: WAKE_GROUP.mira },
@@ -117,8 +141,8 @@ export const MAX_SCENERY_BOXES = 10;
  * The dressing's wake groups come from a small grid texture instead of boxes (there can be dozens of pieces and the lead moves
  * them in data): sixteen bits per cell holding the `WAKE_GROUP` bits of the pieces standing on it, rasterised from `DRESSING`
  * (dressing-table.ts) into two bytes. Cells are 5 mm over the whole 60 x 30 cm ground. Only fragments above the paving read it.
- * The dressing uses no scenery box and no wake source, so the two new plots take the last two of each (6 sources, 10 boxes); their
- * pad groups (256 and 512) already fit the grid, so a piece can wake with them by naming them in its row.
+ * The dressing uses no scenery box and no wake source; the two new plots took the last two of each (6 sources, 10 boxes, both full now).
+ * Their pad groups (256 and 512) fit the grid, so a piece wakes with them by naming them in its row.
  */
 export const DRESS_GRID = { x0: -0.3, z0: -0.15, cell: 0.005, w: 120, h: 60 } as const;
 /** Houses, props and lamp posts stand this high (town space): just above the street box, so a piece never shares the paving's wake group. */
@@ -144,4 +168,6 @@ export const MACHINE_SNAP_PART: Readonly<Record<MachineId, string>> = {
   carousel: 'carousel_base',
   windmill: 'windmill_base',
   clock_tower: 'clock_tower_base',
+  well: 'well_base',
+  belfry: 'belfry_base',
 };

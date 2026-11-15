@@ -2,7 +2,8 @@ import { Box3, Raycaster, Vector3 } from 'three';
 import type { Mesh, Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';
-import { MUSIC_BOX } from '../../src/content/blueprints';
+import { BELFRY, MUSIC_BOX, WELL } from '../../src/content/blueprints';
+import type { MachineBlueprint } from '../../src/content/blueprints';
 import { MODEL_PATHS, PART_DEFINITIONS, requirePart } from '../../src/content/parts';
 import { assignSlots, placeTrayParts, TRAY_DIVIDER_RISE_M, TRAY_POSE, TRAY_SLOTS, trayQuaternion } from '../../src/tray-layout';
 
@@ -216,5 +217,68 @@ describe('parts that are not in the tray', () => {
     expect(box.max.x).toBeLessThan(ix);
     expect(box.min.z).toBeGreaterThan(-iz);
     expect(box.max.z).toBeLessThan(iz);
+  });
+});
+
+describe("the Well's and the Belfry's trays (ADR-048)", () => {
+  /** What a first build puts in the tray: every part of the tray list that a hand can take (the Belfry's bell is seated by the game). */
+  const trayParts = (bp: MachineBlueprint) =>
+    bp.tray
+      .flatMap((e) => Array.from({ length: e.quantity }, () => e.partId))
+      .map((id) => requirePart(id))
+      .filter((p) => p.grab.enabled)
+      .map((p) => ({ id: p.id, assetId: p.visual.assetId, family: p.family }));
+
+  it.each([WELL, BELFRY].map((bp) => [bp.id, bp] as const))('%s: every part lies on the velvet or the dividers inside the tray, and no two parts overlap', async (_id, bp) => {
+    const slots = compartments.map((c) => c.centre);
+    const parts = trayParts(bp);
+    const lies = placeTrayParts(parts, slots, new Vector3());
+    const [ix, iz] = (rootWu?.interiorMm ?? [0, 0]).map((v) => v / 2000);
+    const boxes: Array<{ id: string; slot: number; box: Box3 }> = [];
+    for (let i = 0; i < parts.length; i++) {
+      const lie = lies[i];
+      const box = await boxOf(parts[i].assetId, lie.position, lie.quaternion);
+      boxes.push({ id: parts[i].id, slot: lie.slot, box });
+      // resting on the velvet of its compartment, or on the dividers
+      expect(box.min.y, `${parts[i].id} rests`).toBeCloseTo(lie.slot >= 0 ? floorY : floorY + TRAY_DIVIDER_RISE_M, 3);
+      expect(box.min.x, `${parts[i].id} inside the tray (left)`).toBeGreaterThan(-ix);
+      expect(box.max.x, `${parts[i].id} inside the tray (right)`).toBeLessThan(ix);
+      expect(box.min.z, `${parts[i].id} inside the tray (back)`).toBeGreaterThan(-iz);
+      expect(box.max.z, `${parts[i].id} inside the tray (front)`).toBeLessThan(iz);
+      if (lie.slot >= 0) {
+        const c = compartments[lie.slot];
+        expect(Math.min(box.min.x - c.x0, c.x1 - box.max.x, box.min.z - c.z0, c.z1 - box.max.z), `${parts[i].id} in slot ${c.slot}`).toBeGreaterThanOrEqual(MIN_CLEARANCE_M - EPS);
+      }
+    }
+    const overlaps: string[] = [];
+    for (let a = 0; a < boxes.length; a++) {
+      for (let b = a + 1; b < boxes.length; b++) {
+        const A = boxes[a].box;
+        const B = boxes[b].box;
+        // Overlap in plan (less a millimetre of slack for the rounded rims) AND in height by more than 2 mm: a part on the dividers rests 20 mm up, and a
+        // flat gear in a compartment below it reaches 21.2 mm, so the boxes of the two touch by 1.2 mm without the parts meeting.
+        const planOverlap = A.min.x < B.max.x - 0.001 && B.min.x < A.max.x - 0.001 && A.min.z < B.max.z - 0.001 && B.min.z < A.max.z - 0.001;
+        const high = Math.min(A.max.y, B.max.y) - Math.max(A.min.y, B.min.y);
+        if (planOverlap && high > 0.002) overlaps.push(`${boxes[a].id} and ${boxes[b].id}`);
+      }
+    }
+    expect(overlaps).toEqual([]);
+  });
+
+  it('lies the weathervane finial up and the long shaft down the middle', async () => {
+    const slots = compartments.map((c) => c.centre);
+    const lies = placeTrayParts(trayParts(BELFRY), slots, new Vector3());
+    const parts = trayParts(BELFRY);
+    const vane = lies[parts.findIndex((p) => p.assetId === 'belfry_vane')];
+    const vaneBox = await boxOf('belfry_vane', vane.position, vane.quaternion);
+    expect(vaneBox.max.y - vaneBox.min.y).toBeCloseTo(0.031, 3); // 31 mm tall: the finial stands up, not 16 mm across the velvet
+    const shaft = lies[parts.findIndex((p) => p.assetId === 'shaft_long')];
+    const shaftBox = await boxOf('shaft_long', shaft.position, shaft.quaternion);
+    expect(shaftBox.max.z - shaftBox.min.z).toBeCloseTo(0.18, 3);
+    const [ix, iz] = (rootWu?.interiorMm ?? [0, 0]).map((v) => v / 2000);
+    expect(shaftBox.min.x).toBeGreaterThan(-ix); // against the left wall, inside it, and inside the 20 cm length
+    expect(shaftBox.max.x).toBeLessThan(-ix + 0.012);
+    expect(shaftBox.min.z).toBeGreaterThan(-iz);
+    expect(shaftBox.max.z).toBeLessThan(iz);
   });
 });

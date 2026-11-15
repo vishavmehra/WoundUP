@@ -60,6 +60,8 @@ const CT: PlotId = 'plot_clock_tower';
 const MB: PlotId = 'plot_music_box';
 const CA: PlotId = 'plot_carousel';
 const WM: PlotId = 'plot_windmill';
+const WL: PlotId = 'plot_well';
+const BF: PlotId = 'plot_belfry';
 const row = (id: string, nodeName: DressingNodeName, x: number, z: number, wakes: PlotId, yawDeg = 0): DressingItem => ({ id, node: nodeName, x, z, yawDeg, wakes });
 
 /**
@@ -97,13 +99,17 @@ export const DRESSING: readonly DressingItem[] = [
 
   // The street beside the new plots.
   row('bench_right', 'TownProp_Bench', 11.4, -3.0, CA),
+  // The strip in front of the Well and Belfry pads (z -1.6 to -0.56, 1.04 cm deep) takes only the thin pieces: a signboard and a fence,
+  // and the right-hand path edging below. They wake with the Well and the Belfry, so the street beside each machine comes to life with it.
+  row('sign_well', 'TownProp_Signboard', 20.9, -1.08, WL),
+  row('fence_belfry', 'TownProp_Fence', 26.0, -1.1, BF),
 
   // Path edging along the front edge of the street (five runs: the most one piece may repeat).
   row('edging_l1', 'TownProp_PathEdging', -27.0, -1.1, CT),
   row('edging_l2', 'TownProp_PathEdging', -21.0, -1.1, MB),
   row('edging_l3', 'TownProp_PathEdging', -15.0, -1.1, MB),
   row('edging_r1', 'TownProp_PathEdging', 10.0, -1.1, CA),
-  row('edging_r2', 'TownProp_PathEdging', 16.1, -1.1, CA),
+  row('edging_r2', 'TownProp_PathEdging', 16.1, -1.1, WL),
 ];
 
 /** Where the Well and the Belfry plots go (cm, town space): the right zone's front half, to z -1.6. Nothing in the table stands here. */

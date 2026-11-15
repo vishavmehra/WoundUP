@@ -13,10 +13,13 @@ tockton_base_round  The velvet stand, resized by TOCKTON_DIMENSIONS section 9 (A
                     velvet 4 mm below a walnut lip; that recess would leave the town floating, so the lip is gone). Mat_Walnut /
                     Mat_AgedBrass / Mat_VelvetTeal constant proxies, metric UVs, baked vertex AO, no images. Shells overlap (studs).
 town_ground         The Tockton ground, 60 x 30 cm (docs/TOCKTON_DIMENSIONS.md option A): a thin walnut board 3 mm high, a low stone
-                    kerb round its edge, hand-laid pavers on the street, the central aisle and the front kerb, and four plots (Clock
-                    Tower, Music Box, Carousel, Windmill) as stone-block foundations with a pale painted floor, 6 mm high. Plot
-                    centres and sizes are TOCKTON_DIMENSIONS section 3.3. Each plot carries SOCKET_Plot<Name> (the placement point,
-                    +Y mating axis) and COL_Plot<Name> (a box over the pad).
+                    kerb round its edge, hand-laid pavers on the street, the central aisle and the front kerb, and six plots (Clock
+                    Tower, Music Box, Carousel, Windmill, and the Well and Belfry of ADR-048) as stone-block foundations with a pale
+                    painted floor, 6 mm high. Plot centres and sizes are TOCKTON_DIMENSIONS section 3.3 and, for the Well and the Belfry,
+                    WELL_FOUNTAIN_BLUEPRINT section 9.1 (the right dressing zone's front half, z -7.6 to -1.6 cm, side by side at
+                    x 14.3 to 21.1 and 21.6 to 29.6). Each plot carries SOCKET_Plot<Name> (the placement point,
+                    +Y mating axis) and COL_Plot<Name> (a box over the pad). The two new pads are built AFTER the four old ones and the
+                    pavers they displace still draw their random numbers (paver_rows burn=), so every other paver and block stays where it was.
                     Light build (ADR-034 pressure, GLBs before Enter): every paver, block and board is an open-bottomed frustum standing
                     on the board (no hidden under-floor faces), its skirt faces smooth-shaded and sharing vertices (12 vertices where a
                     bevelled box took 40), UVs projected from above so no seam splits a vertex on export. The street and plot meshes
@@ -164,6 +167,12 @@ PLOTS = [
     ("PlotCarousel", "plot_carousel", "carousel_base", 11.00, 6.50, 14.0, 14.0, True),
     ("PlotWindmill", "plot_windmill", "windmill_base", 24.25, 6.47, 10.5, 14.06, False),
 ]
+# ADR-048, WELL_FOUNTAIN_BLUEPRINT section 9.1 and BELFRY_BLUEPRINT section 9.1: the right dressing zone, front half, side by side
+PLOTS_M56 = [
+    ("PlotWell", "plot_well", "well_base", 17.70, -4.60, 6.8, 6.0, False),
+    ("PlotBelfry", "plot_belfry", "belfry_base", 25.60, -4.60, 8.0, 6.0, False),
+]
+ALL_PLOTS = PLOTS + PLOTS_M56
 HX, HZ = 30.0, 15.0           # the ground, 60 x 30 cm
 SLAB_H = 0.30                 # the walnut board
 KERB_H = 0.46                 # the stone kerb round the edge
@@ -307,10 +316,11 @@ def _hits(rect, avoid):
     return False
 
 
-def paver_rows(part, rng, rect, w=1.45, d=0.95, gap=0.14, top_h=PAVER_TOP, avoid=()):
+def paver_rows(part, rng, rect, w=1.45, d=0.95, gap=0.14, top_h=PAVER_TOP, avoid=(), burn=()):
     """Hand-laid pavers in staggered rows filling `rect` = (x0, x1, z0, z1): slightly different widths, tiny turns, tops a little uneven.
     avoid: rects (x0, x1, z0, z1) and circles ("c", cx, cz, r) a paver must not touch. The random draws are those of the box version,
-    so the layout is the one the town already had."""
+    so the layout is the one the town already had. burn: the same kind of list, for the pads added later (ADR-048): a paver that touches
+    one is left out but still draws its two random numbers, so every paver after it is exactly where it was before the new pads."""
     x0, x1, z0, z1 = rect
     nrows = max(1, int(round((z1 - z0) / d)))
     rd = (z1 - z0) / nrows
@@ -332,6 +342,8 @@ def paver_rows(part, rng, rect, w=1.45, d=0.95, gap=0.14, top_h=PAVER_TOP, avoid
                 continue
             top = top_h + rng.uniform(-0.025, 0.02)
             ang = rng.uniform(-2.2, 2.2)
+            if burn and _hits((xa, xb, zc - rd / 2, zc + rd / 2), burn):
+                continue
             part.add(frustum(rect_poly((xa + xb) / 2, zc, (xb - xa - gap) / 2, (rd - gap) / 2, ang), SLAB_H, top, PAVER_INS), "Mat_Stone")
             n += 1
     return n
@@ -392,19 +404,21 @@ def build_town_ground(entry, p):
     street = FlatPart("TownGround_Street", ["Mat_Stone"])
     kerb_ring(street)
     n_pav = 0
+    new_pads = [(cx - w / 2 - 0.10, cx + w / 2 + 0.10, cz - d / 2 - 0.10, cz + d / 2 + 0.10) for _n, _p, _m, cx, cz, w, d, _r in PLOTS_M56]
+    new_keep = [(a[0] - 0.25, a[1] + 0.25, a[2] - 0.25, a[3] + 0.25) for a in new_pads]
     ways = ((-29.35, 29.35, -4.5, -1.55),             # the street across the back of the plots
             (-3.9, 3.9, -1.40, 13.45),                # the central aisle
             (-29.35, 29.35, 13.60, 14.35))            # the front kerb, against the workbench
     for rect in ways:
-        n_pav += paver_rows(street, rng, rect)
+        n_pav += paver_rows(street, rng, rect, burn=new_pads)
     # the rest of the ground: larger, lower flagstones round the plots and ways, so no board is left bare
     keep_out = [(a[0] - 0.30, a[1] + 0.30, a[2] - 0.30, a[3] + 0.30) for a in ways]
     for name, pid, machine, cx, cz, w, d, rnd in PLOTS:
         keep_out.append(("c", cx, cz, w / 2 + 0.35) if rnd else (cx - w / 2 - 0.35, cx + w / 2 + 0.35, cz - d / 2 - 0.35, cz + d / 2 + 0.35))
-    n_pav += paver_rows(street, rng, (-29.35, 29.35, -14.35, 14.35), w=1.85, d=1.25, gap=0.16, top_h=0.385, avoid=keep_out)
+    n_pav += paver_rows(street, rng, (-29.35, 29.35, -14.35, 14.35), w=1.85, d=1.25, gap=0.16, top_h=0.385, avoid=keep_out, burn=new_keep)
     plot = FlatPart("TownGround_Plot", ["Mat_Stone", "Mat_PaintedWood"], smooth_skirts=False)
     y_b = PAD_TOP - 0.03
-    for name, pid, machine, cx, cz, w, d, rnd in PLOTS:
+    for name, pid, machine, cx, cz, w, d, rnd in ALL_PLOTS:
         if rnd:
             ri = block_ring_round(plot, rng, cx, cz, w / 2) - 0.04
         else:
@@ -429,14 +443,14 @@ def build_town_ground(entry, p):
             plot.add(frustum(poly, SLAB_H, y_b, BOARD_INS), "Mat_PaintedWood")
     wu.log(f"town_ground: {n_pav} pavers; open edges of the board = {open_edges(slab.bm)} (street and plot shells are open on purpose)")
     root = slab.to_object()
-    root["wu"] = dict(id=entry["id"], family=FAMILY, plots=[pl[1] for pl in PLOTS], sizeM=[0.60, 0.30], padTopM=PAD_TOP * 0.01)
+    root["wu"] = dict(id=entry["id"], family=FAMILY, plots=[pl[1] for pl in ALL_PLOTS], sizeM=[0.60, 0.30], padTopM=PAD_TOP * 0.01)
     kids = []
     for part in (street, plot):
         o = part.to_object()
         o.parent = root
         kids.append(o)
     helpers = []
-    for name, pid, machine, cx, cz, w, d, rnd in PLOTS:
+    for name, pid, machine, cx, cz, w, d, rnd in ALL_PLOTS:
         helpers.append(empties.add_socket(root, name, to_m((cx, PAD_TOP, cz)), [machine], axis_g=(0.0, 1.0, 0.0), plot=pid))
         helpers.append(empties.add_collider(root, name, "box", (w * 0.005, 0.005, d * 0.005), to_m((cx, PAD_TOP + 0.5, cz))))
     return [root] + kids + helpers, dict(origin=("centre", "min", "centre"), closed=False)

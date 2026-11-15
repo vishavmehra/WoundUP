@@ -5,6 +5,7 @@ import {
   applyRotor,
   approach,
   axisOfGlb,
+  createHinge,
   createRig,
   createRotor,
   horseBob,
@@ -12,6 +13,7 @@ import {
   SCALE_EASE_S,
   stepRig,
   stepScaler,
+  turnHinge,
   twinkle,
   wuField,
 } from '../../src/town/motion';
@@ -177,5 +179,76 @@ describe('stepScaler', () => {
     const scaler = { node, target: 1 };
     while (!stepScaler(scaler, FRAME));
     expect(node.scale.toArray()).toEqual([1, 1, 1]);
+  });
+});
+
+describe('rig updaters (ADR-048)', () => {
+  it('runs each updater once a frame after the rotors have turned, in order, with the frame time', () => {
+    const rig = createRig('well', new Group());
+    const node = new Object3D();
+    rig.root.add(node);
+    const rotor = createRotor(node, 'cam');
+    rig.rotors.push(rotor);
+    rig.result = { angularVelocity: { cam: -2 } };
+    rig.speed = 1;
+    const seen: Array<[string, number, number]> = [];
+    rig.updaters.push((r, dt) => void seen.push(['a', dt, r.rotors[0].theta]));
+    rig.updaters.push((_r, _dt, time) => void seen.push(['b', time, 0]));
+    stepRig(rig, 0.5, 7);
+    expect(seen[0][0]).toBe('a');
+    expect(seen[0][1]).toBe(0.5);
+    expect(seen[0][2]).toBeCloseTo(-1, 6); // the rotor had already advanced by omega * dt (the spin-up ease is a hair under 1)
+    expect(seen[1]).toEqual(['b', 7, 0]);
+  });
+
+  it('starts every rig not restored, with no audio and nothing moving', () => {
+    const rig = createRig('belfry', new Group());
+    expect(rig).toMatchObject({ restored: false, audio: null, updaters: [], moving: [] });
+  });
+});
+
+describe('hinges', () => {
+  /** A bell-like node: its origin at the top, a pivot empty a little below it. */
+  function bell(): { root: Group; node: Object3D } {
+    const root = new Group();
+    const node = new Object3D();
+    node.name = 'Bell';
+    node.position.set(0.02, 0.27, 0);
+    const pivot = new Object3D();
+    pivot.name = 'PIV_Swing';
+    pivot.position.set(0, -0.0015, 0); // 1.5 mm below the node's origin, in its own frame
+    node.add(pivot);
+    root.add(node);
+    return { root, node };
+  }
+
+  it('turns a node about its own origin when no pivot is named, from the pose it was found in', () => {
+    const { root, node } = bell();
+    node.quaternion.copy(turn(Z, 0.3));
+    const hinge = createHinge(root, 'Bell')!;
+    turnHinge(hinge, 0.1);
+    expect(node.quaternion.angleTo(turn(Z, 0.4))).toBeLessThan(1e-6);
+    expect(node.position.toArray()).toEqual([0.02, 0.27, 0]);
+    turnHinge(hinge, 0);
+    expect(node.quaternion.angleTo(turn(Z, 0.3))).toBeLessThan(1e-6);
+  });
+
+  it('swings a node about the pivot empty: the origin moves along the arc and comes back at zero', () => {
+    const { root, node } = bell();
+    const hinge = createHinge(root, 'Bell', 'PIV_Swing')!;
+    turnHinge(hinge, 0.12);
+    // the pivot is 1.5 mm under the node's origin (the empty is turned with the node; the node is not): the origin swings round it by 0.12 rad
+    const r = 0.0015;
+    expect(Math.hypot(node.position.x - 0.02, node.position.y - 0.27)).toBeCloseTo(2 * r * Math.sin(0.06), 9); // the chord of a 0.12 rad arc
+    expect(node.quaternion.angleTo(turn(Z, 0.12))).toBeLessThan(1e-6);
+    turnHinge(hinge, 0);
+    expect(node.position.distanceTo(new Vector3(0.02, 0.27, 0))).toBeLessThan(1e-12);
+  });
+
+  it('answers null for a node or a pivot that is not there, so a missing empty is reported rather than guessed', () => {
+    const { root } = bell();
+    expect(createHinge(root, 'Nope')).toBeNull();
+    expect(createHinge(root, 'Bell', 'PIV_Nope')).toBeNull();
+    expect(createHinge(root, 'Bell', 'PIV_Swing')).not.toBeNull();
   });
 });

@@ -13,7 +13,14 @@ describe('demoRequest', () => {
     expect(demoRequest('?debug&demo=music_box')).toBe('music_box');
     expect(demoRequest('?demo=carousel&debug')).toBe('carousel');
     expect(demoRequest('?debug=1&demo=windmill')).toBe('windmill');
+    expect(demoRequest('?debug&demo=well')).toBe('well'); // ADR-048
+    expect(demoRequest('?debug&demo=belfry')).toBe('belfry');
     expect(demoRequest('?debug&demo=clock_tower')).toBe('clock_tower');
+  });
+
+  it("shows the whole town with ?debug&demo=town, which is how the awake town's draw calls are measured", () => {
+    expect(demoRequest('?debug&demo=town')).toBe('town');
+    expect(demoRequest('?demo=town')).toBeNull(); // never without ?debug
   });
 
   it('never starts without ?debug', () => {

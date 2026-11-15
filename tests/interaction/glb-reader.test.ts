@@ -23,12 +23,23 @@ const colliderWu = { type: 'collider', shape: 'box', purpose: 'grab' };
 
 describe('parseWu', () => {
   it('reads a socket and a collider', () => {
-    expect(parseWu(socketWu)).toEqual({ data: { type: 'socket', accepts: ['gear', 'gear_16'], axisOnly: false } });
-    expect(parseWu({ ...socketWu, orient: 'axis' })).toEqual({ data: { type: 'socket', accepts: ['gear', 'gear_16'], axisOnly: true } });
+    expect(parseWu(socketWu)).toEqual({ data: { type: 'socket', accepts: ['gear', 'gear_16'], axisOnly: false, captureRadius: 0, captureRadiusEasy: 0 } });
+    expect(parseWu({ ...socketWu, orient: 'axis' })).toEqual({ data: { type: 'socket', accepts: ['gear', 'gear_16'], axisOnly: true, captureRadius: 0, captureRadiusEasy: 0 } });
     expect(parseWu(colliderWu)).toEqual({ data: { type: 'collider', shape: 'box', purpose: 'grab' } });
     expect(parseWu({ type: 'collider', shape: 'sphere', purpose: 'poke' })).toEqual({
       data: { type: 'collider', shape: 'sphere', purpose: 'poke' },
     });
+  });
+
+  it('reads the capture radii of a socket that takes a part from further away (ADR-048), and refuses ones that make no sense', () => {
+    expect(parseWu({ ...socketWu, captureRadius: 0.09, captureRadiusEasy: 0.11 })).toEqual({
+      data: { type: 'socket', accepts: ['gear', 'gear_16'], axisOnly: false, captureRadius: 0.09, captureRadiusEasy: 0.11 },
+    });
+    expect(parseWu({ ...socketWu, captureRadius: 0.09 })).toMatchObject({ data: { captureRadius: 0.09, captureRadiusEasy: 0 } });
+    for (const bad of [0, -0.1, 0.3, Number.NaN, Infinity, '0.09', null, [0.09]]) {
+      expect(parseWu({ ...socketWu, captureRadius: bad }), `captureRadius ${String(bad)}`).toHaveProperty('error');
+      expect(parseWu({ ...socketWu, captureRadiusEasy: bad }), `captureRadiusEasy ${String(bad)}`).toHaveProperty('error');
+    }
   });
 
   it('copies the accepts list instead of sharing it', () => {

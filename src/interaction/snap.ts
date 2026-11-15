@@ -32,6 +32,9 @@ export interface SocketSample {
   accepts: readonly string[];
   /** Key of the part seated here, or NO_PART. */
   occupant: number;
+  /** Own capture radius in metres, and the one with Easy Snap; absent or 0 when the socket uses the global radius. Only ever widens the global one. */
+  captureRadius?: number;
+  captureRadiusEasy?: number;
 }
 
 /** The held part as the picker sees it. `key` identifies it against `SocketSample.occupant`. */
@@ -68,13 +71,13 @@ function statusOf(socket: SocketSample, part: PartSample): SnapStatus {
 /**
  * Chooses the socket for a part (INTERACTION_SPEC §7.3): the nearest socket the part could actually go into, within
  * `radius`. If none qualifies, the nearest socket that rejects it, so the preview can go red (§8). Returns false and
- * leaves `out.index = -1` when no socket is in range.
+ * leaves `out.index = -1` when no socket is in range. A socket with its own capture radius (the Well's and the Belfry's plots, ADR-048)
+ * takes the larger of that and `radius`; `easy` says which of its two radii applies.
  */
-export function pickSocket(part: PartSample, sockets: readonly SocketSample[], radius: number, out: SocketPick): boolean {
+export function pickSocket(part: PartSample, sockets: readonly SocketSample[], radius: number, out: SocketPick, easy = false): boolean {
   out.index = -1;
   out.distance = Infinity;
   out.status = 'valid';
-  const r2 = radius * radius;
   let bestRank = 2;
   let bestD2 = Infinity;
   for (let i = 0; i < sockets.length; i++) {
@@ -83,7 +86,9 @@ export function pickSocket(part: PartSample, sockets: readonly SocketSample[], r
     const dy = s.y - part.y;
     const dz = s.z - part.z;
     const d2 = dx * dx + dy * dy + dz * dz;
-    if (d2 > r2) continue;
+    const own = (easy ? s.captureRadiusEasy : s.captureRadius) ?? 0;
+    const reach = own > radius ? own : radius;
+    if (d2 > reach * reach) continue;
     const status = statusOf(s, part);
     const rank = status === 'valid' ? 0 : 1;
     if (rank < bestRank || (rank === bestRank && d2 < bestD2)) {

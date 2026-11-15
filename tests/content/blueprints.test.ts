@@ -36,7 +36,7 @@ describe('blueprint data', () => {
   });
 
   it('uses the machine ids of the game core, once each', () => {
-    expect(BLUEPRINTS.map((b) => b.id)).toEqual(['music_box', 'carousel', 'windmill', 'clock_tower']);
+    expect(BLUEPRINTS.map((b) => b.id)).toEqual(['music_box', 'carousel', 'windmill', 'clock_tower', 'well', 'belfry']);
     expect([...BLUEPRINTS.map((b) => b.id)].sort()).toEqual([...MACHINE_IDS].sort());
     for (const b of BLUEPRINTS) expect(MACHINE_IDS).toContain(b.id);
     expect(getBlueprint('music_box')).toBe(MUSIC_BOX);

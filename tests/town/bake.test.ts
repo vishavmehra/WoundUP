@@ -1,7 +1,11 @@
 import { BoxGeometry, Box3, Group, Mesh, MeshStandardMaterial, Vector3 } from 'three';
 import type { BufferGeometry, Material, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
+import { BELFRY, solveAssembly, WELL } from '../../src/content/blueprints';
+import { BELFRY_BELL_NODE, buildBelfry } from '../../src/machines/belfry/build';
 import { buildClockTower } from '../../src/machines/clock-tower/build';
+import { buildWell, WELL_NODE } from '../../src/machines/well/build';
+import { MAX_WIND_UNITS } from '../../src/sim';
 import { ClockTowerNodes, CLOCK_TOWER_NODE, TheatreDoors } from '../../src/machines/clock-tower/rig';
 import { readInteractionNodes } from '../../src/interaction/glb-reader';
 import { bakeRig, bakeStatic, bakeTown, disposeBaked } from '../../src/town/bake';
@@ -189,13 +193,15 @@ describe('bakeStatic', () => {
   });
 });
 
-describe.skipIf(!modelsPresent)('the four finished machines, baked, from the real GLBs', () => {
+describe.skipIf(!modelsPresent)('the six finished machines, baked, from the real GLBs', () => {
   const registry = libraryRegistry();
   const builders: ReadonlyArray<readonly [string, () => Promise<MachineRig>, readonly string[]]> = [
     ['music_box', () => buildMusicBox(realSource, registry), []],
     ['carousel', () => buildCarousel(realSource, registry), []],
     ['windmill', () => buildWindmill(realSource, registry), []],
     ['clock_tower', () => buildClockTower(realSource, registry), Object.values(CLOCK_TOWER_NODE)],
+    ['well', () => buildWell(realSource, registry), Object.values(WELL_NODE)],
+    ['belfry', () => buildBelfry(realSource, registry), Object.values(BELFRY_BELL_NODE)],
   ];
 
   for (const [name, build, keep] of builders) {
@@ -228,6 +234,46 @@ describe.skipIf(!modelsPresent)('the four finished machines, baked, from the rea
         for (let f = 1; f <= 30; f++) stepRig(rig, 0.05, f * 0.05);
       }
       expectSamePicture(fingerprint(loose.root), fingerprint(baked.root));
+      disposeBaked(baked);
+    }
+  });
+
+  it('the Well and the Belfry still move after the bake (the pump rod, the pawl, the bell, the rotors), draw fewer meshes, and are in the pose the loose machine is in', async () => {
+    for (const [id, build, blueprint, nodes] of [
+      ['well', buildWell, WELL, ['Part_Follower', 'Part_Pawl']],
+      ['belfry', buildBelfry, BELFRY, [BELFRY_BELL_NODE.bell, BELFRY_BELL_NODE.striker]],
+    ] as const) {
+      const outcome = solveAssembly(blueprint, blueprint.intended, MAX_WIND_UNITS);
+      if (!outcome.ok) throw new Error(`the ${id} must solve`);
+      const loose = await build(realSource, registry);
+      const baked = (await buildMachine(id, realSource, registry)) as MachineRig;
+      // The Belfry's only static meshes are its casing (kept whole for X-ray, machines.ts `KEEP_CASING`) and two fittings, so its bake merges nothing.
+      if (id === 'well') expect(fingerprint(baked.root).drawn, `${id} meshes drawn`).toBeLessThan(fingerprint(loose.root).drawn);
+      else expect(fingerprint(baked.root).drawn, `${id} meshes drawn`).toBeLessThanOrEqual(fingerprint(loose.root).drawn);
+      expect(baked.moving.map((n) => n.name).sort(), id).toEqual(loose.moving.map((n) => n.name).sort());
+      const rest = nodes.map((name) => {
+        const node = baked.root.getObjectByName(name);
+        expect(node, `${id}: ${name} is still named and in the scene`).toBeDefined();
+        return { name, position: node!.position.clone(), quaternion: node!.quaternion.clone() };
+      });
+      for (const rig of [loose, baked]) {
+        rig.result = outcome.result;
+        rig.running = true;
+        rig.speed = 1;
+        for (let f = 1; f <= 90; f++) stepRig(rig, 1 / 72, f / 72);
+      }
+      const moved = rest.filter(({ name, position, quaternion }) => {
+        const node = baked.root.getObjectByName(name)!;
+        return node.position.distanceTo(position) > 1e-6 || node.quaternion.angleTo(quaternion) > 1e-4;
+      });
+      expect(moved.length, `${id}: at least one of ${nodes.join(', ')} moved`).toBeGreaterThan(0);
+      for (const name of nodes) {
+        const a = baked.root.getObjectByName(name)!;
+        const b = loose.root.getObjectByName(name)!;
+        expect(a.position.distanceTo(b.position), `${id} ${name} position`).toBeLessThan(1e-9);
+        expect(a.quaternion.angleTo(b.quaternion), `${id} ${name} rotation`).toBeLessThan(1e-5);
+      }
+      for (const [i, rotor] of baked.rotors.entries()) expect(rotor.theta, `${id} rotor ${rotor.socketId}`).toBe(loose.rotors[i].theta);
       disposeBaked(baked);
     }
   });

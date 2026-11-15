@@ -25,6 +25,9 @@ export const Socket = createComponent('Socket', {
   node: { type: Types.Object, default: undefined },
   /** Only the mating axis is fixed on snap and the roll stays as the player left it (glb-reader.ts `wu.orient`). */
   axisOnly: { type: Types.Boolean, default: false },
+  /** Metres: this socket takes a held part from further than the global snap radius (0: it uses the global one). Easy Snap has its own. See glb-reader.ts. */
+  captureRadius: { type: Types.Float32, default: 0 },
+  captureRadiusEasy: { type: Types.Float32, default: 0 },
   occupant: { type: Types.Entity, default: null },
 });
 

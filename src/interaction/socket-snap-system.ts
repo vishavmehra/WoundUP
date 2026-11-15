@@ -115,6 +115,8 @@ export class SocketSnapSystem extends createSystem(
         z: 0,
         accepts: (entity.getValue(Socket, 'accepts') as string[] | undefined) ?? [],
         occupant: occupant ? occupant.index : NO_PART,
+        captureRadius: (entity.getValue(Socket, 'captureRadius') as number | undefined) ?? 0,
+        captureRadiusEasy: (entity.getValue(Socket, 'captureRadiusEasy') as number | undefined) ?? 0,
       });
     });
   }
@@ -166,7 +168,8 @@ export class SocketSnapSystem extends createSystem(
     }
 
     this.fillPart(entity, _part);
-    if (!pickSocket(this.part, this.samples, snapRadius(this.config.easySnap.peek()), this.pick)) {
+    const easy = this.config.easySnap.peek();
+    if (!pickSocket(this.part, this.samples, snapRadius(easy), this.pick, easy)) {
       this.ghosts.get(entity)?.hide();
       return;
     }
@@ -202,7 +205,8 @@ export class SocketSnapSystem extends createSystem(
     this.refreshSamples();
     object.getWorldPosition(_part);
     this.fillPart(entity, _part);
-    if (!pickSocket(this.part, this.samples, snapRadius(this.config.easySnap.peek()), this.pick)) return;
+    const easy = this.config.easySnap.peek();
+    if (!pickSocket(this.part, this.samples, snapRadius(easy), this.pick, easy)) return;
 
     const index = this.pick.index;
     const socket = this.socketEntities[index];

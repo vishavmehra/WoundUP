@@ -70,7 +70,10 @@ export function acceptAndRepair(save: SaveV1, letterId: LetterId, repairId: Repa
   return s;
 }
 
-/** The whole Tockton story through Letter 5, and Letter 6 when the Clock Tower is on (the game's default, ADR-047), with every intermediate save reported. */
+/**
+ * The whole Tockton story through Letter 5, then Letter 6 when the Clock Tower is on (the game's default, ADR-047), Letter 7 (the Well) and
+ * Letter 8 (the Belfry, ADR-048) while their machines are in the build, with every intermediate save reported.
+ */
 export function playStory(options?: ProgressionOptions, onStep: (s: SaveV1) => void = () => undefined): SaveV1 {
   let s = freshSave();
   s = advance(s, trunkOpened(s, options));
@@ -80,6 +83,9 @@ export function playStory(options?: ProgressionOptions, onStep: (s: SaveV1) => v
   s = buildAndPlace(s, 'letter_3', 'carousel', options, onStep);
   s = buildAndPlace(s, 'letter_4', 'windmill', options, onStep);
   s = acceptAndRepair(s, 'letter_5', 'wrong_gear', options, onStep);
-  if ((options ?? DEFAULT_PROGRESSION).clockTower) s = buildAndPlace(s, 'letter_6', 'clock_tower', options, onStep);
+  const o = options ?? DEFAULT_PROGRESSION;
+  if (o.clockTower) s = buildAndPlace(s, 'letter_6', 'clock_tower', options, onStep);
+  if (o.clockTower && o.well !== false) s = buildAndPlace(s, 'letter_7', 'well', options, onStep);
+  if (o.clockTower && o.well !== false && o.belfry !== false) s = buildAndPlace(s, 'letter_8', 'belfry', options, onStep);
   return s;
 }

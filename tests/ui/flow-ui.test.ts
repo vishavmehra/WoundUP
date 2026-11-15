@@ -3,7 +3,7 @@ import type { Entity } from '@iwsdk/core';
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D, Scene, Vector3 } from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LETTERS, MACHINE_PLOT } from '../../src/game/content';
-import { dailyRepairFor } from '../../src/game/daily';
+import { dailyRepairFor, drawablePool } from '../../src/game/daily';
 import { dateKey } from '../../src/game/date';
 import { SETTING_ROWS } from '../../src/ui/copy';
 import { BENCH } from '../../src/ui/layout';
@@ -740,6 +740,7 @@ describe('FlowUi: the daily repair entry (ADR-027)', () => {
   it("starts today's repair from the medallion: Build opens on the bench, the integrator is told which repair and on what date, and it is done once for the date", async () => {
     const r = await rig(playToLetter5);
     run(r, 1);
+    const pool = drawablePool(r.game.save); // only repairs of machines that stand in the town are drawn (the Well's and the Belfry's wait for theirs)
     const before = dateKey(new Date());
     expect(click(r, 'UI_Daily')).toBe(true);
     const after = dateKey(new Date());
@@ -747,7 +748,7 @@ describe('FlowUi: the daily repair entry (ADR-027)', () => {
     const event = real(r).find((e) => e.type === 'daily-repair');
     if (event?.type !== 'daily-repair') throw new Error('no daily-repair event');
     expect([before, after]).toContain(event.date);
-    expect(event.repair).toBe(dailyRepairFor(event.date)); // deterministic by date
+    expect(event.repair).toBe(dailyRepairFor(event.date, pool)); // deterministic by date
     expect(r.ui.currentView).toMatchObject({ bench: true, parcel: 'closed', envelope: 'hidden', dailyButton: false });
     expect(live(r)).toEqual(['UI_Lens', 'UI_Pause', 'parcel']); // the lens (X-ray) shows wherever a machine is on the bench
 

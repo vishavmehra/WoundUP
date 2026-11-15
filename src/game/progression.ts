@@ -39,8 +39,12 @@ export interface ProgressionOptions {
    * §3.3); this is the default until the owner rules, and the one switch to flip.
    */
   readonly clockTower: boolean;
+  /** The Well (Letter 7) is in the build. Default true. Letters follow one chain, so cutting a machine also cuts every letter after it (ADR-048 cut order: the Belfry, then the Well). */
+  readonly well?: boolean;
+  /** The Belfry (Letter 8) is in the build. Default true. */
+  readonly belfry?: boolean;
 }
-export const DEFAULT_PROGRESSION: ProgressionOptions = { clockTower: true };
+export const DEFAULT_PROGRESSION: ProgressionOptions = { clockTower: true, well: true, belfry: true };
 
 /**
  * Where the specifications leave "after Letter N" open (STORY_AND_QUEST_ENGINE §3.3), one rule applies to both uses:
@@ -55,11 +59,17 @@ export const GATES = {
 
 const RANK: Readonly<Record<LetterStatus, number>> = { locked: 0, available: 1, accepted: 2, completed: 3 };
 
-const WITHOUT_TOWER: readonly LetterId[] = LETTER_IDS.filter((id) => id !== 'letter_6');
+/** The letters up to and without `cut`: the story is one chain, so a machine that is out of the build takes every later letter with it. */
+const before = (cut: (typeof LETTER_IDS)[number]): readonly LetterId[] => LETTER_IDS.slice(0, LETTER_IDS.indexOf(cut));
+const WITHOUT_TOWER = before('letter_6');
+const WITHOUT_WELL = before('letter_7');
+const WITHOUT_BELFRY = before('letter_8');
 
 /** The letters of this build in story order. */
 export function letterSequence(options: ProgressionOptions = DEFAULT_PROGRESSION): readonly LetterId[] {
-  return options.clockTower ? LETTER_IDS : WITHOUT_TOWER;
+  if (!options.clockTower) return WITHOUT_TOWER;
+  if (options.well === false) return WITHOUT_WELL;
+  return options.belfry === false ? WITHOUT_BELFRY : LETTER_IDS;
 }
 
 /** True when the letter has reached `status` or beyond. */

@@ -16,7 +16,7 @@ import { modelsPresent, realSource } from './real-source';
  */
 
 const FRAME = 1 / 72;
-const MACHINES = ['music_box', 'carousel', 'windmill', 'clock_tower'] as const;
+const MACHINES = ['music_box', 'carousel', 'windmill', 'clock_tower', 'well', 'belfry'] as const;
 
 const standard = (name: string, color = 0x5b3a24): MeshStandardMaterial => new MeshStandardMaterial({ name, color });
 const box = (name: string, material: MeshStandardMaterial): Mesh => {
@@ -435,7 +435,7 @@ describe('xrayZoneOf', () => {
   });
 });
 
-describe.skipIf(!modelsPresent)('the casing of the four machines, on the real GLBs', () => {
+describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLBs', () => {
   for (const id of MACHINES) {
     it(`${id}: the casing fades and every other mesh (the mechanism, the figures, the handle) stays opaque`, async () => {
       const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
@@ -465,6 +465,20 @@ describe.skipIf(!modelsPresent)('the casing of the four machines, on the real GL
       shell.setAmount(0);
       for (const m of all) expect(m.material, m.name).toBe(before.get(m));
       shell.dispose();
+    });
+  }
+
+  // The older four keep the merge for the draw-call budget (machines.ts `KEEP_CASING`): their X-ray fades the casing meshes the batching left.
+  for (const id of ['well', 'belfry'] as const) {
+    it(`${id}: the batching merges no casing mesh into the mechanism's brass (X-ray finds the casing by name)`, async () => {
+      const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
+      if (!rig) throw new Error(`no ${id}`);
+      const merged: string[] = [];
+      rig.root.traverse((n) => {
+        const from = n.userData.bakedFrom as string[] | undefined;
+        if (from) merged.push(...from.filter((name) => XRAY_SHELL[id].some((p) => name.startsWith(p))));
+      });
+      expect(merged, `${id}: casing meshes merged away`).toEqual([]);
     });
   }
 
@@ -504,8 +518,17 @@ describe.skipIf(!modelsPresent)('the casing of the four machines, on the real GL
     });
   }
 
-  it('the moving parts of the Music Box, the Carousel and the Windmill are never casing', async () => {
-    for (const id of ['music_box', 'carousel', 'windmill'] as const) {
+  it('the pump rod and pawl of the Well and the bell and clapper of the Belfry are moving mechanism too (rig.moving), not only the rotors', async () => {
+    for (const [id, names] of [['well', ['Part_Follower', 'Part_Pawl']], ['belfry', ['ClockBell_Bell', 'ClockBell_Striker']]] as const) {
+      const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
+      if (!rig) throw new Error(`no ${id}`);
+      const movers = xrayMovers(rig).map((n) => n.name);
+      for (const name of names) expect(movers, `${id}: ${name}`).toContain(name);
+    }
+  });
+
+  it('the moving parts of the Music Box, the Carousel, the Windmill, the Well and the Belfry are never casing', async () => {
+    for (const id of ['music_box', 'carousel', 'windmill', 'well', 'belfry'] as const) {
       const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
       if (!rig) throw new Error(`no ${id}`);
       expect(rig.rotors.length).toBeGreaterThan(0);

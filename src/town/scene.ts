@@ -3,7 +3,7 @@
  * socket, the theatre facade and Mira (TOCKTON_DIMENSIONS §3.3, §7), and the dressing of houses, props and lamp posts
  * (dressing.ts). Pure scene-graph work on loaded models, so Node tests can run it on real GLBs; the app's loader is `loadModel`.
  */
-import { AnimationMixer, AssetManager, Group } from '@iwsdk/core';
+import { AnimationMixer, AssetManager, Group, Object3D as Node3D } from '@iwsdk/core';
 import type { AnimationAction, AnimationClip, Object3D } from '@iwsdk/core';
 import type { MaterialRegistry } from '../materials';
 import { applyLibraryMaterials } from '../materials';
@@ -13,7 +13,8 @@ import { buildAmbience } from './ambience';
 import type { Ambience } from './ambience';
 import { buildDressing, loadDressingModels } from './dressing';
 import type { Dressing, DressingModels } from './dressing';
-import { BAKER_SOCKET, BAKERY_AT, MIRA_AT, PLOTS, THEATRE_AT } from './layout';
+import { BAKER_SOCKET, BAKERY_AT, machineOfPlot, MACHINE_SNAP_PART, MIRA_AT, PAD_TOP_M, PLOT_CAPTURE_M, PLOTS, THEATRE_AT } from './layout';
+import type { PlotLayout } from './layout';
 
 /** A loaded GLB: its scene graph and animation clips. */
 export interface TownModel {
@@ -91,7 +92,13 @@ export function buildTown(
   // town_ground.glb gives its plot sockets a Z-up frame (mating axis +Z, pointing up). A machine base is a Y-up model, and a
   // part seated in a socket takes the socket's orientation, so it would be tipped onto its back. A plot is where the base
   // origin lands, upright and facing the way the stage does: take the tilt out of the socket.
-  for (const plot of Object.values(PLOTS)) ground.getObjectByName(`SOCKET_${plot.socket}`)?.quaternion.identity();
+  for (const plot of Object.values(PLOTS)) {
+    const node = ground.getObjectByName(`SOCKET_${plot.socket}`) ?? addPlotSocket(ground, plot);
+    node.quaternion.identity();
+    // The Well's and the Belfry's plots take a held machine from further away than the others (ADR-048): the radii are layout data.
+    const capture = PLOT_CAPTURE_M[plot.id];
+    if (capture) node.userData.wu = { ...(node.userData.wu as object | undefined), captureRadius: capture.radius, captureRadiusEasy: capture.easyRadius };
+  }
 
   bakery.position.set(BAKERY_AT.x, 0, BAKERY_AT.z);
   theatre.position.set(THEATRE_AT.x, 0, THEATRE_AT.z);
@@ -126,6 +133,20 @@ export function buildTown(
     knead = { mixer, action };
   }
   return { group, ground, bakery, theatre, otto, mira, knead, dressing, ambience };
+}
+
+/**
+ * A plot's socket empty made from the layout, for a town_ground.glb that does not carry one (an older file: the Well's and the Belfry's
+ * pads were added to it with ADR-048). Only the empty is made, never a pad: without the GLB's pad the machine stands on the paving. Say so.
+ */
+function addPlotSocket(ground: Object3D, plot: PlotLayout): Object3D {
+  console.warn(`[wound-up] town_ground.glb has no SOCKET_${plot.socket}; the socket is made from the layout and the plot has no pad.`);
+  const node = new Node3D();
+  node.name = `SOCKET_${plot.socket}`;
+  node.position.set(plot.x, PAD_TOP_M, plot.z);
+  node.userData.wu = { type: 'socket', accepts: [MACHINE_SNAP_PART[machineOfPlot(plot.id)]], plot: plot.id };
+  ground.add(node);
+  return node;
 }
 
 /** The `SOCKET_Plot...` empty of a plot in the town ground: where a machine's base origin lands. Null when the GLB lacks it. */
