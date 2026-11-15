@@ -211,6 +211,10 @@ export class PartLoader {
     if (interaction.sockets.length > 0) {
       if (machine) {
         const bound = socketsById(machine.blueprint, interaction.sockets);
+        // The housing's own socket is the seat in place: an empty of the part with the same name (a spring's `Key`, a shaft's `Cylinder`: the seats of a unit built on a stand,
+        // which is not built) must not take its place in `machine.sockets`. Two springs in a repair would otherwise leave an armed empty that no blueprint socket owns, and a
+        // key seated there is invisible to the game, so the machine never completes.
+        for (const id of [...bound.keys()]) if (machine.sockets.has(id)) bound.delete(id);
         // An empty of the part that no blueprint socket names yet takes nothing: the hardware seats of a part (a gear's pin, a spring's washer) belong to whichever
         // blueprint socket the part is seated in, which is not known until it is (`bindCarried`), and the seats of a unit built on a stand (a spring's `Pinion`) are not
         // sockets of a build in place at all.
