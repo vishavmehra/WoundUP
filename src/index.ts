@@ -21,7 +21,8 @@ import { installRenderBudget, type RenderBudget } from './render-budget.js';
 import { compileBehindLanding, installRenderGate } from './render-gate.js';
 import { StageSystem } from './stage.js';
 import { machineFrame, stageFrame, type Insets, type StageBox } from './stage-framing.js';
-import { addWorkshopLantern, emptyTownSource, installTown, loadModel, showGiftPlate } from './town/index.js';
+import { addWorkshopLantern, emptyTownSource, installTown, loadModel, prepareTownShading, showGiftPlate } from './town/index.js';
+import type { WakeUniforms } from './town/wake-shader.js';
 import { precompileNight } from './town/night.js';
 import { browserShareEnv, installFlowUi, mountGiftViewer, type FlowEvent } from './ui/index.js';
 import { detectXrSupport, enterXR } from './xr-entry.js';
@@ -33,6 +34,10 @@ let world: World | undefined;
 /** What the 2D page shows while no immersive session is running. */
 let idleMode: 'landing' | 'preview' = 'landing';
 let renderBudget: RenderBudget | undefined;
+/** A first-time player: the trunk is closed and the town hidden until it opens, so the town's models load after the page is usable (`installGame`). */
+let deferTown = false;
+/** Loads the town once the page is usable (set when the game is installed with `deferTown`). */
+let loadTown: (() => Promise<void>) | undefined;
 /** On a gift page: the machine on show (stage-local box) and the part of the window the gift card leaves free. Both set means "frame the machine". */
 let giftMachine: StageBox | null = null;
 let giftInsets: Insets | null = null;
@@ -87,9 +92,11 @@ function loadLibraryTextures(materials: MaterialRegistry): Promise<void> {
 }
 
 /**
- * The playable game: session, interaction, audio, town, flow UI and the loop that joins them (src/gameplay.ts). The town needs
- * the loop's callbacks and the loop needs the town, so the loop is made first and given its parts as they arrive.
- * Returns what `?debug` exposes.
+ * The playable game: session, interaction, audio, flow UI and the loop that joins them (src/gameplay.ts), and the town. The loop is made
+ * first and given its parts as they arrive. With `deferTown` (a first-time player: the town is hidden until the trunk opens) the town is
+ * NOT loaded here: `loadTown` does it, after the page has become usable, and the loop copes with a town that is not there yet
+ * (`Gameplay.townReady`). Without it (a returning player, whose town is on show at once) the town is loaded before this returns.
+ * Returns what `?debug` exposes and `loadTown` (the same promise however often it is called).
  */
 async function installGame(
   gameWorld: World,
@@ -97,8 +104,10 @@ async function installGame(
   texturesReady: Promise<void>,
   budget: RenderBudget,
   progress: (fraction: number) => void,
-): Promise<ReturnType<Gameplay['debug']>> {
-  const session = new GameSession();
+  session: GameSession,
+  wake: WakeUniforms,
+  deferTown: boolean,
+): Promise<{ debug: ReturnType<Gameplay['debug']>; loadTown: () => Promise<void> }> {
   // Easy Snap and gaze mode from the save reach the interaction systems before the flow UI reads them (the pause menu changes both later).
   installInteraction(gameWorld, { easySnap: session.save.settings.easySnap, gazeMode: session.save.settings.gazeMode });
   const audio = new AudioEngine();
@@ -106,16 +115,19 @@ async function installGame(
   bindInteractionAudio(audio);
   const play = new Gameplay(gameWorld, { session, materials, audio, texturesReady, keepAwake: () => budget.wake() });
   progress(0.55);
-  play.town = await installTown(gameWorld, { registry: materials, audio, events: play.townEvents, keepAwake: () => budget.wake() });
   play.loader = new PartLoader(gameWorld, materials);
-  progress(0.8);
+  /** The Night setting (PRODUCT_SPEC F16): the town's lamps, windows and the room lights. Kept here for a town that is not in yet. */
+  let night = session.save.settings.night;
   play.ui = await installFlowUi(gameWorld, {
     session,
     townScale: () => gameWorld.getSystem(StageSystem)?.townScale ?? 1,
     materials,
-    // The Night setting (PRODUCT_SPEC F16) is the town's: its lamps, windows and the room lights; the loop handles every other event.
+    // The Night setting is the town's; the loop handles every other event.
     onEvent: (event: FlowEvent) => {
-      if (event.type === 'setting' && event.key === 'night') play.town.setNight(event.value);
+      if (event.type === 'setting' && event.key === 'night') {
+        night = event.value;
+        play.town?.setNight(event.value);
+      }
       play.onFlow(event);
     },
     gift: {
@@ -126,17 +138,34 @@ async function installGame(
     },
     share: browserShareEnv(),
   });
-  progress(0.92);
-  play.town.setNight(session.save.settings.night, true); // a saved night: the town loads dark, with no fade
-  void addWorkshopLantern(play.ui.benchRoot, loadModel, materials);
+  progress(deferTown ? 0.92 : 0.8);
   installGameplay(gameWorld, play);
-  await play.start();
-  // The first night would compile a shader program for every lit material (the lamp lights): do it now, behind the landing, once the textures are in.
-  const lamps = play.town.town.dressing?.lamps.map((lamp) => lamp.light) ?? [];
-  void texturesReady
-    .then(() => precompileNight(gameWorld.renderer, gameWorld.scene, gameWorld.camera, lamps))
-    .catch((e: unknown) => console.warn('[wound-up] could not prepare the night shaders; the first night may hitch once:', e));
-  return play.debug();
+  play.start();
+
+  let loading: Promise<void> | null = null;
+  /** Loads the town's models (4.4 MiB of GLBs), builds it under the stage and hands it to the loop. */
+  const loadTown = (): Promise<void> =>
+    (loading ??= (async () => {
+      try {
+        // The town needs the loop's callbacks and the loop needs the town: the loop was made first.
+        const town = await installTown(gameWorld, { registry: materials, audio, events: play.townEvents, keepAwake: () => budget.wake(), uniforms: wake });
+        town.setNight(night, true); // a saved night: the town loads dark, with no fade
+        void addWorkshopLantern(play.ui.benchRoot, loadModel, materials);
+        await play.attachTown(town); // also restores a returning player's town
+        // The first night would compile a shader program for every lit material (the lamp lights): do it now, behind the page, once the textures are in.
+        const lamps = town.town.dressing?.lamps.map((lamp) => lamp.light) ?? [];
+        void texturesReady
+          .then(() => precompileNight(gameWorld.renderer, gameWorld.scene, gameWorld.camera, lamps))
+          .catch((e: unknown) => console.warn('[wound-up] could not prepare the night shaders; the first night may hitch once:', e));
+        if (!deferTown) progress(0.92); // a deferred town loads after the landing is usable: progress would lock its buttons again
+        budget.wake();
+      } catch (error) {
+        play.townFailed(error);
+        throw error;
+      }
+    })());
+  if (!deferTown) await loadTown();
+  return { debug: play.debug(), loadTown };
 }
 
 /** A gift link: no game, only the stand, the town system that steps a machine (the town itself stays hidden) and the machine the link describes. */
@@ -191,8 +220,13 @@ function fitStand(): void {
 
 try {
   mark('boot');
-  // The plain game page loads the trunk, the town and the workshop before it is usable: ask for those files now, not after the world exists.
-  if (!hasGiftHash(location.hash) && !demoRequest(location.search)) preloadStartup();
+  const gamePage = !hasGiftHash(location.hash) && !demoRequest(location.search);
+  // The save decides what the first screen shows. A player who has opened the trunk (or turned the night on) sees the town at once, so it loads
+  // before the page is usable, as it always did; a first-time player sees the closed trunk, and the town waits until the buttons work.
+  const session = gamePage ? new GameSession() : null;
+  deferTown = session !== null && session.mode === 'intro' && !session.save.settings.night;
+  // The plain game page loads the trunk and the workshop (and, for a returning player, the town) before it is usable: ask for those files now, not after the world exists.
+  if (gamePage) preloadStartup(!deferTown);
   // The library (a 3 KB file) and its textures need no world: they download and decode while IWSDK builds one.
   const materialsReady = createMaterialRegistry();
   const libraryTextures = materialsReady.then(loadLibraryTextures, () => undefined); // a library that fails to load is reported by the Promise.all below
@@ -226,7 +260,12 @@ try {
       idleMode = 'preview';
       landing.setMode('preview');
       budget.setMode('live');
-    } else debugHandle = await installGame(world, materials, texturesReady, budget, progress);
+    } else if (session) {
+      // The shared materials get the wake shading before anything is compiled, town or no town (src/town/index.ts `prepareTownShading`).
+      const game = await installGame(world, materials, texturesReady, budget, progress, session, prepareTownShading(materials), deferTown);
+      debugHandle = game.debug;
+      loadTown = game.loadTown;
+    }
   } catch (error) {
     console.error('[wound-up] Could not start the game:', error);
     landing.showError('The town could not be unpacked. Reload the page to try again.');
@@ -242,8 +281,9 @@ try {
   progress(0.98);
   gate.open();
   budget.wake();
-  // The rest (the town, hidden until the trunk opens) is built behind the page, long before anyone can open it. A gift page never shows it.
-  if (!hasGiftHash(location.hash)) void compileBehindLanding(world.renderer, world.scene, world.camera);
+  // The rest (the town, hidden until the trunk opens) is built behind the page, long before anyone can open it. A gift page never shows it,
+  // and a town that has not loaded yet is compiled once it has (below).
+  if (!hasGiftHash(location.hash) && !deferTown) void compileBehindLanding(world.renderer, world.scene, world.camera);
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) sceneContainer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, easing: 'ease-out' });
   fitStand();
   window.addEventListener('resize', fitStand);
@@ -264,4 +304,19 @@ try {
   landing.showError('This browser could not start the 3D view. Try a recent Chrome, Edge or Meta Quest Browser.');
 } finally {
   landing.setLoading(null);
+}
+
+// The page is usable. A first-time player's town loads now, behind it: nothing they can do before the trunk opens needs it, and the trunk's
+// opening shows it as soon as it is in (src/gameplay.ts `attachTown`). Its shaders are built the moment it is.
+if (deferTown && loadTown && world) {
+  const loaded = world;
+  void loadTown()
+    .then(() => {
+      mark('town');
+      return compileBehindLanding(loaded.renderer, loaded.scene, loaded.camera);
+    })
+    .catch((error: unknown) => {
+      console.error('[wound-up] The town could not be loaded:', error);
+      landing.showError('The town could not be unpacked. Reload the page to try again.');
+    });
 }

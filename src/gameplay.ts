@@ -118,12 +118,23 @@ const FINISHED_MODEL_PATHS: Readonly<Record<string, readonly string[] | undefine
 };
 
 export class Gameplay {
-  /** Set by `index.ts` once the town and the UI exist (they need this object's callbacks first). */
-  town!: TownRuntime;
+  /** Set by `index.ts` once the UI exists (it needs this object's callbacks first). */
   ui!: FlowUi;
   loader!: PartLoader;
 
   private readonly stage: Object3D;
+  /**
+   * The town, once `attachTown` has run; null before. A first-time player's page is usable before the town's models are in (they are 4.4
+   * MiB, and the town stays hidden until the trunk opens), so everything here that needs the town either waits for `townReady` (an async
+   * step: the bench, the finished machine) or does nothing until it exists (a plain flag, `townShown`, is kept for it).
+   */
+  private runtime: TownRuntime | null = null;
+  /** The trunk has opened: the town is to be shown, as soon as there is one. */
+  private townShown = false;
+  /** Resolves with the town when `attachTown` has run; rejects when its models could not be loaded (`townFailed`). */
+  readonly townReady: Promise<TownRuntime>;
+  private resolveTown!: (town: TownRuntime) => void;
+  private rejectTown!: (error: unknown) => void;
   private build: Build | null = null;
   /** Unregisters the bench machine from the X-ray view (town.xray): the lens opens it while it is on the bench. */
   private xrayBench: (() => void) | null = null;
@@ -165,6 +176,16 @@ export class Gameplay {
     this.stage = stage;
     this.unsubscribe = interactionIntents.subscribe((intent) => this.onIntent(intent));
     this.unbindTowerAudio = bindClockTowerAudio(opt.audio, clockTowerEvents);
+    this.townReady = new Promise<TownRuntime>((resolve, reject) => {
+      this.resolveTown = resolve;
+      this.rejectTown = reject;
+    });
+    this.townReady.catch(() => undefined); // whoever waits for the town hears about a failure; one that does not must not raise an unhandled rejection
+  }
+
+  /** The town, or null while its models are still loading (see `townReady`). */
+  get town(): TownRuntime | null {
+    return this.runtime;
   }
 
   /** Keeps the 2D page rendering (the render budget's `wake`). */
@@ -182,14 +203,23 @@ export class Gameplay {
 
   // ---- Start-up -----------------------------------------------------------------------------------------------------
 
-  /** A returning player's town: the plots that were awake, the machines that stood on them, and the next letter's models. */
-  async start(): Promise<void> {
-    this.town.town.group.visible = this.session.mode !== 'intro';
-    const missing = this.doors.resolve(this.town.town.theatre);
-    if (missing.length > 0) console.warn(`[wound-up] the theatre facade has no ${missing.join(', ')}: its doors will not open.`);
+  /** What the story needs whether or not the town is in yet: the next letter's models. */
+  start(): void {
     this.preload(this.session.letter);
+  }
+
+  /**
+   * The town's models are in and it stands under the stage (`installTown`). Shows it when the trunk has opened (a returning player's
+   * town is visible at once) and restores a returning player's town: the plots that were awake and the machines that stood on them.
+   */
+  async attachTown(town: TownRuntime): Promise<void> {
+    this.runtime = town;
+    town.town.group.visible = this.townShown || this.session.mode !== 'intro';
+    const missing = this.doors.resolve(town.town.theatre);
+    if (missing.length > 0) console.warn(`[wound-up] the theatre facade has no ${missing.join(', ')}: its doors will not open.`);
     const standing = this.session.save.machines.filter((m) => m.placed && m.plotId);
-    this.town.restore(standing.map((m) => m.plotId as PlotId));
+    town.restore(standing.map((m) => m.plotId as PlotId));
+    this.resolveTown(town);
     if (standing.length === 0) return;
     await this.opt.texturesReady;
     for (const record of standing) {
@@ -200,7 +230,7 @@ export class Gameplay {
       rig.result = result;
       rig.running = result !== null && keepsRunning(record.blueprintId, result); // a saved Windmill or Clock Tower runs again, a saved Music Box waits for its next letter
       const xray = xrayZoneOf(rig.root); // at the bench scale, before placeRig eases it to the town's
-      if (!this.town.placeRig(rig)) continue;
+      if (!town.placeRig(rig)) continue;
       // Nothing carries a restored machine, so the town holds it; it still needs an entity, for the palm gesture (and the Clock Tower's rig component).
       let entity: Entity;
       if (record.blueprintId === 'clock_tower') entity = this.attachTower(rig, null);
@@ -211,6 +241,11 @@ export class Gameplay {
       entity.addComponent(XRayTarget, xray);
       this.placed.set(record.blueprintId, { rig, entity });
     }
+  }
+
+  /** The town's models could not be loaded: whatever waits for the town stops waiting (and reports it). */
+  townFailed(error: unknown): void {
+    this.rejectTown(error);
   }
 
   /** The town's events (installTown `events`). */
@@ -228,7 +263,8 @@ export class Gameplay {
     this.lessonDone(event.type);
     switch (event.type) {
       case 'trunk-opened':
-        this.town.town.group.visible = true;
+        this.townShown = true;
+        if (this.runtime) this.runtime.town.group.visible = true; // not in yet: `attachTown` shows it
         this.preload(this.session.letter);
         break;
       case 'letter-accepted':
@@ -358,7 +394,8 @@ export class Gameplay {
   /** The plot of the machine in the hand breathes in lamp light until the machine is put down on it. */
   private updateGlow(dt: number): void {
     const plot = this.carried ? PLOTS[MACHINE_PLOT[this.carried.rig.machineId]] : null;
-    if (!plot) {
+    const town = this.runtime;
+    if (!plot || !town) {
       if (this.glow) this.glow.visible = false;
       return;
     }
@@ -369,7 +406,7 @@ export class Gameplay {
       );
       this.glow.name = 'PlotGlow';
       this.glow.renderOrder = 2;
-      this.town.town.group.add(this.glow);
+      town.town.group.add(this.glow);
     }
     this.clock += dt;
     this.glow.visible = true;
@@ -388,6 +425,8 @@ export class Gameplay {
     const { blueprint, repair } = plan;
     this.disposeBuild();
     const token = ++this.buildToken;
+    const town = this.runtime ?? (await this.townReady); // the bench machine joins the town's X-ray view; the town is long in by the time a letter has been read
+    if (token !== this.buildToken) return;
     // A repair starts from the machine as it stands in the town: it comes back to the bench, the plot stays awake.
     const standing = this.placed.get(blueprint.id as MachineId);
     if (repair && standing) this.removePlaced(blueprint.id as MachineId);
@@ -395,7 +434,7 @@ export class Gameplay {
     const at = benchPoint(this.townScale, BENCH.build);
     const machine = await this.loader.spawnMachine(blueprint.id, { parent: this.stage, position: [at.x, at.y, at.z] });
     if (token !== this.buildToken) return machine.dispose();
-    this.xrayBench = this.town.xray.add({
+    this.xrayBench = town.xray.add({
       root: machine.object,
       prefixes: XRAY_SHELL[blueprint.id] ?? [],
       lens: () => true,
@@ -572,6 +611,7 @@ export class Gameplay {
   private async finish(build: Build, result: SolveResult): Promise<void> {
     const id = build.blueprint.id as MachineId;
     await this.opt.texturesReady; // GrabFeedbackSystem clones the materials of what it is given: they must be final
+    const town = this.runtime ?? (await this.townReady);
     const rig = await buildMachine(id, loadModel, this.opt.materials, BLUEPRINT_SOCKET_IDS);
     if (!rig || this.build !== build) return;
     const housing = build.machine.object;
@@ -585,7 +625,7 @@ export class Gameplay {
     rig.result = result;
     rig.running = true;
     this.runs.push({ rig, left: result.continuous ? PLACED_RUN_CAP_S : Math.min(result.runSeconds, PLACED_RUN_CAP_S) });
-    this.town.addRig(rig);
+    town.addRig(rig);
     this.carried = { rig, entity: makeCarriable(this.world, rig), pending: null };
     if (id === 'clock_tower') this.attachTower(rig, this.carried.entity);
 
@@ -643,7 +683,7 @@ export class Gameplay {
       this.towerPowered = false;
     }
     entity?.destroy();
-    this.town.removeRig(rig);
+    this.runtime?.removeRig(rig);
     this.runs = this.runs.filter((r) => r.rig !== rig);
     rig.root.removeFromParent();
   }
@@ -677,8 +717,9 @@ export class Gameplay {
     this.runs = [];
     this.windUnits = 0;
     this.daily = null;
-    this.town.reset();
-    this.town.town.group.visible = false;
+    this.townShown = false;
+    this.runtime?.reset();
+    if (this.runtime) this.runtime.town.group.visible = false;
     this.guide?.reset(this.session.save.learned);
   }
 
@@ -688,7 +729,7 @@ export class Gameplay {
       world: this.world,
       session: this.session,
       ui: this.ui,
-      town: this.town,
+      town: () => this.runtime,
       stage: this.stage,
       townScale: () => this.townScale,
       // The stage root is hidden until the table (or the stand) is chosen, and a 2D page has no hands to teach: no lesson before both hold.
@@ -724,10 +765,15 @@ export class Gameplay {
 
   /** Opt-in (`?debug`): drives the loop without hands, for the browser and emulator tests. */
   debug() {
+    const town = (): TownRuntime | null => this.runtime;
     return {
       session: this.session,
       ui: this.ui,
-      town: this.town,
+      /** The town runtime, null while the town is still loading (`townReady`). */
+      get town(): TownRuntime | null {
+        return town();
+      },
+      townReady: this.townReady,
       state: () => ({
         mode: this.session.mode,
         build: this.build ? { blueprint: this.build.blueprint.id, parts: this.build.parts.length, seated: Object.keys(this.build.machine.assembly()).length, fixed: Object.keys(this.build.fixed).length } : null,
@@ -776,7 +822,7 @@ export class Gameplay {
       dropOnPlot: (): boolean => {
         const carried = this.carried;
         if (!carried) return false;
-        const socket = this.town.town.ground.getObjectByName(`SOCKET_${plotNode(carried.rig.machineId)}`);
+        const socket = this.runtime?.town.ground.getObjectByName(`SOCKET_${plotNode(carried.rig.machineId)}`);
         if (!socket) return false;
         socket.getWorldPosition(_at);
         carried.rig.root.parent?.worldToLocal(_at);

@@ -7,12 +7,26 @@
  * It is NOT started from the entry (src/main.ts), beside the scripts: the scripts would arrive later on servers that share the connection
  * evenly between requests (measured on `vite preview`: the game script ran 2 s later), and the scripts are what everything waits for.
  * Starting it when the game's script has finished downloading (a PerformanceObserver in main.ts) was tried and measured no better.
- * This file imports nothing heavy. `tests/preload.test.ts` keeps STARTUP_MODELS in step with the loaders that ask for them.
+ * This file imports nothing heavy. `tests/preload.test.ts` keeps STARTUP_MODELS and TOWN_MODELS in step with the loaders that ask for them.
  */
 
-/** GLBs (relative to `assets/models/`) the game page loads before it is usable: the trunk, the town and its dressing, and the workshop (the stand is IWSDK's own critical asset, loaded inside World.create). */
+/** GLBs (relative to `assets/models/`) every game page loads before it is usable: the trunk and the workshop (the stand is IWSDK's own critical asset, loaded inside World.create). */
 export const STARTUP_MODELS: readonly string[] = [
   'tockton/trunk/trunk_main.glb',
+  'tockton/workshop/letter_envelope.glb',
+  'tockton/workshop/parcel.glb',
+  'tockton/workshop/blueprint_sheet.glb',
+  'tockton/workshop/parts_tray.glb',
+  'tockton/workshop/workbench.glb',
+];
+
+/**
+ * GLBs of the town: its ground, Bakery, theatre and two figures, the houses, props and lamp posts, and the workshop lantern. A first-time
+ * player's page does not wait for them: the town is hidden until the trunk opens (src/index.ts `deferTown`), so they download after the
+ * buttons work (4.4 MiB of the 9.4 MiB that were fetched before; docs/evidence/WEBPERF_2026-11-15.md). A returning player's town is
+ * visible at once, so for them the page asks for these too, at the start.
+ */
+export const TOWN_MODELS: readonly string[] = [
   'tockton/environment/town_ground.glb',
   'tockton/bakery/bakery_building.glb',
   'tockton/theatre/theatre_facade.glb',
@@ -21,11 +35,6 @@ export const STARTUP_MODELS: readonly string[] = [
   'tockton/environment/town_houses.glb',
   'tockton/environment/town_props_set.glb',
   'tockton/environment/lamp_post.glb',
-  'tockton/workshop/letter_envelope.glb',
-  'tockton/workshop/parcel.glb',
-  'tockton/workshop/blueprint_sheet.glb',
-  'tockton/workshop/parts_tray.glb',
-  'tockton/workshop/workbench.glb',
   'tockton/workshop/lantern_workbench.glb',
 ];
 
@@ -40,10 +49,10 @@ function preload(href: string): void {
   document.head.append(link);
 }
 
-/** Queues the startup GLBs. Never throws and never blocks; a file that fails to preload is simply fetched when asked for. */
-export function preloadStartup(): void {
+/** Queues the startup GLBs (and the town's, when the page waits for it). Never throws and never blocks; a file that fails to preload is simply fetched when asked for. */
+export function preloadStartup(withTown: boolean): void {
   try {
-    for (const model of STARTUP_MODELS) preload(absolute(`assets/models/${model}`));
+    for (const model of withTown ? [...STARTUP_MODELS, ...TOWN_MODELS] : STARTUP_MODELS) preload(absolute(`assets/models/${model}`));
   } catch {
     // preloading is an optimisation only
   }
