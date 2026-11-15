@@ -92,8 +92,10 @@ export function buildTown(
   // town_ground.glb gives its plot sockets a Z-up frame (mating axis +Z, pointing up). A machine base is a Y-up model, and a
   // part seated in a socket takes the socket's orientation, so it would be tipped onto its back. A plot is where the base
   // origin lands, upright and facing the way the stage does: take the tilt out of the socket.
+  // An empty ground is the gift page's stand-in (emptyTownSource): it never had pads, so a missing socket there is expected.
+  const realGround = ground.children.length > 0;
   for (const plot of Object.values(PLOTS)) {
-    const node = ground.getObjectByName(`SOCKET_${plot.socket}`) ?? addPlotSocket(ground, plot);
+    const node = ground.getObjectByName(`SOCKET_${plot.socket}`) ?? addPlotSocket(ground, plot, realGround);
     node.quaternion.identity();
     // The Well's and the Belfry's plots take a held machine from further away than the others (ADR-048): the radii are layout data.
     const capture = PLOT_CAPTURE_M[plot.id];
@@ -139,8 +141,8 @@ export function buildTown(
  * A plot's socket empty made from the layout, for a town_ground.glb that does not carry one (an older file: the Well's and the Belfry's
  * pads were added to it with ADR-048). Only the empty is made, never a pad: without the GLB's pad the machine stands on the paving. Say so.
  */
-function addPlotSocket(ground: Object3D, plot: PlotLayout): Object3D {
-  console.warn(`[wound-up] town_ground.glb has no SOCKET_${plot.socket}; the socket is made from the layout and the plot has no pad.`);
+function addPlotSocket(ground: Object3D, plot: PlotLayout, warn: boolean): Object3D {
+  if (warn) console.warn(`[wound-up] town_ground.glb has no SOCKET_${plot.socket}; the socket is made from the layout and the plot has no pad.`);
   const node = new Node3D();
   node.name = `SOCKET_${plot.socket}`;
   node.position.set(plot.x, PAD_TOP_M, plot.z);
