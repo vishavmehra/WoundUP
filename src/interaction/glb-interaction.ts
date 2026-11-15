@@ -22,7 +22,14 @@ export function setupGlbInteraction(world: World, root: Object3D): GlbInteractio
   const proxies = attachColliderProxies(nodes.colliders);
   const sockets = nodes.sockets.map((def) => {
     const entity = world.createEntity();
-    entity.addComponent(Socket, { name: def.id, accepts: [...def.accepts], node: def.node, axisOnly: def.axisOnly });
+    entity.addComponent(Socket, {
+      name: def.id,
+      accepts: [...def.accepts],
+      node: def.node,
+      axisOnly: def.axisOnly,
+      captureRadius: def.captureRadius,
+      captureRadiusEasy: def.captureRadiusEasy,
+    });
     return entity;
   });
   return {

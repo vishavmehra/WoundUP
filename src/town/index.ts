@@ -50,6 +50,7 @@ export { TownRuntime } from './runtime';
 export type { TownEvents } from './runtime';
 export { buildTown, loadModel, loadTown, plotSocket } from './scene';
 export type { ModelSource, Town } from './scene';
+export { emptyTownSource } from './stand-in';
 export { TownSystem } from './system';
 export { WAKE_RIPPLE_S, WakeField } from './wake';
 export { addWorkshopLantern } from './workshop';

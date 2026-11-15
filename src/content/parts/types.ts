@@ -3,9 +3,10 @@ import type { PartMechanics } from '../../sim';
 
 /**
  * DATA §4 families, plus `governor` and `winding_key`: the Music Box blueprint (MUSIC_BOX_BLUEPRINT §7.1, gap A-01) gives
- * both parts a family of their own and the case GLB already writes them (`partFamily`). `fastener` is the hardware of the intricate
- * assembly (pins, washers, bushes, screws, collars, dowels, clips; INTRICATE_ASSEMBLY_DESIGN §4.1, ADR-050): never a slot, always a
- * `required` socket of its own that is carried by a part or the housing.
+ * both parts a family of their own and the case GLB already writes them (`partFamily`). `ratchet`, `pawl`, `flywheel` and `vane`
+ * are the families of the Well's and the Belfry's parts (ADR-048); the part GLBs already write them. `fastener` is the hardware of the
+ * intricate assembly (pins, washers, bushes, screws, collars, dowels, clips; INTRICATE_ASSEMBLY_DESIGN §4.1, ADR-050): never a slot,
+ * always a `required` socket of its own that is carried by a part or the housing.
  */
 export type PartFamily =
   | 'spur_gear'
@@ -25,6 +26,10 @@ export type PartFamily =
   | 'figure'
   | 'governor'
   | 'winding_key'
+  | 'ratchet'
+  | 'pawl'
+  | 'flywheel'
+  | 'vane'
   | 'fastener';
 
 /**

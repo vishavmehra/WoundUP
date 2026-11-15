@@ -16,8 +16,12 @@ export const BENCH = {
   tray: v(-0.155, 0.03, 0),
   build: v(0.0025, 0.03, 0),
   blueprint: v(0.1575, 0.03, 0),
-  /** The run sign: a post in front of the gap between the build and blueprint zones (the furthest forward that keeps the plaque within 35 degrees, see tests/ui/layout.test.ts). */
-  runSign: v(0.0975, 0.03, 0.05),
+  /**
+   * The run sign: a post in front of the gap between the build and blueprint zones (the furthest forward that keeps the plaque within 35
+   * degrees, see tests/ui/layout.test.ts). Far enough to the right that the plaques, which turn to face the player, stay a centimetre clear
+   * of the build zone (BUILD_ZONE reaches x = +6.75 cm; the Run plaque is 7.5 cm wide), tests/ui/hot-zones.test.ts.
+   */
+  runSign: v(0.1175, 0.03, 0.04),
 } as const;
 
 /**
@@ -42,23 +46,26 @@ export const PANEL_SPOT: V3 = v(0, 0.2, 0.15);
  * town (gift and the daily repair) stand on the left, where no tray stands then. tests/ui/hot-zones.test.ts holds every one of them
  * clear of the tray compartments and the build zone, against the real tray model.
  */
-export const PAUSE_SPOT: V3 = v(0.28, 0.09, 0.2);
+export const PAUSE_SPOT: V3 = v(0.34, 0.09, 0.2);
 export const GIFT_SPOT: V3 = v(-0.28, 0.09, 0.2);
 /** The daily repair medallion (ADR-027), above the gift one: the same distance from the town, one medallion higher. */
 export const DAILY_SPOT: V3 = v(-0.28, 0.15, 0.2);
 /**
  * The lens (X-ray) button, beside the bench on the pause side and nearer the player than the pause button, and the slip that tells
  * the player about the palm gesture just above it. Both clear of the bench (it ends at x = +22.5 cm) and of the town (it ends at z = +15 cm).
+ * The pause and lens buttons stand at x = +34 cm, 6 cm further out than they once did, so that the run sign's slip (above) never covers them
+ * seen from the seat: from 0.38 m above and 0.55 m ahead of the stand the old 28 cm put the slip's right end over the pause button
+ * (tests/ui/hot-zones.test.ts holds it clear in screen space). Still within the comfortable reach (tests/ui/layout.test.ts).
  */
-export const LENS_SPOT: V3 = v(0.28, 0.09, 0.3);
-export const LENS_HINT_SPOT: V3 = v(0.28, 0.15, 0.3);
+export const LENS_SPOT: V3 = v(0.34, 0.09, 0.3);
+export const LENS_HINT_SPOT: V3 = v(0.34, 0.15, 0.3);
 /**
  * The Helper (ADR-050, INTRICATE_ASSEMBLY_DESIGN §7.1): a medallion on the right with Pause and the lens, one medallion above Pause (the daily
  * repair sits above Gift the same way), and its one-line slip above it. Shown with the tray, so tests/ui/hot-zones.test.ts holds it, like
  * Pause, a fingertip's reach beyond its press sphere from every compartment, the build zone, the caddy and the stand.
  */
-export const HELPER_SPOT: V3 = v(0.28, 0.15, 0.2);
-export const HELPER_HINT_SPOT: V3 = v(0.28, 0.21, 0.2);
+export const HELPER_SPOT: V3 = v(0.34, 0.15, 0.2);
+export const HELPER_HINT_SPOT: V3 = v(0.34, 0.21, 0.2);
 /** The trunk latch (trunk_main.glb `COL_Latch`) scaled with the town. */
 export const latchSpot = (s: number): V3 => v(0, 0.14 * s, 0.125 * s);
 
@@ -100,6 +107,10 @@ export const STEP_HELP = { size: 0.04, x: SHEET_PAPER.w / 2 - 0.026, y: -SHEET_P
 
 export const benchPoint = (s: number, local: V3): V3 => v(local.x, local.y, benchZ(s) + local.z);
 
+/** The run sign's plaques (Run, and Adjust under it): width and height in metres. */
+export const RUN_PLAQUE = { w: 0.075, h: 0.032 } as const;
+/** The slip above them that shows the wind counter or the result: 13 cm wide (it was 15), so its end stays clear of the pause button in the player's view. */
+export const RUN_SIGN_SLIP = { w: 0.13, h: 0.056 } as const;
 /** Height of the run sign's plaque above the bench top. */
 export const RUN_SIGN_HEIGHT = 0.085;
 /** The counter and result label sits on the sign, above the plaques (centre height above the bench top). */

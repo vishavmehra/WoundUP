@@ -7,6 +7,8 @@ import {
   REPAIRS,
   SIDE_LETTER_IDS,
   type LetterId,
+  type MachineId,
+  type PlotId,
   type SideLetterId,
 } from '../../src/game/content';
 import { DAILY_POOL, dailyOffer } from '../../src/game/daily';
@@ -178,16 +180,27 @@ describe('the optional letters in progression', () => {
 });
 
 describe('the optional letters and the save (SaveV1 is unchanged: older saves load, newer ones are checked as strictly)', () => {
-  /** What a save from before the optional letters held: the six chain letters and nothing else. */
+  /** What a save from before the optional letters held: the eight chain letters and nothing else. */
   const OLD = {
     version: 1,
     townPlaced: true,
-    letters: { letter_1: 'completed', letter_2: 'completed', letter_3: 'completed', letter_4: 'completed', letter_5: 'completed', letter_6: 'completed' },
+    letters: {
+      letter_1: 'completed',
+      letter_2: 'completed',
+      letter_3: 'completed',
+      letter_4: 'completed',
+      letter_5: 'completed',
+      letter_6: 'completed',
+      letter_7: 'completed',
+      letter_8: 'completed',
+    },
     machines: [
       { blueprintId: 'music_box', built: true, placed: true, plotId: 'plot_music_box' },
       { blueprintId: 'carousel', built: true, placed: true, plotId: 'plot_carousel' },
       { blueprintId: 'windmill', built: true, placed: true, plotId: 'plot_windmill' },
       { blueprintId: 'clock_tower', built: true, placed: true, plotId: 'plot_clock_tower' },
+      { blueprintId: 'well', built: true, placed: true, plotId: 'plot_well' },
+      { blueprintId: 'belfry', built: true, placed: true, plotId: 'plot_belfry' },
     ],
     dailyDone: null,
     settings: { easySnap: false, gazeMode: false, xrayHint: true, night: false },
@@ -246,7 +259,7 @@ describe('the optional letters through the session', () => {
   /** Plays the whole story with the real commands (the Clock Tower is in by default). */
   function playStoryThroughSession(game: GameSession): void {
     const steps: Array<[string, () => boolean]> = [['trunk', () => game.openTrunk()]];
-    const build = (letter: LetterId, machine: 'music_box' | 'carousel' | 'windmill' | 'clock_tower', plot: 'plot_music_box' | 'plot_carousel' | 'plot_windmill' | 'plot_clock_tower'): void => {
+    const build = (letter: LetterId, machine: MachineId, plot: PlotId): void => {
       steps.push([`accept ${letter}`, () => game.acceptLetter(letter)], ['assemble', () => game.assemblyComplete()], ['run', () => game.machineRanCorrectly(machine)], ['place', () => game.machinePlaced(machine, plot)]);
     };
     const repair = (letter: LetterId, id: keyof typeof REPAIRS, machine: 'music_box' | 'windmill', plot: 'plot_music_box' | 'plot_windmill'): void => {
@@ -258,6 +271,8 @@ describe('the optional letters through the session', () => {
     build('letter_4', 'windmill', 'plot_windmill');
     repair('letter_5', 'wrong_gear', 'windmill', 'plot_windmill');
     build('letter_6', 'clock_tower', 'plot_clock_tower');
+    build('letter_7', 'well', 'plot_well');
+    build('letter_8', 'belfry', 'plot_belfry');
     for (const [what, step] of steps) expect(step(), what).toBe(true);
   }
 

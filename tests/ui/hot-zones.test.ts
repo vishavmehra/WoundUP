@@ -12,11 +12,17 @@ import {
   GIFT_SPOT,
   HELPER_HINT_SPOT,
   HELPER_SPOT,
+  LENS_HINT_SPOT,
   LENS_SPOT,
   MEDALLION_HOT_RADIUS_M,
+  MEDALLION_SIZE_M,
   PANEL_SPOT,
   PAUSE_SPOT,
   POKE_PRESS_M,
+  RUN_PLAQUE,
+  RUN_SIGN_HEIGHT,
+  RUN_SIGN_SLIP,
+  RUN_SIGN_SLIP_HEIGHT,
   SHEET_PAPER,
   STAND_ZONE,
   STEP_HELP,
@@ -198,5 +204,172 @@ describe('pressable medallions against the tray and the build zone (BUG-4)', () 
     const old = { x: -0.27, y: 0.09, z: 0.2 };
     const slot2 = workZones(1).find((b) => b.name === 'tray slot 2') as Box;
     expect(distanceToBox(old, slot2)).toBeLessThan(MEDALLION_HOT_RADIUS_M + FINGER_REACH_M);
+  });
+});
+
+// The run sign (the Run and Adjust plaques and the "Wound N of 8" slip above them) against the build zone and the medallions. The plaques turn to face the
+// player, so in plan each is a disc of half its width about the post, whichever way it faces.
+
+/** What a hand may brush while it works in the build zone, and the margin the sign keeps from it. */
+const SIGN_MARGIN_M = 0.01;
+/** The tallest housing on the bench (the Music Box case, 10 cm): the slip must float above it. */
+const HOUSING_HEIGHT_M = 0.1;
+
+interface Sign {
+  /** The post, bench-local x and z. */
+  readonly x: number;
+  readonly z: number;
+}
+
+/** Plan distance from a disc of `radius` about the post to the build zone's footprint (negative: they overlap). */
+function planGapToBuildZone(sign: Sign, radius: number): number {
+  const dx = Math.max(BENCH.build.x - BUILD_ZONE.halfX - sign.x, 0, sign.x - (BENCH.build.x + BUILD_ZONE.halfX));
+  const dz = Math.max(BENCH.build.z - BUILD_ZONE.halfZ - sign.z, 0, sign.z - (BENCH.build.z + BUILD_ZONE.halfZ));
+  if (dx === 0 && dz === 0) {
+    // The post itself is inside the footprint: how far it is from the nearest edge, as a penetration.
+    const inside = Math.min(sign.x - (BENCH.build.x - BUILD_ZONE.halfX), BENCH.build.x + BUILD_ZONE.halfX - sign.x, sign.z - (BENCH.build.z - BUILD_ZONE.halfZ), BENCH.build.z + BUILD_ZONE.halfZ - sign.z);
+    return -inside - radius;
+  }
+  return Math.hypot(dx, dz) - radius;
+}
+
+const SIGN: Sign = { x: BENCH.runSign.x, z: BENCH.runSign.z };
+const OLD_SIGN: Sign = { x: 0.0975, z: 0.05 };
+
+describe('the run sign against the build zone', () => {
+  it("keeps the Run and Adjust plaques a centimetre clear of the build zone's footprint", () => {
+    expect(planGapToBuildZone(SIGN, RUN_PLAQUE.w / 2)).toBeGreaterThanOrEqual(SIGN_MARGIN_M);
+    // The plaques hang at heights a hand works in (so the footprint is what matters), not above the zone.
+    const runY = BENCH.top + RUN_SIGN_HEIGHT;
+    const adjustY = runY - 0.04;
+    for (const y of [runY, adjustY]) expect(y - RUN_PLAQUE.h / 2, "inside the zone's height").toBeLessThan(BENCH.top + BUILD_ZONE.height);
+  });
+
+  it('would have caught the old post, whose Run plaque reached 7.5 mm into the footprint', () => {
+    expect(planGapToBuildZone(OLD_SIGN, RUN_PLAQUE.w / 2)).toBeCloseTo(-0.0075, 4);
+  });
+
+  it('floats the slip above the tallest housing, so it never stands in front of the machine being built', () => {
+    expect(BENCH.top + RUN_SIGN_SLIP_HEIGHT - RUN_SIGN_SLIP.h / 2).toBeGreaterThanOrEqual(BENCH.top + HOUSING_HEIGHT_M + 0.005);
+    // ... and clear of the Run plaque under it.
+    expect(RUN_SIGN_SLIP_HEIGHT - RUN_SIGN_SLIP.h / 2).toBeGreaterThan(RUN_SIGN_HEIGHT + RUN_PLAQUE.h / 2);
+  });
+});
+
+// ---- Seen from the seat: nothing of the sign covers a medallion ---------------------------------------------------------------------------------------------
+
+interface V {
+  x: number;
+  y: number;
+  z: number;
+}
+const sub = (a: V, b: V): V => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+const dot = (a: V, b: V): number => a.x * b.x + a.y * b.y + a.z * b.z;
+const cross = (a: V, b: V): V => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
+const unit = (a: V): V => {
+  const l = Math.hypot(a.x, a.y, a.z);
+  return { x: a.x / l, y: a.y / l, z: a.z / l };
+};
+
+/** A box on the screen, in units of tangent (x right, y up) of a camera at the eye looking at the stage origin. */
+interface Rect {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
+function camera(eye: V) {
+  const forward = unit({ x: -eye.x, y: -eye.y, z: -eye.z });
+  const right = unit(cross(forward, { x: 0, y: 1, z: 0 }));
+  const up = cross(right, forward);
+  const toScreen = (p: V): { x: number; y: number; depth: number } => {
+    const d = sub(p, eye);
+    const depth = dot(d, forward);
+    return { x: dot(d, right) / depth, y: dot(d, up) / depth, depth };
+  };
+  /** An upright panel that turns about the vertical to face the eye (`width` x `height` centred on `c`). */
+  const upright = (c: V, width: number, height: number): Rect => {
+    const side = unit(cross({ x: 0, y: 1, z: 0 }, unit({ x: eye.x - c.x, y: 0, z: eye.z - c.z })));
+    const corners = [-1, 1].flatMap((sx) => [-1, 1].map((sy) => toScreen({ x: c.x + (side.x * sx * width) / 2, y: c.y + (sy * height) / 2, z: c.z + (side.z * sx * width) / 2 })));
+    return { x0: Math.min(...corners.map((p) => p.x)), x1: Math.max(...corners.map((p) => p.x)), y0: Math.min(...corners.map((p) => p.y)), y1: Math.max(...corners.map((p) => p.y)) };
+  };
+  /** A medallion, a square plate that faces the eye. */
+  const plate = (c: V, size: number): Rect => {
+    const s = toScreen(c);
+    const half = size / 2 / s.depth;
+    return { x0: s.x - half, x1: s.x + half, y0: s.y - half, y1: s.y + half };
+  };
+  return { upright, plate };
+}
+
+/** Space between two screen rectangles, in tangent units (about 0.0175 per degree); negative when they overlap. */
+const screenGap = (a: Rect, b: Rect): number => Math.max(b.x0 - a.x1, a.x0 - b.x1, b.y0 - a.y1, a.y0 - b.y1);
+
+/**
+ * Eyes over the stand, (height above the surface, distance ahead of the stand's centre): the seat the placement aims at (38 cm above, 55 cm ahead),
+ * the spread around it, and the camera the QA runs use. The two nearest, lowest corners of tests/ui/layout.test.ts (eyes 20 to 30 cm up and 45 to 50 cm ahead)
+ * are left out: from there the sign, a hand's breadth from the face, covers whatever is behind it.
+ */
+const SEATS: ReadonlyArray<readonly [number, number]> = [
+  [0.38, 0.55],
+  [0.45, 0.6],
+  [0.6, 0.5],
+  [0.6, 0.6],
+  [0.3, 0.6],
+  [0.45, 0.45],
+  [0.84, 0.93],
+];
+const VIEW_MARGIN = 0.01; // 0.6 degrees
+
+interface SignLayout {
+  readonly sign: Sign;
+  readonly slipW: number;
+  readonly pause: V;
+  readonly lens: V;
+  readonly hint: V;
+}
+const NOW: SignLayout = { sign: SIGN, slipW: RUN_SIGN_SLIP.w, pause: PAUSE_SPOT, lens: LENS_SPOT, hint: LENS_HINT_SPOT };
+const BEFORE: SignLayout = { sign: OLD_SIGN, slipW: 0.15, pause: { ...PAUSE_SPOT, x: 0.28 }, lens: { ...LENS_SPOT, x: 0.28 }, hint: { ...LENS_HINT_SPOT, x: 0.28 } };
+
+/** The smallest gap between the sign (slip and both plaques) and the pause button, the lens button and the lens hint, over the seats and the town scales. */
+function narrowestGap(layout: SignLayout, seats: typeof SEATS = SEATS): { gap: number; at: string } {
+  let worst = { gap: Infinity, at: '' };
+  for (const s of SCALES) {
+    for (const [height, ahead] of seats) {
+      const view = camera({ x: 0, y: height, z: ahead });
+      const z = benchZ(s) + layout.sign.z;
+      const at = (above: number): V => ({ x: layout.sign.x, y: BENCH.top + above, z });
+      const parts: Array<[string, Rect]> = [
+        ['slip', view.upright(at(RUN_SIGN_SLIP_HEIGHT), layout.slipW, RUN_SIGN_SLIP.h)],
+        ['Run', view.upright(at(RUN_SIGN_HEIGHT), RUN_PLAQUE.w, RUN_PLAQUE.h)],
+        ['Adjust', view.upright(at(RUN_SIGN_HEIGHT - 0.04), RUN_PLAQUE.w, RUN_PLAQUE.h)],
+      ];
+      const targets: Array<[string, Rect]> = [
+        ['pause', view.plate(layout.pause, MEDALLION_SIZE_M)],
+        ['lens', view.plate(layout.lens, MEDALLION_SIZE_M)],
+        ['lens hint', view.upright(layout.hint, 0.17, 0.045)],
+      ];
+      for (const [name, part] of parts) {
+        for (const [other, target] of targets) {
+          const gap = screenGap(part, target);
+          if (gap < worst.gap) worst = { gap, at: `${name} against ${other}, eyes ${height}/${ahead}, town scale ${s}` };
+        }
+      }
+    }
+  }
+  return worst;
+}
+
+describe('the run sign seen from the seat', () => {
+  it('never covers the pause button, the lens button or the lens hint, from the seats the placement allows (0.6 degrees to spare)', () => {
+    const { gap, at } = narrowestGap(NOW);
+    expect(gap, at).toBeGreaterThanOrEqual(VIEW_MARGIN);
+  });
+
+  it('would have caught the old layout: the 15 cm slip, 28 cm out from the pause button, covered part of it from the seat', () => {
+    const { gap, at } = narrowestGap(BEFORE, [[0.38, 0.55]]); // the seat the placement aims at
+    expect(gap, at).toBeLessThan(0);
+    expect(at).toMatch(/^slip against (pause|lens)/);
   });
 });

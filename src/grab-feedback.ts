@@ -89,6 +89,9 @@ export class GrabFeedbackSystem extends createSystem({
       if (!mesh.isMesh) return;
       const clone = (m: Material): Material => {
         const copy = m.clone();
+        // clone() does not carry the shader hooks: keep the library shading (baked occlusion as occlusion, wake-shader.ts), or a grabbed part looks different.
+        copy.onBeforeCompile = m.onBeforeCompile;
+        copy.customProgramCacheKey = m.customProgramCacheKey;
         if (copy instanceof MeshStandardMaterial) {
           copy.emissive.copy(GLOW_COLOR);
           copy.emissiveIntensity = 0;

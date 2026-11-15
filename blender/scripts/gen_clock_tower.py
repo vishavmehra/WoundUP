@@ -17,7 +17,8 @@ clock_tower_shell  80 x 220 x 80. Lower ring, an open belfry (four round columns
 clock_face         60 x 60 x 4. Cream enamel disc, brass bezel, brass numerals I to XII (raised 0.45 mm) and an arbor collar. +Z toward the viewer.
 clock_hands        6 x 32 x 3. Two nodes on one pivot (the arbor, origin): the hour hand (root) and the minute hand, both at twelve, walnut.
 clock_bell         30 x 28 x 30. Brass bell on a yoke whose gudgeon pins lie on the Z axis (PIV_Swing, swing seen from the front), and the clapper as
-                   ClockBell_Striker (PIV_Striker, axis +Z). Origin: the top of the yoke.
+                   ClockBell_Striker (PIV_Striker, axis +Z). Origin: the top of the yoke. ADR-048: COL_Grab, a sphere of r 15 mm at y -14 mm, so the player can
+                   place the bell in the Belfry (the Clock Tower still seats it itself); no mesh changed.
 """
 from __future__ import annotations
 
@@ -424,7 +425,9 @@ def build_bell(entry, p):
     striker = mc.make_object(st, "ClockBell_Striker", [ABRASS], root)
     swing = empties.add_pivot(root, "Swing", (0.0, p["pivot_y"] * 1e-3, 0.0), (0.0, 0.0, 1.0), "rotation_axis", "+Z")
     pst = empties.add_pivot(root, "Striker", (0.0, -6.4e-3, 0.0), (0.0, 0.0, 1.0), "rotation_axis", "+Z")
-    return [root, striker, swing, pst], dict(origin=("centre", "max", "centre"), closed=True)
+    # ADR-048: the Belfry's player-placed bell (BELFRY_BLUEPRINT section 12 item 9, Q6): a grab sphere at the bell's centre, the mesh is not enlarged
+    grab = empties.add_collider(root, "Grab", "sphere", 0.015, (0.0, -0.014, 0.0))
+    return [root, striker, swing, pst, grab], dict(origin=("centre", "max", "centre"), closed=True)
 
 
 BUILDERS = {"clock_tower_base": build_base, "clock_tower_shell": build_shell, "clock_face": build_face, "clock_hands": build_hands, "clock_bell": build_bell}

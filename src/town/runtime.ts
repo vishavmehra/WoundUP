@@ -23,7 +23,7 @@ import { plotSocket } from './scene';
 import type { Town } from './scene';
 import { WakeField } from './wake';
 import type { WakeUniforms } from './wake-shader';
-import { XRAY_SHELL, XRayView } from './xray-view';
+import { XRAY_SHELL, XRayView, xrayMovers } from './xray-view';
 
 /** What the game layer wants to hear about the town. All optional. */
 export interface TownEvents {
@@ -87,10 +87,14 @@ export class TownRuntime {
 
   /** Registers a finished machine for animation. */
   addRig(rig: MachineRig): void {
+    rig.audio = this.audio;
     if (this.rigs.includes(rig)) return;
     this.rigs.push(rig);
     // The lens opens the machine in the hand; one standing on its plot is opened by the palm only.
-    this.xrayOf.set(rig, this.xray.add({ root: rig.root, prefixes: XRAY_SHELL[rig.machineId] ?? [], lens: () => this.isCarried(rig) }));
+    this.xrayOf.set(
+      rig,
+      this.xray.add({ root: rig.root, prefixes: XRAY_SHELL[rig.machineId] ?? [], lens: () => this.isCarried(rig), moving: () => xrayMovers(rig) }),
+    );
   }
 
   removeRig(rig: MachineRig): void {
@@ -156,6 +160,7 @@ export class TownRuntime {
     const socket = plotSocket(this.town, plot);
     if (!socket) return false;
     rig.root.quaternion.identity();
+    rig.restored = true;
     this.standOn(rig.root, socket);
     if (!this.seated.includes(rig.root)) this.seated.push(rig.root);
     if (!this.parked.some((e) => e.rig === rig)) this.parked.push({ rig, plot, socket, away: false });

@@ -83,6 +83,8 @@ export const WAKE_CHIMES: Readonly<Record<PlotId, readonly number[]>> = {
   plot_carousel: [74, 79, 83, 86],
   plot_windmill: [67, 72, 76, 79],
   plot_clock_tower: [69, 72, 76, 81],
+  plot_well: [64, 67, 71, 76], // E minor, low and round: water
+  plot_belfry: [60, 67, 72, 79], // open fifths, a bell's overtones: C G C G
 };
 
 /**

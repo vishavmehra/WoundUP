@@ -2,7 +2,7 @@
 // Returns messages instead of throwing, so a test (or a dev-only startup check) can print every problem at once.
 import { validateBlueprint } from '../../sim';
 import { getPart } from '../parts/catalogue';
-import { MODEL_PATHS } from '../parts/models';
+import { modelPath } from '../parts/models';
 import type { MachineBlueprint, SocketDefinition } from './types';
 
 const ID_PATTERN = /^[a-z0-9_]{1,64}$/; // the gift codec's pattern: every id here may end up in a link
@@ -64,7 +64,7 @@ export function validateMachineBlueprint(bp: MachineBlueprint): string[] {
   for (const id of Object.values(bp.intended)) if (getPart(id)?.family !== 'fastener') needed.set(id, (needed.get(id) ?? 0) + 1);
   for (const [id, count] of needed) if ((supplied.get(id) ?? 0) < count) bad(`tray supplies ${supplied.get(id) ?? 0} of "${id}", the build needs ${count}`);
 
-  if (!Object.prototype.hasOwnProperty.call(MODEL_PATHS, bp.housing.assetId)) bad(`housing asset "${bp.housing.assetId}" has no model path`);
+  if (modelPath(bp.housing.assetId) === undefined) bad(`housing asset "${bp.housing.assetId}" has no model path`);
   if (!(bp.housing.xray.radius > 0) || !(bp.housing.xray.top > 0)) bad('housing xray zone must be positive');
   return errors;
 }

@@ -66,6 +66,21 @@ describe('TownRuntime wake', () => {
     expect(runtime.wake.isSettled('plot_windmill')).toBe(true);
   });
 
+  it("wakes the Well's and the Belfry's plots like the others, each with its own chime and ripple (ADR-048)", () => {
+    const woke: string[] = [];
+    const placed: string[] = [];
+    const { audio, runtime, run } = boot({ woke: (p) => void woke.push(p), placed: (m, p) => void placed.push(`${m}@${p}`) });
+    runtime.handleIntent(intent('snapped', 'PlotWell', new Object3D()));
+    runtime.handleIntent(intent('snapped', 'PlotBelfry', new Object3D()));
+    expect(woke).toEqual(['plot_well', 'plot_belfry']);
+    expect(placed).toEqual(['well@plot_well', 'belfry@plot_belfry']);
+    expect(audio.calls).toEqual([{ kind: 'chime', plot: 'plot_well' }, { kind: 'chime', plot: 'plot_belfry' }]);
+    run(WAKE_RIPPLE_S + 0.1);
+    expect(runtime.wake.isSettled('plot_well')).toBe(true);
+    expect(runtime.wake.isSettled('plot_belfry')).toBe(true);
+    expect(runtime.wake.awakePlots()).toEqual(['plot_well', 'plot_belfry']);
+  });
+
   it('wakes a plot once: a machine lifted for repair and put back wakes nothing twice', () => {
     const woke: string[] = [];
     const lifted: string[] = [];
@@ -128,6 +143,19 @@ describe('TownRuntime wake', () => {
 });
 
 describe('TownRuntime machines', () => {
+  it("hands the town's audio to a rig that joins it, and marks a rig a saved game put on its plot as restored (ADR-048)", () => {
+    const { audio, runtime } = boot();
+    const r = rig('well', 'cam');
+    expect(r.audio).toBeNull();
+    runtime.addRig(r);
+    expect(r.audio).toBe(audio);
+    expect(r.restored).toBe(false); // finished on the bench and carried: the payoff is still to come
+    const saved = rig('belfry', 'shaft');
+    expect(runtime.placeRig(saved)).toBe(true);
+    expect(saved.restored).toBe(true);
+    expect(saved.audio).toBe(audio);
+  });
+
   it('places a finished machine on its plot socket under the town group (a saved machine reappearing)', () => {
     const { town, runtime } = boot();
     const r = rig('music_box', 'cylinder');

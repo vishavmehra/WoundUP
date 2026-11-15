@@ -8,6 +8,7 @@
 import type { PlotId } from '../game/content';
 import { WAKE_CHIMES } from './notes';
 import {
+  BELFRY_BELL_PRIME_HZ,
   bellVoice,
   bonkVoice,
   chimeVoice,
@@ -28,6 +29,10 @@ import type { SnapVoice } from './voices';
 export interface TownAudio {
   pluck(midi: number, velocity?: number, level?: number): void;
   chime(plot: PlotId): void;
+  /** The ratchet of a running Well (one click a tooth). Optional: a recorder that does not care leaves it out. */
+  tick?(parity: 0 | 1): void;
+  /** One toll of the Belfry bell. Optional like `tick`. */
+  toll?(): void;
 }
 
 export interface AudioEngineOptions {
@@ -181,6 +186,12 @@ export class AudioEngine implements TownAudio {
   bell(index: number, total: number): void {
     const ctx = this.ready();
     if (ctx && this.bells && this.noise) bellVoice(ctx, this.bells, this.noise, index >= total);
+  }
+
+  /** One toll of the Belfry's bell as it rocks (ADR-048): the tower bell's voice, a fourth higher and a little shorter. */
+  toll(): void {
+    const ctx = this.ready();
+    if (ctx && this.bells && this.noise) bellVoice(ctx, this.bells, this.noise, false, BELFRY_BELL_PRIME_HZ, 0.7);
   }
 
   /** One beat of the Clock Tower pendulum: tick (0) and tock (1). */

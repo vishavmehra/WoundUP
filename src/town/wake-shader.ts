@@ -128,9 +128,35 @@ const FRAGMENT_GRADE = `
 		outgoingLight += vec3( 1.0, 0.78, 0.43 ) * ( wuRing * 0.32 );
 	}`;
 
+/**
+ * Baked vertex ambient occlusion (COLOR_0, blender/scripts/lib/vertex_ao.py). three.js multiplies COLOR_0 into the base colour, which
+ * darkens direct light and the metals' reflections too, and the baked values of the town and the tower are low (mean 0.14 to 0.45,
+ * a tenth of the vertices exactly 0; the gears are 0.77): that alone made the whole scene read black. So the multiply is dropped and
+ * the value is used as what it is, occlusion: a floor and a mix, on the indirect light (hemisphere light and environment) and, less,
+ * on the direct light (the town has no real-time shadows, so the baked occlusion is its only contact shading).
+ */
+export const AO_INDIRECT_FLOOR = 0.4;
+export const AO_DIRECT_FLOOR = 0.75;
+const FRAGMENT_AO = `
+	#if defined( USE_COLOR ) || defined( USE_COLOR_ALPHA )
+		float wuOccl = vColor.r;
+		float wuOcclIndirect = mix( ${f(AO_INDIRECT_FLOOR)}, 1.0, wuOccl );
+		float wuOcclDirect = mix( ${f(AO_DIRECT_FLOOR)}, 1.0, wuOccl );
+		reflectedLight.indirectDiffuse *= wuOcclIndirect;
+		reflectedLight.indirectSpecular *= wuOcclIndirect;
+		reflectedLight.directDiffuse *= wuOcclDirect;
+		reflectedLight.directSpecular *= wuOcclDirect;
+	#endif`;
+
 function insert(src: string, anchor: string, text: string, before = false): string {
   if (!src.includes(anchor)) throw new Error(`wake shader: anchor "${anchor}" not found`);
   return src.replace(anchor, before ? `${text}\n${anchor}` : `${anchor}\n${text}`);
+}
+
+/** Replaces the chunk include `anchor` by `text` (an empty text drops the chunk). */
+function swap(src: string, anchor: string, text: string): string {
+  if (!src.includes(anchor)) throw new Error(`wake shader: anchor "${anchor}" not found`);
+  return src.replace(anchor, text);
 }
 
 /** The patched sources of a MeshStandardMaterial or MeshPhysicalMaterial program. Throws when a chunk it hooks into is missing. */
@@ -139,13 +165,15 @@ export function patchWakeShader(vertex: string, fragment: string): { vertexShade
   let v = insert(vertex, '#include <common>', VERTEX_DECL);
   v = insert(v, '#include <project_vertex>', VERTEX_BODY);
   let fs = insert(fragment, '#include <common>', `${defs}\n${FRAGMENT_DECL}`);
+  fs = swap(fs, '#include <color_fragment>', ''); // the vertex colour is occlusion, not paint (FRAGMENT_AO)
   fs = insert(fs, '#include <emissivemap_fragment>', FRAGMENT_SCENERY);
+  fs = insert(fs, '#include <aomap_fragment>', FRAGMENT_AO);
   fs = insert(fs, '#include <opaque_fragment>', FRAGMENT_GRADE, true);
   return { vertexShader: v, fragmentShader: fs };
 }
 
 /** `customProgramCacheKey` of every patched material: a patched and a plain program never share a cache entry. */
-export const WAKE_PROGRAM_KEY = 'wu-wake-2';
+export const WAKE_PROGRAM_KEY = 'wu-wake-3';
 
 /** Patches one material in place. */
 export function patchMaterial(material: Material, uniforms: WakeUniforms): void {

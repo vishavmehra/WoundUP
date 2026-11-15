@@ -133,7 +133,7 @@ describe('Clock Tower in the part catalogue (finish-suffixed ids, resolved in on
   });
 
   it('is registered as the fourth blueprint, valid, with the machine id the game core uses', () => {
-    expect(BLUEPRINTS.map((b) => b.id)).toEqual(['music_box', 'carousel', 'windmill', 'clock_tower']);
+    expect(BLUEPRINTS.map((b) => b.id).slice(0, 4)).toEqual(['music_box', 'carousel', 'windmill', 'clock_tower']); // the Well and the Belfry follow (ADR-048)
     expect(getBlueprint('clock_tower')).toBe(CLOCK_TOWER);
     expect(MACHINE_IDS).toContain(CLOCK_TOWER.id);
     expect(validateMachineBlueprint(CLOCK_TOWER)).toEqual([]);
@@ -355,8 +355,8 @@ describe('Letter 6 through the session (theatre keeper, ADR-047)', () => {
     expect(game.machinePlaced('clock_tower', 'plot_clock_tower')).toBe(true);
     expect(game.save.letters.letter_6).toBe('completed');
     expect(game.save.machines.find((m) => m.blueprintId === 'clock_tower')).toEqual({ blueprintId: 'clock_tower', built: true, placed: true, plotId: 'plot_clock_tower' });
-    expect(game.closing).not.toBeNull();
-    expect(game.letter?.optional).toBe(true); // the story is done; only the optional letters are left
+    expect(game.closing).toBeNull(); // Letters 7 and 8 follow (ADR-048): the closing card waits for the Belfry
+    expect(game.letter?.id).toBe('letter_7');
   });
 
   it('does not complete on a build the solver does not run: an unfinished tower is incomplete, not run', () => {

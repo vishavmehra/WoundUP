@@ -27,7 +27,7 @@
  * Draw calls only: the triangles, the materials and the picture are the same. Runs once when a machine is built (no per-frame work,
  * no allocation afterwards). A merged geometry is the baked group's own: `dispose()` frees it, `disposeBaked(rig)` for a machine's.
  *
- * Reuse for another group (the Well, the Belfry, a house):
+ * Reuse for another group (a house, a new feature):
  *   bakeStatic(root, { moving: [nodes the game animates], keepNames: [names it looks up], leave: [anything it is unsure of] })
  */
 import { Group, Matrix4, Mesh } from '@iwsdk/core';
@@ -174,11 +174,14 @@ export function bakeStatic(root: Object3D, options: BakeOptions = {}): Baked {
 const bakes = new WeakMap<MachineRig, Baked>();
 
 /**
- * Bakes a finished machine: every rotor, bobber, pulser and the lid pivot of the rig is a moving node, and `keepNames` adds the nodes a
- * machine's own runtime finds by name (the Clock Tower's hands, pendulum and bell). Returns the bake, which is also remembered for `disposeBaked`.
+ * Bakes a finished machine: every rotor, bobber, pulser and the lid pivot of the rig is a moving node, and so is every node its own
+ * updaters move (`rig.moving`: the Well's pump rod, pawl and water disc, the Belfry's bell and clapper). `keepNames` adds the nodes a
+ * machine's own runtime finds by name (the Clock Tower's hands, pendulum and bell). Whatever is hidden when the bake runs (the Well's
+ * bucket template and its water disc, which an updater shows later) is never merged: the walk skips a hidden node and everything under
+ * it. Returns the bake, which is also remembered for `disposeBaked`.
  */
 export function bakeRig(rig: MachineRig, keepNames: Iterable<string> = []): Baked {
-  const moving: Object3D[] = [];
+  const moving: Object3D[] = [...rig.moving];
   for (const rotor of rig.rotors) moving.push(rotor.node);
   for (const bobber of rig.bobbers) moving.push(bobber.node);
   for (const pulser of rig.pulsers) moving.push(pulser.node);

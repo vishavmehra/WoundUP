@@ -36,7 +36,7 @@ import {
   windLabel,
   type ResultHints,
 } from './copy.js';
-import { BENCH, DAILY_SPOT, GIFT_SPOT, HELPER_HINT_SPOT, HELPER_SPOT, LENS_HINT_SPOT, LENS_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, STEP_HELP, benchPoint, benchZ, latchSpot } from './layout.js';
+import { BENCH, DAILY_SPOT, GIFT_SPOT, HELPER_HINT_SPOT, HELPER_SPOT, LENS_HINT_SPOT, LENS_SPOT, LETTER_SPOT, PANEL_SPOT, PAUSE_SPOT, READING_SPOT, RUN_PLAQUE, RUN_SIGN_HEIGHT, RUN_SIGN_SLIP, RUN_SIGN_SLIP_HEIGHT, SHEET_PAPER, STEP_HELP, benchPoint, benchZ, latchSpot } from './layout.js';
 import { createGiftLink, shortLink, showLinkInPage, type GiftHost, type ShareEnv } from './gift-flow.js';
 import { paintBlueprint, paintChoice, paintClosing, paintLetter, paintMedallion, paintPanel, paintSlip, paintStepSheet, resultSlip, type BlueprintSlot } from './paint.js';
 import { PALETTE, ensureFonts } from './palette.js';
@@ -644,13 +644,13 @@ export class FlowUi {
     const post = new Mesh(new CylinderGeometry(0.0025, 0.0025, RUN_SIGN_HEIGHT - 0.012, 8), new MeshBasicMaterial({ color: PALETTE.brass }));
     post.position.set(0, (RUN_SIGN_HEIGHT - 0.012) / 2, -0.004); // behind the plaques, so it never pokes through them
     this.signGroup.add(post);
-    this.runPlaque = new Plaque(f, 0.075, 0.032);
+    this.runPlaque = new Plaque(f, RUN_PLAQUE.w, RUN_PLAQUE.h);
     this.runPlaque.mesh.position.set(0, RUN_SIGN_HEIGHT, 0);
     this.runPlaque.mesh.name = 'UI_Run';
-    this.adjustPlaque = new Plaque(f, 0.075, 0.032);
+    this.adjustPlaque = new Plaque(f, RUN_PLAQUE.w, RUN_PLAQUE.h);
     this.adjustPlaque.mesh.name = 'UI_Adjust';
     this.adjustPlaque.mesh.position.set(0, RUN_SIGN_HEIGHT - 0.04, 0); // under Run, so no plaque hangs over the blueprint
-    this.signSlip = new Surface(f, 0.15, 0.056);
+    this.signSlip = new Surface(f, RUN_SIGN_SLIP.w, RUN_SIGN_SLIP.h);
     this.signSlip.mesh.position.set(0, RUN_SIGN_SLIP_HEIGHT, 0);
     this.signGroup.add(this.signSlip.mesh);
     this.runHot = this.button(this.runPlaque, signEntity, () => this.press({ type: 'run' }), (on) => this.paintRun(on));

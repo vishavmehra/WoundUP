@@ -30,6 +30,9 @@ export const STANDARD_DRAIN_RATE = (STANDARD_ENERGY_PER_UNIT * SPRING_ANGULAR_VE
 /** The worn spring drains pi/2 times faster (MUSIC_BOX_BLUEPRINT §4.2): 8 * 0.015 / 0.08 = 1.5 s at full wind (PRODUCT_SPEC §8). */
 export const WORN_DRAIN_RATE = STANDARD_ENERGY_PER_UNIT * SPRING_ANGULAR_VELOCITY;
 
+/** Groove radius of `pulley_standard` (`wu.grooveRadiusMm` 11.8 in its GLB), metres: a belt's ratio is the quotient of two of these. */
+export const PULLEY_GROOVE_RADIUS_M = 0.0118;
+
 // ---- Definitions -------------------------------------------------------------------------------------------------------
 
 /** `grab`: the GLB's COL_Grab radius in metres, or null when the GLB has none (checked against the files by tests/content/glb-contract.test.ts). */
@@ -108,7 +111,7 @@ export const PART_DEFINITIONS: readonly PartDefinition[] = Object.freeze([
   part('escapement_anchor', 'Mat_AgedBrass', 'escapement', 'Escapement anchor', 0.012),
   part('pendulum_clock', 'Mat_AgedBrass', 'pendulum', 'Pendulum', 0.012), // rod and bob are one file, one swinging group
   part('cam_hourly_chime', 'Mat_AgedBrass', 'cam', 'Hourly chime cam', 0.0125),
-  part('clock_bell', 'Mat_PolishedBrass', 'structural', 'Clock bell', null),
+  part('clock_bell', 'Mat_PolishedBrass', 'structural', 'Clock bell', 0.015), // COL_Grab added for the Belfry (ADR-048): the player hangs the bell in its hooks by hand
   part('clock_face', 'Mat_CreamEnamel', 'structural', 'Clock face', null),
   part('clock_hands', 'Mat_Walnut', 'structural', 'Clock hands', null),
   // Hardware of the Music Box deep build (ADR-050).
@@ -119,6 +122,17 @@ export const PART_DEFINITIONS: readonly PartDefinition[] = Object.freeze([
   fastener('bush_split_8', 'Mat_AgedBrass', 'Split bush', 0.012, 'bush'),
   fastener('screw_slot_m3', 'Mat_PolishedBrass', 'Slotted screw', 0.015, 'screw'),
   fastener('clip_angle_small', 'Mat_AgedBrass', 'Angle clip', 0.012, 'clip'),
+  // Well and Belfry pieces (ADR-048). The cam, the follower and the pulley were library parts before; the ratchet, the pawl and the
+  // flywheel were G2 until this machine pair (WELL_FOUNTAIN_BLUEPRINT §11). The solver has no ratchet, pawl or flywheel behaviour: they
+  // are rigid shaft nodes (the pawl a trigger target), so none carries mechanics. Only the pulley has a value, its groove radius, which the
+  // belt edge reads (gen_pulley.py: 11.8 mm). `grab` is each GLB's COL_Grab: a box counts as its smallest half-extent.
+  part('cam_eccentric', 'Mat_AgedBrass', 'cam', 'Eccentric cam', 0.0125),
+  part('follower_roller', 'Mat_AgedBrass', 'follower', 'Roller follower', 0.004),
+  part('pulley_standard', 'Mat_AgedBrass', 'pulley', 'Brass pulley', 0.015, { radius: PULLEY_GROOVE_RADIUS_M }),
+  part('ratchet_wheel', 'Mat_AgedBrass', 'ratchet', 'Ratchet wheel', 0.02),
+  part('pawl_standard', 'Mat_AgedBrass', 'pawl', 'Pawl', 0.0026),
+  part('flywheel_standard', 'Mat_AgedBrass', 'flywheel', 'Flywheel', 0.026),
+  part('belfry_vane', 'Mat_PolishedBrass', 'vane', 'Weathervane', 0.016),
 ]);
 
 const byId: ReadonlyMap<string, PartDefinition> = new Map(PART_DEFINITIONS.map((p) => [p.id, p] as const));

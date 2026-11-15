@@ -17,6 +17,13 @@ export const MODEL_PATHS: Readonly<Record<string, string>> = {
   governor_standard: 'shared/governor/governor_standard.glb',
   winding_key: 'shared/winding_key/winding_key.glb',
   bearing_pillow_block: 'shared/structural/bearing_pillow_block.glb',
+  cam_eccentric: 'shared/cam/cam_eccentric.glb',
+  follower_roller: 'shared/follower/follower_roller.glb',
+  pulley_standard: 'shared/pulley/pulley_standard.glb',
+  // ADR-048: promoted from G2 and moved into public/ with the Well (WELL_FOUNTAIN_BLUEPRINT §11)
+  ratchet_wheel: 'shared/ratchet/ratchet_wheel.glb',
+  pawl_standard: 'shared/pawl/pawl_standard.glb',
+  flywheel_standard: 'shared/flywheel/flywheel_standard.glb',
   bracket_support: 'shared/structural/bracket_support.glb',
   cylinder_music_box: 'shared/cylinder/cylinder_music_box.glb',
   comb_music_box: 'shared/comb/comb_music_box.glb',
@@ -56,10 +63,19 @@ export const MODEL_PATHS: Readonly<Record<string, string>> = {
   escapement_anchor: 'shared/escapement/escapement_anchor.glb',
   cam_hourly_chime: 'shared/cam/cam_hourly_chime.glb',
   spring_barrel: 'shared/spring/spring_barrel.glb',
+  // The Well and the Belfry (ADR-048, `blender/scripts/gen_well.py`, `gen_belfry.py`): their housings and the Belfry's weathervane
+  well_base: 'tockton/well/well_base.glb',
+  belfry_base: 'tockton/belfry/belfry_base.glb',
+  belfry_vane: 'tockton/belfry/belfry_vane.glb',
 };
+
+/** The path of an asset's GLB under `assets/models/`, or undefined for an unknown asset id. */
+export function modelPath(assetId: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(MODEL_PATHS, assetId) ? MODEL_PATHS[assetId] : undefined;
+}
 
 /** URL of an asset's GLB under the app's base path, or undefined for an unknown asset id. */
 export function modelUrl(assetId: string): string | undefined {
-  const path = Object.prototype.hasOwnProperty.call(MODEL_PATHS, assetId) ? MODEL_PATHS[assetId] : undefined;
+  const path = modelPath(assetId);
   return path === undefined ? undefined : `${import.meta.env.BASE_URL}assets/models/${path}`;
 }

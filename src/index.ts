@@ -11,19 +11,23 @@ import { GrabFeedbackSystem } from './grab-feedback.js';
 import { GrabModeSystem } from './grab-mode.js';
 import { useSelfHostedHands } from './hands.js';
 import { installInteraction } from './interaction/index.js';
-import { mountLanding, type Landing, type LandingOptions } from './landing/landing.js';
+import { landing, landingOptions } from './landing-host.js';
+import type { Landing, LandingOptions } from './landing/landing.js';
+import { installToneMapping } from './lighting.js';
 import { createMaterialRegistry, type MaterialRegistry } from './materials/index.js';
 import { PartLoader } from './parts/index.js';
+import { preloadStartup } from './preload.js';
 import { installRenderBudget, type RenderBudget } from './render-budget.js';
+import { compileBehindLanding, installRenderGate } from './render-gate.js';
 import { StageSystem } from './stage.js';
 import { machineFrame, stageFrame, type Insets, type StageBox } from './stage-framing.js';
-import { addWorkshopLantern, installTown, loadModel, showGiftPlate } from './town/index.js';
+import { addWorkshopLantern, emptyTownSource, installTown, loadModel, showGiftPlate } from './town/index.js';
+import { precompileNight } from './town/night.js';
 import { browserShareEnv, installFlowUi, mountGiftViewer, type FlowEvent } from './ui/index.js';
 import { detectXrSupport, enterXR } from './xr-entry.js';
 import { installXrTuning } from './xr-tuning.js';
 
 const sceneContainer = document.getElementById('scene-container') as HTMLDivElement;
-const landingRoot = document.getElementById('landing-root') as HTMLElement;
 
 let world: World | undefined;
 /** What the 2D page shows while no immersive session is running. */
@@ -33,7 +37,8 @@ let renderBudget: RenderBudget | undefined;
 let giftMachine: StageBox | null = null;
 let giftInsets: Insets | null = null;
 
-const landingOptions: LandingOptions = {
+// The landing itself is mounted by src/main.ts (it paints before this module is even downloaded); the actions it offers are filled in here.
+const actions: Partial<LandingOptions> = {
   // "Play in your browser": offered only where the browser has no WebXR. Loads IWER's emulated Quest 3 on demand (its own chunk).
   onPlayEmulated: async () => {
     if (!world) throw new Error('The workshop is still unpacking. Try again in a moment.');
@@ -58,10 +63,28 @@ const landingOptions: LandingOptions = {
     renderBudget?.setMode('still');
   },
 };
-const landing = mountLanding(landingRoot, landingOptions);
+Object.assign(landingOptions, actions);
 
-landing.setSupport('checking');
-landing.setLoading(0);
+/** Loading progress shown on the landing's ruler, 0 to 1. Only moves forward: parallel loads report in any order. */
+let loadedFraction = 0;
+/** User Timing marks (`performance.getEntriesByType('mark')`): where the start-up time goes. They cost nothing and are how docs/evidence/WEBPERF_2026-11-15.md was measured. */
+const mark = (name: string): void => void performance.mark(`wu:${name}`);
+const progress = (fraction: number): void => {
+  loadedFraction = Math.max(loadedFraction, Math.min(1, fraction));
+  landing.setLoading(loadedFraction);
+};
+
+/**
+ * Loads the library textures, reporting progress as each material's three images arrive (0.15 to 0.5 of the whole). Needs no world, so
+ * it runs while the world is created. Never rejects: a material whose textures fail keeps its constants.
+ */
+function loadLibraryTextures(materials: MaterialRegistry): Promise<void> {
+  const names = materials.names();
+  let done = 0;
+  return Promise.all(names.map((name) => materials.loadTextures([name]).then(() => progress(0.15 + (0.35 * ++done) / names.length))))
+    .then(() => undefined)
+    .catch((e: unknown) => console.warn('[wound-up] library textures did not load:', e));
+}
 
 /**
  * The playable game: session, interaction, audio, town, flow UI and the loop that joins them (src/gameplay.ts). The town needs
@@ -82,10 +105,10 @@ async function installGame(
   audio.installGestureUnlock();
   bindInteractionAudio(audio);
   const play = new Gameplay(gameWorld, { session, materials, audio, texturesReady, keepAwake: () => budget.wake() });
-  progress(0.3);
+  progress(0.55);
   play.town = await installTown(gameWorld, { registry: materials, audio, events: play.townEvents, keepAwake: () => budget.wake() });
   play.loader = new PartLoader(gameWorld, materials);
-  progress(0.7);
+  progress(0.8);
   play.ui = await installFlowUi(gameWorld, {
     session,
     townScale: () => gameWorld.getSystem(StageSystem)?.townScale ?? 1,
@@ -103,11 +126,16 @@ async function installGame(
     },
     share: browserShareEnv(),
   });
-  progress(0.95);
+  progress(0.92);
   play.town.setNight(session.save.settings.night, true); // a saved night: the town loads dark, with no fade
   void addWorkshopLantern(play.ui.benchRoot, loadModel, materials);
   installGameplay(gameWorld, play);
   await play.start();
+  // The first night would compile a shader program for every lit material (the lamp lights): do it now, behind the landing, once the textures are in.
+  const lamps = play.town.town.dressing?.lamps.map((lamp) => lamp.light) ?? [];
+  void texturesReady
+    .then(() => precompileNight(gameWorld.renderer, gameWorld.scene, gameWorld.camera, lamps))
+    .catch((e: unknown) => console.warn('[wound-up] could not prepare the night shaders; the first night may hitch once:', e));
   return play.debug();
 }
 
@@ -121,7 +149,8 @@ async function installGiftPage(
 ): Promise<void> {
   const audio = new AudioEngine();
   audio.installGestureUnlock();
-  const town = await installTown(giftWorld, { registry: materials, audio, keepAwake: () => budget.wake(), dressing: false });
+  // The town stays hidden on this page: empty stand-ins for its models, so none of them is downloaded (src/town/stand-in.ts).
+  const town = await installTown(giftWorld, { registry: materials, audio, keepAwake: () => budget.wake(), dressing: false, source: emptyTownSource });
   town.town.group.visible = false;
   const reveal = async (gift: Gift): Promise<void> => {
     await texturesReady;
@@ -161,18 +190,25 @@ function fitStand(): void {
 }
 
 try {
-  const [created, support] = await Promise.all([
-    World.create(sceneContainer, projectOptions),
-    detectXrSupport(),
-  ]);
+  mark('boot');
+  // The plain game page loads the trunk, the town and the workshop before it is usable: ask for those files now, not after the world exists.
+  if (!hasGiftHash(location.hash) && !demoRequest(location.search)) preloadStartup();
+  // The library (a 3 KB file) and its textures need no world: they download and decode while IWSDK builds one.
+  const materialsReady = createMaterialRegistry();
+  const libraryTextures = materialsReady.then(loadLibraryTextures, () => undefined); // a library that fails to load is reported by the Promise.all below
+  const [created, support, materials] = await Promise.all([World.create(sceneContainer, projectOptions), detectXrSupport(), materialsReady]);
   world = created;
+  installToneMapping(world.renderer); // AgX instead of the scene file's ACES (src/lighting.ts)
+  mark('world');
+  progress(0.15);
   installXrTuning(world, location.search); // multiview off-switch, foveation, framebuffer scale and the 72 Hz request (src/xr-tuning.ts)
+  // No 2D draw until the finished scene's shader programs are built (below): a draw that compiles blocks the page for seconds.
+  const gate = installRenderGate(world);
   // Landing actions stay disabled until setSupport below, so the preview cannot have started yet.
   const budget = (renderBudget = installRenderBudget(world));
   // The shared library materials (ADR-032) go on every GLB built with the library profile. Their textures load in the
   // background: the town and the props show the constants until they arrive, and a machine waits for them (gameplay.ts).
-  const materials = await createMaterialRegistry();
-  const texturesReady = materials.loadTextures().catch((e: unknown) => console.warn('[wound-up] library textures did not load:', e));
+  const texturesReady = libraryTextures;
   useSelfHostedHands(world);
   world
     .registerSystem(StageSystem)
@@ -190,13 +226,25 @@ try {
       idleMode = 'preview';
       landing.setMode('preview');
       budget.setMode('live');
-    } else debugHandle = await installGame(world, materials, texturesReady, budget, (fraction) => landing.setLoading(fraction));
+    } else debugHandle = await installGame(world, materials, texturesReady, budget, progress);
   } catch (error) {
     console.error('[wound-up] Could not start the game:', error);
     landing.showError('The town could not be unpacked. Reload the page to try again.');
   }
   // Opt-in QA hook (?debug): browser tests read scene state and drive the loop through it. Nothing is exposed otherwise.
   if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __world: world, __wu: debugHandle });
+  mark('installed');
+  await texturesReady;
+  mark('textures');
+  // The shaders of what the first picture shows (the textures are in), built on the GPU's own threads; then the first picture.
+  await compileBehindLanding(world.renderer, world.scene, world.camera, { visibleOnly: true });
+  mark('compiled');
+  progress(0.98);
+  gate.open();
+  budget.wake();
+  // The rest (the town, hidden until the trunk opens) is built behind the page, long before anyone can open it. A gift page never shows it.
+  if (!hasGiftHash(location.hash)) void compileBehindLanding(world.renderer, world.scene, world.camera);
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) sceneContainer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, easing: 'ease-out' });
   fitStand();
   window.addEventListener('resize', fitStand);
   world.visibilityState.subscribe((state) => {

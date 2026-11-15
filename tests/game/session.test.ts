@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CLOSING_CARD } from '../../src/game/content';
-import { DAILY_POOL } from '../../src/game/daily';
+import { CLOSING_CARD, type MachineId, type PlotId } from '../../src/game/content';
+import { drawablePool } from '../../src/game/daily';
 import { dateKey } from '../../src/game/date';
 import { GameSession } from '../../src/game/session';
 import { parseSave, SAVE_KEY } from '../../src/game/save';
@@ -14,8 +14,8 @@ function ok(accepted: boolean, what: string): void {
 }
 
 /** Letter 1 to Letter n done through the real commands. */
-function playUntil(game: GameSession, lastLetter: 1 | 2 | 3 | 4 | 5 | 6): void {
-  const build = (n: number, machine: 'music_box' | 'carousel' | 'windmill' | 'clock_tower', plot: 'plot_music_box' | 'plot_carousel' | 'plot_windmill' | 'plot_clock_tower') => {
+function playUntil(game: GameSession, lastLetter: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8): void {
+  const build = (n: number, machine: MachineId, plot: PlotId) => {
     ok(game.acceptLetter(`letter_${n}` as 'letter_1'), `accept ${n}`);
     ok(game.assemblyComplete(), `assembled ${n}`);
     ok(game.machineRanCorrectly(machine), `ran ${n}`);
@@ -35,6 +35,8 @@ function playUntil(game: GameSession, lastLetter: 1 | 2 | 3 | 4 | 5 | 6): void {
   if (lastLetter >= 4) build(4, 'windmill', 'plot_windmill');
   if (lastLetter >= 5) repair(5, 'wrong_gear', 'windmill', 'plot_windmill');
   if (lastLetter >= 6) build(6, 'clock_tower', 'plot_clock_tower');
+  if (lastLetter >= 7) build(7, 'well', 'plot_well');
+  if (lastLetter >= 8) build(8, 'belfry', 'plot_belfry');
 }
 
 describe('GameSession: the core loop', () => {
@@ -116,7 +118,7 @@ describe('GameSession: the core loop', () => {
 
   it('plays the whole story to the closing card without the daily repair (DAILY-05)', () => {
     const game = new GameSession({ storage: null });
-    playUntil(game, 6);
+    playUntil(game, 8);
     expect(game.save.dailyDone).toBeNull();
     expect(game.closing).toBe(CLOSING_CARD);
     expect(game.letter?.optional).toBe(true); // the story has no letter left; only the optional ones come after it
@@ -140,7 +142,48 @@ describe('GameSession: the core loop', () => {
     ok(game.assemblyComplete(), 'assembled');
     ok(game.machineRanCorrectly('clock_tower'), 'ran');
     ok(game.machinePlaced('clock_tower', 'plot_clock_tower'), 'placed');
+    expect(game.closing).toBeNull(); // the story goes on: the Gardener writes next (ADR-048)
+    expect(game.letter?.id).toBe('letter_7');
+  });
+
+  it('writes the Gardener, then the Bell-ringer, and ends on the closing card behind Letter 8 (ADR-048)', () => {
+    const game = new GameSession({ storage: null });
+    playUntil(game, 6);
+    expect(game.letter).toMatchObject({ id: 'letter_7', sender: 'Gardener', objective: { type: 'build_and_run', blueprintId: 'well' } });
+    ok(game.acceptLetter('letter_7'), 'accept 7');
+    ok(game.assemblyComplete(), 'assembled');
+    ok(game.machineRanCorrectly('well'), 'ran');
+    expect(game.machinePlaced('well', 'plot_belfry')).toBe(false); // only its own plot
+    ok(game.machinePlaced('well', 'plot_well'), 'placed');
+    expect(game.closing).toBeNull();
+    expect(game.letter).toMatchObject({ id: 'letter_8', sender: 'Bell-ringer' });
+    ok(game.acceptLetter('letter_8'), 'accept 8');
+    ok(game.assemblyComplete(), 'assembled');
+    ok(game.machineRanCorrectly('belfry'), 'ran');
+    ok(game.machinePlaced('belfry', 'plot_belfry'), 'placed');
     expect(game.closing).toBe(CLOSING_CARD);
+    expect(game.letter?.optional).toBe(true); // no story letter is left: the optional repair letters come after Letter 8, behind the closing card
+  });
+
+  it('offers Letter 7 to a player whose save from an older build ended on the closing card after Letter 6 (ADR-048)', () => {
+    const first = new GameSession({ storage: new FakeStorage() });
+    playUntil(first, 6);
+    const data = JSON.parse(JSON.stringify(first.save)) as { letters: Record<string, string>; machines: unknown[] };
+    delete data.letters.letter_7;
+    delete data.letters.letter_8;
+    const storage = new FakeStorage({ [SAVE_KEY]: JSON.stringify(data) });
+    const returning = new GameSession({ storage });
+    expect(returning.loadStatus).toBe('loaded');
+    expect(returning.save.letters.letter_7).toBe('available'); // settle unlocks it on load, as it did for Letter 6
+    expect(returning.letter?.id).toBe('letter_7');
+    expect(returning.closing).toBeNull();
+  });
+
+  it('keeps the Belfry out of the story when it is cut: Letter 7 is then the last (ADR-048 cut order)', () => {
+    const game = new GameSession({ storage: null, progression: { clockTower: true, belfry: false } });
+    playUntil(game, 7);
+    expect(game.closing).toBe(CLOSING_CARD);
+    expect(game.save.letters.letter_8).toBe('locked');
   });
 });
 
@@ -388,7 +431,7 @@ describe('GameSession: the daily repair', () => {
     const storage = new FakeStorage();
     const game = new GameSession({ storage });
     playUntil(game, 5);
-    const n = DAILY_POOL.length;
+    const n = drawablePool(game.save).length; // the repairs of the machines that stand in the town (the Well's and the Belfry's wait for theirs)
     const days = Array.from({ length: n + 1 }, (_, i) => `2026-11-${14 + i}`);
     const first = days.map((d) => game.dailyRepair(d)?.id);
     const reloaded = new GameSession({ storage });

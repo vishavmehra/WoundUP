@@ -35,7 +35,9 @@ import type { Gift } from './game/gift';
 import type { GameSession } from './game/session';
 import { interactionIntents, Socket, SnappedTo, WindKey, XRayTarget } from './interaction';
 import type { InteractionIntent } from './interaction';
+import { BELFRY_MODEL_PATHS } from './machines/belfry';
 import { CLOCK_TOWER_MODEL_PATHS, ClockTowerRigComponent, ClockTowerSystem, clockTowerEvents, installClockTower, TheatreDoors } from './machines/clock-tower';
+import { WELL_MODEL_PATHS } from './machines/well';
 import type { MaterialRegistry } from './materials';
 import { machineAssetIds, PartLoader } from './parts';
 import type { MachineInstance, PartInstance } from './parts';
@@ -106,6 +108,13 @@ function planOfRepair(repair: RepairDef): { blueprint: MachineBlueprint; repair:
  */
 const keepsRunning = (machine: MachineId, result: Pick<SolveResult, 'continuous'>): boolean => result.continuous || machine === 'clock_tower';
 
+/** The files of the finished machines that the town loads by itself (no part loader), for a warm-up while the letter is read. */
+const FINISHED_MODEL_PATHS: Readonly<Record<string, readonly string[] | undefined>> = {
+  clock_tower: CLOCK_TOWER_MODEL_PATHS,
+  well: WELL_MODEL_PATHS,
+  belfry: BELFRY_MODEL_PATHS,
+};
+
 export class Gameplay {
   /** Set by `index.ts` once the town and the UI exist (they need this object's callbacks first). */
   town!: TownRuntime;
@@ -136,7 +145,8 @@ export class Gameplay {
   /** The finished Clock Tower, if one exists (carried, or standing on its plot): the entity that holds its `ClockTowerRig`. */
   private tower: { rig: MachineRig; entity: Entity } | null = null;
   private towerPowered = false;
-  private towerWarm = false;
+  /** Machines whose finished model files are already being fetched (see `preload`). */
+  private readonly warmed = new Set<string>();
   private towerSystem: ClockTowerSystem | undefined;
   /** The theatre facade's doors (PIV_DoorL, PIV_DoorR), opened by the tower's hour; `doorsWereOpen` shuts them once it stops. */
   private readonly doors = new TheatreDoors();
@@ -250,10 +260,11 @@ export class Gameplay {
     const plan = planOf(letter);
     if (!plan) return;
     this.loader.preload(machineAssetIds(plan.blueprint, plan.repair ? [plan.repair.faultyPartId] : []));
-    if (plan.blueprint.id === 'clock_tower' && !this.towerWarm) {
-      // The finished tower is made from a dozen files by the town's loader (its own cache): have them parsed before Run is pressed.
-      this.towerWarm = true;
-      for (const path of CLOCK_TOWER_MODEL_PATHS) loadModel(path).catch((e: unknown) => console.warn(`[wound-up] could not preload "${path}":`, e));
+    const finished = FINISHED_MODEL_PATHS[plan.blueprint.id];
+    if (finished && !this.warmed.has(plan.blueprint.id)) {
+      // The finished tower, well or belfry is made from a dozen files by the town's loader (its own cache): have them parsed before Run is pressed.
+      this.warmed.add(plan.blueprint.id);
+      for (const path of finished) loadModel(path).catch((e: unknown) => console.warn(`[wound-up] could not preload "${path}":`, e));
     }
   }
 
@@ -365,7 +376,12 @@ export class Gameplay {
     const at = benchPoint(this.townScale, BENCH.build);
     const machine = await this.loader.spawnMachine(blueprint.id, { parent: this.stage, position: [at.x, at.y, at.z] });
     if (token !== this.buildToken) return machine.dispose();
-    this.xrayBench = this.town.xray.add({ root: machine.object, prefixes: XRAY_SHELL[blueprint.id] ?? [], lens: () => true });
+    this.xrayBench = this.town.xray.add({
+      root: machine.object,
+      prefixes: XRAY_SHELL[blueprint.id] ?? [],
+      lens: () => true,
+      moving: () => this.seatedParts(), // the gears and shafts in their sockets are the mechanism that glows (they are not children of the housing)
+    });
     this.lid = openLid(machine.object);
 
     // What each socket takes from the player, and what the game seats itself (src/build-plan.ts).
@@ -401,6 +417,11 @@ export class Gameplay {
     this.windUnits = 0;
     for (const socketId of Object.keys(fixed)) this.ui.setSlotFilled(socketId, true);
     this.checkComplete();
+  }
+
+  /** The parts of the bench machine that stand in a socket now. Allocates: X-ray asks when it turns on. */
+  private seatedParts(): Object3D[] {
+    return this.build ? this.build.parts.filter((p) => p.entity.hasComponent(SnappedTo)).map((p) => p.object) : [];
   }
 
   /** Puts each part in its socket the way a hand would: at the socket, held for a frame, then let go (SocketSnapSystem seats it). */

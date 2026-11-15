@@ -26,6 +26,9 @@ export interface SocketDef {
   accepts: string[];
   /** `wu.orient === 'axis'`: only the mating +Z is fixed on snap, the roll stays as the player left it. Default is the exact socket orientation. */
   axisOnly: boolean;
+  /** `wu.captureRadius` and `wu.captureRadiusEasy`, metres: this socket takes a held part from further than the global snap radius. 0 when the socket has none. */
+  captureRadius: number;
+  captureRadiusEasy: number;
 }
 
 export interface ColliderDef {
@@ -45,11 +48,13 @@ export interface InteractionNodes {
 }
 
 export type WuData =
-  | { type: 'socket'; accepts: string[]; axisOnly: boolean }
+  | { type: 'socket'; accepts: string[]; axisOnly: boolean; captureRadius: number; captureRadiusEasy: number }
   | { type: 'collider'; shape: 'box' | 'sphere'; purpose: string };
 
 const MAX_ACCEPTS = 64;
 const MAX_TEXT = 64;
+/** Widest capture radius a socket may ask for, metres: a mis-typed radius must not make a socket take parts from across the room. */
+export const MAX_CAPTURE_RADIUS_M = 0.25;
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= MAX_TEXT;
 
@@ -62,7 +67,15 @@ export function parseWu(raw: unknown): { data: WuData } | { error: string } {
     if (!Array.isArray(accepts) || accepts.length === 0 || accepts.length > MAX_ACCEPTS || !accepts.every(isText)) {
       return { error: `socket "accepts" must be a list of 1 to ${MAX_ACCEPTS} non-empty part ids or families` };
     }
-    return { data: { type: 'socket', accepts: [...accepts], axisOnly: wu.orient === 'axis' } };
+    const radius = (key: 'captureRadius' | 'captureRadiusEasy'): number | null => {
+      const v = wu[key];
+      if (v === undefined) return 0;
+      return typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= MAX_CAPTURE_RADIUS_M ? v : null;
+    };
+    const captureRadius = radius('captureRadius');
+    const captureRadiusEasy = radius('captureRadiusEasy');
+    if (captureRadius === null || captureRadiusEasy === null) return { error: `socket capture radii must be numbers above 0 and up to ${MAX_CAPTURE_RADIUS_M} m` };
+    return { data: { type: 'socket', accepts: [...accepts], axisOnly: wu.orient === 'axis', captureRadius, captureRadiusEasy } };
   }
   if (wu.type === 'collider') {
     if (wu.shape !== 'box' && wu.shape !== 'sphere') return { error: 'collider "shape" must be "box" or "sphere"' };
@@ -86,7 +99,14 @@ export function readInteractionNodes(root: Object3D): InteractionNodes {
     }
     const { data } = parsed;
     if (isSocket && data.type === 'socket') {
-      out.sockets.push({ id: node.name.slice(SOCKET_PREFIX.length), node, accepts: data.accepts, axisOnly: data.axisOnly });
+      out.sockets.push({
+        id: node.name.slice(SOCKET_PREFIX.length),
+        node,
+        accepts: data.accepts,
+        axisOnly: data.axisOnly,
+        captureRadius: data.captureRadius,
+        captureRadiusEasy: data.captureRadiusEasy,
+      });
     } else if (isCollider && data.type === 'collider') {
       out.colliders.push({ id: node.name.slice(COLLIDER_PREFIX.length), node, shape: data.shape, purpose: data.purpose });
     } else {

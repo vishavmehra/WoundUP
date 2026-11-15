@@ -12,6 +12,8 @@ export const MACHINE_NAMES: Readonly<Record<MachineId, string>> = {
   carousel: 'Carousel',
   windmill: 'Windmill',
   clock_tower: 'Clock Tower',
+  well: 'Well',
+  belfry: 'Belfry',
 };
 
 export const HINTS = {

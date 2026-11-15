@@ -24,6 +24,8 @@ import {
 } from './content';
 import { isDateKey } from './date';
 
+export type { Difficulty };
+
 export const SAVE_KEY = 'woundup.save';
 export const SAVE_VERSION = 1;
 /** A real save is a few hundred bytes. Anything near this size is not ours, so it is not even parsed. */
