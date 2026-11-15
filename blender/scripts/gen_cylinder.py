@@ -29,13 +29,14 @@ import bmesh
 import wu_common as wu
 from lib import empties
 from gen_mb_common import Builder, finish
+import gen_fastener as fz
 
 FAMILY = "cylinder"
 
 # generator parameters keyed by asset id (GUIDELINES 4.4). `grab_radius` is COL_Grab in metres (must equal PartDefinition.grab.colliderRadius).
 PARAMS = {
     "cylinder_music_box": dict(
-        segs=28,                 # facets round the drum: divisible by 4 keeps the rim at 32.0 mm in x and y; sagitta 0.10 mm
+        segs=24,                 # facets round the drum: divisible by 4 keeps the rim at 32.0 mm in x and y; sagitta 0.14 mm (was 28 / 0.10 mm: ADR-050's two collar counterbores add 224 triangles, 24 keeps the part under its 1,500)
         r_rim=1.60, r_drum=1.44, half_len=2.93, drum_half=2.45,
         r_bore=0.40, r_hub=0.64, r_hub_outer=0.84,
         channels=18, channel_span=2.20,      # channel centres z = +-2.20 cm, 17 pitches of 2.588 mm
@@ -45,6 +46,7 @@ PARAMS = {
         bass=((0, 0), (18, 0), (36, 1), (54, 0)),
         pin_base_r=1.40, pin_tip_r=1.592, pin_bw=0.078,
         grab_radius=0.020,
+        cb_r=0.52, cb_depth=0.52,   # ADR-050: end counterbore for collar_set_8 (OD 10.0 x 5.0 mm): 10.4 mm across, 5.2 mm deep, 1.0 mm wall at the hub face
     )
 }
 
@@ -53,7 +55,9 @@ def profile(p):
     h, hd = p["half_len"], p["drum_half"]
     rb, rh, rho, rr, rd = p["r_bore"], p["r_hub"], p["r_hub_outer"], p["r_rim"], p["r_drum"]
     # one end, from the drum outwards: step up to the rim, rim wall, 45 degree chamfer, plate face, two-tier hub, bore
-    side = [(rd, hd), (rr, hd + 0.07), (rr, hd + 0.18), (rr - 0.07, hd + 0.26), (rho, hd + 0.26), (rho, hd + 0.32), (rh, hd + 0.32), (rh - 0.02, h), (rb, h)]
+    rcb, dcb = p["cb_r"], p["cb_depth"]
+    side = [(rd, hd), (rr, hd + 0.07), (rr, hd + 0.18), (rr - 0.07, hd + 0.26), (rho, hd + 0.26), (rho, hd + 0.32), (rh, hd + 0.32), (rh - 0.02, h),
+            (rcb, h), (rcb, h - dcb), (rb, h - dcb)]                     # ... then the collar counterbore, and the bore from its floor
     neg = [(r, -z) for r, z in side]
     # closed loop: bore wall bottom -> negative end outwards -> drum (rings at +-hd/2 for the AO gradient) -> positive end -> bore wall top
     loop = [neg[-1]] + [neg[i] for i in range(len(neg) - 2, -1, -1)]
@@ -103,6 +107,10 @@ def build(entry: dict, params: dict):
     obj = finish(b, name)
     obj["wu"] = dict(id=entry["id"], family=FAMILY, rotationAxis="+Z", pins=len(ev), channels=p["channels"], channelPitchMm=round(pitch * 10, 3))
     col = empties.add_collider(obj, "Grab", "sphere", p["grab_radius"])
+    # collar seats: the collar's centre is 2.5 mm in from the hub face (z +-29.3), so its outer face is flush; the counterbore is 0.2 mm deeper than the collar is long
+    zc = (p["half_len"] - 0.25) * 0.01
+    socks = [fz.hw_socket(obj, "CollarL", "collar_set_8", (0.0, 0.0, -zc), (0.0, 0.0, 1.0), slot="collar_cylinder_l", carried=True, note="in the -Z end counterbore"),
+             fz.hw_socket(obj, "CollarR", "collar_set_8", (0.0, 0.0, zc), (0.0, 0.0, 1.0), slot="collar_cylinder_r", carried=True, note="in the +Z end counterbore")]
 
     def check(g, objs):
         import numpy as np
@@ -114,7 +122,7 @@ def build(entry: dict, params: dict):
         g.info.update(maxRadiusMm=round(float(r.max()) * 1000, 3), pins=len(ev))
         if r.max() > p["r_rim"] / 100 + 1e-6:
             g.fail("Q13", f"a pin or rim reaches radius {r.max() * 1000:.3f} mm, the rim is {p['r_rim'] * 10:.1f} mm")
-    return [obj, col], dict(origin=("centre", "centre", "centre"), closed=True, checks=[check])
+    return [obj, col] + socks, dict(origin=("centre", "centre", "centre"), closed=True, checks=[check])
 
 
 if __name__ == "__main__":

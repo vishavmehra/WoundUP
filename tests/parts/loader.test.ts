@@ -63,7 +63,9 @@ function fakeScene(assetId: string): Object3D {
     grab.userData.wu = { type: 'collider', shape: 'sphere', purpose: 'grab' };
     body.add(grab);
   }
-  const sockets = BLUEPRINTS.flatMap((b) => b.sockets).filter((s) => s.node !== undefined && (housing ? NESTED[s.node!] === undefined : NESTED[s.node!] === assetId));
+  // Hardware that a part carries (a gear's pin) is an empty of that part's GLB, not of the housing; only the case's own anchor is the housing's (ADR-050).
+  const inHousing = (s: { family: string; carrier?: string }): boolean => s.family !== 'fastener' || s.carrier === undefined;
+  const sockets = BLUEPRINTS.flatMap((b) => b.sockets).filter((s) => s.node !== undefined && (housing ? NESTED[s.node!] === undefined && inHousing(s) : NESTED[s.node!] === assetId));
   const seen = new Set<string>();
   for (const s of sockets) {
     if (seen.has(s.node!)) continue; // bracket_left of both machines would not share a node, but be safe
@@ -220,11 +222,14 @@ describe('PartLoader.spawnPart', () => {
 });
 
 describe('PartLoader.spawnMachine', () => {
-  it('binds all 12 Music Box sockets by blueprint id, accepting catalogue ids (not the asset names of the GLB empties), and adds the X-ray zone', async () => {
+  it("binds the Music Box housing's 13 sockets (the 12 parts and the spring anchor) by blueprint id, accepting catalogue ids (not the asset names of the GLB empties), and adds the X-ray zone", async () => {
     const { world, loader } = setup();
     const machine = await loader.spawnMachine('music_box');
-    expect([...machine.sockets.keys()].sort()).toEqual(MUSIC_BOX.sockets.map((s) => s.id).sort());
-    expect(machine.unbound()).toEqual([]);
+    const carried = MUSIC_BOX.sockets.filter((s) => s.family === 'fastener' && s.carrier !== undefined).map((s) => s.id);
+    expect(carried).toHaveLength(21); // the hardware that sits on a part: bound when the part that carries it is, like the Carousel's lamps
+    expect([...machine.sockets.keys()].sort()).toEqual(MUSIC_BOX.sockets.filter((s) => !carried.includes(s.id)).map((s) => s.id).sort());
+    expect(machine.sockets.size).toBe(13);
+    expect(machine.unbound().sort()).toEqual([...carried].sort());
     const accepts = (id: string): string[] => machine.sockets.get(id)!.getValue(Socket, 'accepts') as string[];
     expect(accepts('cylinder_wheel')).toEqual(MUSIC_BOX.sockets.find((s) => s.id === 'cylinder_wheel')!.acceptedPartIds);
     expect(accepts('cylinder_wheel')).toContain('gear_spur_12_m1_brass');
@@ -247,7 +252,7 @@ describe('PartLoader.spawnMachine', () => {
     town.updateWorldMatrix(true, true);
     const world = new Vector3();
     const worldQuat = new Quaternion();
-    for (const s of MUSIC_BOX.sockets) {
+    for (const s of MUSIC_BOX.sockets.filter((x) => x.position !== undefined)) {
       const node = machine.sockets.get(s.id)!.getValue(Socket, 'node') as Object3D;
       node.getWorldPosition(world);
       const expected = new Vector3(...s.position!).applyMatrix4(town.matrixWorld);
@@ -325,6 +330,60 @@ describe('PartLoader.spawnMachine', () => {
     expect(sockets.every((s) => !s.active)).toBe(true);
     expect(loader.instances('carousel_base')).toBe(0);
     expect(loader.instances('carousel_canopy')).toBe(0);
+  });
+});
+
+describe('hardware a part carries (ADR-050)', () => {
+  /** A bracket GLB as the asset agent wrote it: a bush seat and a screw seat of its own, and a seat for a gear that no blueprint socket of a build in place names. */
+  function bracketScene(): Object3D {
+    const scene = fakeScene('bracket_support');
+    const body = scene.children[0];
+    body.add(socketEmpty('Bush', ['bush_split_8']));
+    body.add(socketEmpty('Screw', ['screw_slot_m3']));
+    body.add(socketEmpty('WheelL', ['spur_gear']));
+    return scene;
+  }
+  const seatOf = (part: { sockets: readonly Entity[] }, name: string): Entity => part.sockets.find((e) => e.getValue(Socket, 'name') === name)!;
+
+  it('binds the seats of a seated part to the blueprint ids of its carrier, takes them back when it leaves, and keeps every unnamed seat shut', async () => {
+    const { loader, scene, source } = setup();
+    source.scenes.set('bracket_support', bracketScene());
+    const machine = await loader.spawnMachine('music_box', { parent: scene });
+    const bracket = await loader.spawnPart(idOf('bracket_support'), { parent: scene, machine });
+    // Nothing the bracket carries is a socket of the machine until the bracket stands in a socket, and none of its empties takes a piece before that.
+    expect(machine.sockets.has('bush_left')).toBe(false);
+    expect(bracket.sockets).toHaveLength(3);
+    for (const e of bracket.sockets) expect(e.getValue(Socket, 'armed'), String(e.getValue(Socket, 'name'))).toBe(false);
+
+    expect(machine.bindCarried(bracket, 'bracket_left').sort()).toEqual(['bush_left', 'screw_bracket_left']);
+    expect(machine.sockets.get('bush_left')).toBe(seatOf(bracket, 'Bush'));
+    expect(machine.sockets.get('screw_bracket_left')).toBe(seatOf(bracket, 'Screw'));
+    expect(machine.sockets.has('bush_right')).toBe(false); // the other bracket's
+
+    // The same part seated in the other bracket socket carries the other ids; the first binding is let go.
+    expect(machine.bindCarried(bracket, 'bracket_right').sort()).toEqual(['bush_right', 'screw_bracket_right']);
+    expect(machine.sockets.has('bush_left')).toBe(false);
+
+    machine.sockets.get('bush_right')!.setValue(Socket, 'armed', true);
+    expect(machine.unbindCarried(bracket).sort()).toEqual(['bush_right', 'screw_bracket_right']);
+    expect(machine.sockets.has('bush_right')).toBe(false);
+    expect(seatOf(bracket, 'Bush').getValue(Socket, 'armed')).toBe(false); // shut again
+    expect(machine.unbindCarried(bracket)).toEqual([]);
+
+    machine.bindCarried(bracket, 'bracket_left');
+    bracket.dispose();
+    expect(machine.sockets.has('bush_left')).toBe(false); // gone with the part
+  });
+
+  it('spawns a part in the very frame it is asked for once its file is loaded, and not grabbable when told so', async () => {
+    const { loader, scene } = setup();
+    await loader.load('gear_spur_10_m1');
+    const loose = loader.spawnLoaded(idOf('gear_spur_10_m1'), { parent: scene, loose: true });
+    expect(loose.entity.hasComponent(SnapPart)).toBe(true);
+    expect(loose.entity.hasComponent(ReturnsToRest)).toBe(false);
+    const held = loader.spawnLoaded(idOf('gear_spur_10_m1'), { parent: scene });
+    expect(held.entity.hasComponent(ReturnsToRest)).toBe(true);
+    expect(() => loader.spawnLoaded(idOf('winding_key'), { parent: scene })).toThrow('not in the cache');
   });
 });
 

@@ -5,7 +5,7 @@
 import { WORN_SPRING_ENERGY_FRACTION } from '../../sim';
 import type { PartCatalogue, PartMechanics } from '../../sim';
 import { FINISH_SUFFIX } from './types';
-import type { FinishName, PartDefinition, PartFamily } from './types';
+import type { FinishName, PartDefinition, PartFamily, PartVoice } from './types';
 
 // ---- Mechanical constants ----------------------------------------------------------------------------------------------
 
@@ -43,6 +43,7 @@ function part(
   name: string,
   grab: number | null,
   mechanical?: PartMechanics,
+  voice?: PartVoice,
 ): PartDefinition {
   return {
     id: `${assetId}_${FINISH_SUFFIX[finish]}`,
@@ -50,6 +51,7 @@ function part(
     family,
     ...(mechanical === undefined ? {} : { mechanical }),
     visual: { assetId, finish, scale: 1 },
+    ...(voice === undefined ? {} : { feedback: { voice } }),
     grab: grab === null ? { enabled: false, colliderRadius: 0 } : { enabled: true, colliderRadius: grab },
   };
 }
@@ -66,6 +68,14 @@ const spring = (kind: 'standard' | 'worn', energyPerUnit: number, drainRate: num
     energyPerUnit,
     drainRate,
   });
+
+/**
+ * Hardware (INTRICATE_ASSEMBLY_DESIGN §4.1, ADR-050): brass only, no mechanical data (it has no speed, ratio or energy). `grab` is the radius of the
+ * invisible COL_Grab: 1.5 cm on the thin pieces (the visible mesh is 1 to 6 mm and is never enlarged), 1.2 cm on the rest. Only the P0 subset
+ * of the nine ids exists here; `nut_hex_8` and `spacer_sleeve_8` come with the other machines.
+ */
+const fastener = (assetId: string, finish: FinishName, name: string, grab: number, voice: PartVoice): PartDefinition =>
+  part(assetId, finish, 'fastener', name, grab, undefined, voice);
 
 export const PART_DEFINITIONS: readonly PartDefinition[] = Object.freeze([
   spurGear(10, 0.0146), // COL_Grab radius of the regenerated gear GLBs (module 2.5 mm) = the tip radius
@@ -104,6 +114,14 @@ export const PART_DEFINITIONS: readonly PartDefinition[] = Object.freeze([
   part('clock_bell', 'Mat_PolishedBrass', 'structural', 'Clock bell', 0.015), // COL_Grab added for the Belfry (ADR-048): the player hangs the bell in its hooks by hand
   part('clock_face', 'Mat_CreamEnamel', 'structural', 'Clock face', null),
   part('clock_hands', 'Mat_Walnut', 'structural', 'Clock hands', null),
+  // Hardware of the Music Box deep build (ADR-050).
+  fastener('pin_taper_2', 'Mat_PolishedBrass', 'Taper pin', 0.015, 'pin'),
+  fastener('pin_dowel_3', 'Mat_PolishedBrass', 'Dowel pin', 0.015, 'pin'),
+  fastener('collar_set_8', 'Mat_AgedBrass', 'Set collar', 0.012, 'collar'),
+  fastener('washer_plain_8', 'Mat_AgedBrass', 'Plain washer', 0.015, 'washer'),
+  fastener('bush_split_8', 'Mat_AgedBrass', 'Split bush', 0.012, 'bush'),
+  fastener('screw_slot_m3', 'Mat_PolishedBrass', 'Slotted screw', 0.015, 'screw'),
+  fastener('clip_angle_small', 'Mat_AgedBrass', 'Angle clip', 0.012, 'clip'),
   // Well and Belfry pieces (ADR-048). The cam, the follower and the pulley were library parts before; the ratchet, the pawl and the
   // flywheel were G2 until this machine pair (WELL_FOUNTAIN_BLUEPRINT §11). The solver has no ratchet, pawl or flywheel behaviour: they
   // are rigid shaft nodes (the pawl a trigger target), so none carries mechanics. Only the pulley has a value, its groove radius, which the
@@ -136,6 +154,15 @@ export function partIdsForAsset(assetId: string): readonly string[] {
 }
 
 export const partIdsOfFamily = (family: PartFamily): readonly string[] => PART_DEFINITIONS.filter((p) => p.family === family).map((p) => p.id);
+
+/** True for a piece of hardware (family `fastener`): never in a tray, always a stage's bag and the caddy. */
+export const isFastener = (partId: string): boolean => byId.get(partId)?.family === 'fastener';
+
+/** The snap voice of a part (INTRICATE_ASSEMBLY_DESIGN §10.1): its own `feedback.voice`, else wood for a structural part and brass for the rest. */
+export function partVoice(partId: string): PartVoice {
+  const def = byId.get(partId);
+  return def?.feedback?.voice ?? (def?.family === 'structural' ? 'wood' : 'brass');
+}
 
 /** The solver's part catalogue (SOLVER §5): the definitions themselves, whose `mechanical` field is what it reads. */
 export const SOLVER_CATALOGUE: PartCatalogue = Object.fromEntries(PART_DEFINITIONS.map((p) => [p.id, p] as const));

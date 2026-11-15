@@ -3,12 +3,15 @@ import {
   FINISH_SUFFIX,
   getPart,
   hasPart,
+  isFastener,
   MODEL_PATHS,
   modelPath,
   modelUrl,
   PART_DEFINITIONS,
   partIdsForAsset,
   partIdsOfFamily,
+  partVoice,
+  PART_VOICES,
   requirePart,
   SOLVER_CATALOGUE,
   SPRING_ANGULAR_VELOCITY,
@@ -36,6 +39,12 @@ interface ManifestAsset {
 const manifest = readJson('assets/manifest/glb-manifest.json') as { assets: ManifestAsset[] };
 const library = readJson('public/assets/materials/library.json') as { materials: Record<string, unknown> };
 
+/**
+ * Hardware (ADR-050) is catalogued before the lead merges its manifest entries (INTRICATE_ASSEMBLY_DESIGN §11.4: agents report entries, the lead
+ * applies them). Until an entry exists these assets are exempt from the manifest agreement; the moment one exists it is held to it like every other.
+ */
+const NOT_YET_IN_MANIFEST = new Set(PART_DEFINITIONS.filter((p) => p.family === 'fastener').map((p) => p.visual.assetId));
+const inManifest = (assetId: string): boolean => !NOT_YET_IN_MANIFEST.has(assetId) || manifest.assets.some((a) => a.id === assetId);
 /**
  * The GLBs the asset branch delivered for the Well and the Belfry (ADR-048) are in MODEL_PATHS and public/; the lead brings their manifest entries
  * in line when the branches merge (WELL_FOUNTAIN_BLUEPRINT §12 items 1 and 2, BELFRY_BLUEPRINT §12 items 1 and 2: path, classification, the new
@@ -77,6 +86,7 @@ describe('part catalogue', () => {
     for (const p of PART_DEFINITIONS) expect(MODEL_PATHS[p.visual.assetId], p.id).toBeDefined();
     const lagging: string[] = [];
     for (const [assetId, path] of Object.entries(MODEL_PATHS)) {
+      if (!inManifest(assetId)) continue;
       const entry = byId.get(assetId);
       if (manifestToUpdate.has(assetId)) {
         if (entry?.glbPath !== `public/assets/models/${path}`) lagging.push(assetId);
@@ -98,7 +108,7 @@ describe('part catalogue', () => {
       expect(Object.keys(library.materials), p.id).toContain(p.visual.finish);
       const entry = byId.get(p.visual.assetId);
       if (entry === undefined && manifestToUpdate.has(p.visual.assetId)) continue; // a GLB the lead has not entered into the manifest yet (the Belfry's vane)
-      expect(entry?.materials[0], p.id).toBe(p.visual.finish);
+      if (inManifest(p.visual.assetId)) expect(entry?.materials[0], p.id).toBe(p.visual.finish);
     }
   });
 
@@ -156,5 +166,47 @@ describe('springs (MUSIC_BOX_BLUEPRINT §4.2)', () => {
     expect(standard.drainRate).toBe(STANDARD_DRAIN_RATE);
     expect(worn.drainRate).toBe(WORN_DRAIN_RATE);
     expect(WORN_DRAIN_RATE).toBeGreaterThan(STANDARD_DRAIN_RATE);
+  });
+});
+
+describe('hardware (ADR-050, INTRICATE_ASSEMBLY_DESIGN §4.1)', () => {
+  // asset id, finish word, grab radius in metres (1.5 cm on the thin pieces whose mesh is 1 to 6 mm, 1.2 cm on the rest), snap voice
+  const HARDWARE = [
+    ['pin_taper_2', 'polished_brass', 0.015, 'pin'],
+    ['pin_dowel_3', 'polished_brass', 0.015, 'pin'],
+    ['collar_set_8', 'brass', 0.012, 'collar'],
+    ['washer_plain_8', 'brass', 0.015, 'washer'],
+    ['bush_split_8', 'brass', 0.012, 'bush'],
+    ['screw_slot_m3', 'polished_brass', 0.015, 'screw'],
+    ['clip_angle_small', 'brass', 0.012, 'clip'],
+  ] as const;
+
+  it('catalogues the seven P0 ids as family `fastener`, each with its collider and its snap voice, and no mechanical data', () => {
+    expect([...partIdsOfFamily('fastener')].sort()).toEqual(HARDWARE.map(([asset, finish]) => `${asset}_${finish}`).sort());
+    for (const [asset, finish, grab, voice] of HARDWARE) {
+      const p = requirePart(`${asset}_${finish}`);
+      expect(p.family, asset).toBe('fastener');
+      expect(p.visual.assetId, asset).toBe(asset);
+      expect(p.grab, asset).toEqual({ enabled: true, colliderRadius: grab });
+      expect(p.feedback?.voice, asset).toBe(voice);
+      expect(p.mechanical, asset).toBeUndefined();
+      expect(isFastener(p.id), asset).toBe(true);
+      expect(MODEL_PATHS[asset], asset).toBe(`shared/fastener/${asset}.glb`);
+    }
+  });
+
+  it('uses brass only, from the existing library: no new material (design §4.1)', () => {
+    for (const id of partIdsOfFamily('fastener')) expect(['Mat_AgedBrass', 'Mat_PolishedBrass']).toContain(requirePart(id).visual.finish);
+  });
+
+  it('answers a snap voice for every part: its own, else wood for a structural part and brass for the rest', () => {
+    for (const p of PART_DEFINITIONS) expect(PART_VOICES).toContain(partVoice(p.id));
+    expect(partVoice('gear_spur_10_m1_brass')).toBe('brass');
+    expect(partVoice('spring_standard_brass')).toBe('brass');
+    expect(partVoice('bracket_support_brass')).toBe('wood');
+    expect(partVoice('screw_slot_m3_polished_brass')).toBe('screw');
+    expect(partVoice('constructor')).toBe('brass');
+    expect(isFastener('gear_spur_10_m1_brass')).toBe(false);
+    expect(isFastener('constructor')).toBe(false);
   });
 });

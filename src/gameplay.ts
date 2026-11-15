@@ -23,21 +23,26 @@
  */
 import { AdditiveBlending, createSystem, DistanceGrabbable, Grabbed, Mesh, MeshBasicMaterial, OneHandGrabbable, PlaneGeometry, Quaternion, Vector3, VisibilityState } from '@iwsdk/core';
 import type { Entity, Object3D, World } from '@iwsdk/core';
+import { needsDirector } from './assembly/director';
+import { Bench } from './assembly/bench';
+import { AssemblyFeedback } from './assembly/feedback';
+import type { RevealHinge } from './assembly/feedback';
 import { bindClockTowerAudio } from './audio';
 import type { AudioEngine } from './audio';
-import { planBuild } from './build-plan';
-import { getBlueprint, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
-import type { Assembly, MachineBlueprint } from './content/blueprints';
-import { requirePart } from './content/parts';
+import { planBuild, withoutCaddy } from './build-plan';
+import { getBlueprint, giftPlacements, INTRICATE_ASSEMBLY, solveAssembly, unmetDependencies, filledDependents } from './content/blueprints';
+import type { Assembly, MachineBlueprint, StagesPlan } from './content/blueprints';
+import { isFastener, requirePart } from './content/parts';
 import { LESSON_IDS, MACHINE_PLOT, REPAIRS } from './game/content';
-import type { EngravingId, LetterDef, MachineId, PlotId, RepairDef } from './game/content';
+import type { Difficulty, EngravingId, LetterDef, MachineId, PlotId, RepairDef } from './game/content';
 import type { Gift } from './game/gift';
 import type { GameSession } from './game/session';
-import { interactionIntents, Socket, SnappedTo, WindKey, XRayTarget } from './interaction';
+import { interactionIntents, isGazeModeOn, Socket, SnappedTo, SocketSnapSystem, WindKey, XRayTarget } from './interaction';
 import type { InteractionIntent } from './interaction';
 import { BELFRY_MODEL_PATHS } from './machines/belfry';
 import { CLOCK_TOWER_MODEL_PATHS, ClockTowerRigComponent, ClockTowerSystem, clockTowerEvents, installClockTower, TheatreDoors } from './machines/clock-tower';
 import { WELL_MODEL_PATHS } from './machines/well';
+import { applyLibraryMaterials } from './materials';
 import type { MaterialRegistry } from './materials';
 import { installOnboarding } from './onboarding';
 import type { GameplayView, GhostGuide } from './onboarding';
@@ -51,13 +56,18 @@ import { PAD_TOP_M } from './town/layout';
 import type { MachineRig } from './town';
 import type { LidHinge } from './town/motion';
 import { XRAY_SHELL, xrayZoneOf } from './town/xray-view';
+import { HELPER_COPY } from './ui';
 import type { FlowEvent, FlowUi, TownLoad } from './ui';
 import { Progress, townRevealScale } from './ui/anim';
-import { BENCH, benchPoint } from './ui/layout';
+import { BENCH, benchPoint, CADDY_AT } from './ui/layout';
 import { placeTrayParts } from './tray-layout';
 
 /** A finished machine keeps running after it is placed for at most this long (the Music Box plays one cylinder turn), seconds. */
 const PLACED_RUN_CAP_S = 16;
+/** The fastener caddy (ADR-050): a child of the bench, in the build zone's front strip (INTRICATE_ASSEMBLY_DESIGN §3.3, `CADDY_AT`). */
+const CADDY_MODEL_PATH = 'tockton/workshop/fastener_caddy.glb';
+/** After Run the power path walks the machine for this long before the lid shuts for the reveal (design §10.4), seconds. */
+const REVEAL_AFTER_S = 0.8;
 const Z_AXIS = new Vector3(0, 0, 1);
 const _spin = new Quaternion();
 
@@ -173,6 +183,13 @@ export class Gameplay {
   /** The theatre facade's doors (PIV_DoorL, PIV_DoorR), opened by the tower's hour; `doorsWereOpen` shuts them once it stops. */
   private readonly doors = new TheatreDoors();
   private doorsWereOpen = false;
+  /** The intricate build in progress (ADR-050): the caddy, the stage bags, the Helper. Null for every build that keeps today's flow. */
+  private bench: Bench | null = null;
+  private caddy: Object3D | null = null;
+  /** Presentation of the intricate assembly (snap voices, glints, the lid's reveal), made on first use; it outlives the build because the reveal comes after it. */
+  private feedback: AssemblyFeedback | null = null;
+  /** The finished machine while its reveal plays: the power path walks it, the lid shuts and lifts, then it runs. */
+  private reveal: { rig: MachineRig; result: SolveResult; wait: number } | null = null;
 
   constructor(
     private readonly world: World,
@@ -314,10 +331,23 @@ export class Gameplay {
       case 'cue':
         this.cue(event.cue);
         break;
+      case 'difficulty':
+        this.setLevel(event.value);
+        this.bench?.setDifficulty(event.value);
+        break;
+      case 'helper':
+        this.bench?.helperPressed(event.long, !isGazeModeOn());
+        break;
       default:
         break; // setting (Easy Snap is applied by the UI), gift-link
     }
   };
+
+  /** The player's level sets how far a hand's release reaches a socket (design §5.2). */
+  setLevel(level: Difficulty | null): void {
+    const system = this.world.getSystem(SocketSnapSystem);
+    if (system) system.config.level.value = level ?? 'standard';
+  }
 
   /** The player did what a ghost-hand lesson shows: the flow event is the proof (a press on the latch, the letter, the parcel, Run). */
   private lessonDone(event: FlowEvent['type']): void {
@@ -371,6 +401,43 @@ export class Gameplay {
     }
     this.syncTower();
     this.updateDoors();
+    this.updateAssembly(dt);
+  }
+
+  /** The intricate build's frame: the caddy's pieces, the director and the Helper, then the glints and the reveal (after `SocketSnapSystem`, which seats the parts). */
+  private updateAssembly(dt: number): void {
+    this.bench?.update(dt);
+    const reveal = this.reveal;
+    if (reveal && reveal.wait > 0) {
+      reveal.wait -= dt;
+      if (reveal.wait <= 0) this.feedbackFor().onReveal(() => this.startRunning(reveal.rig, reveal.result));
+    }
+    if (this.feedback) {
+      this.feedback.update(dt, this.world.camera);
+      if (this.bench || this.reveal || this.feedback.liveGlints > 0) this.opt.keepAwake();
+    }
+  }
+
+  /** The presentation of the intricate assembly, made on first use (it needs the stage). */
+  private feedbackFor(): AssemblyFeedback {
+    return (this.feedback ??= new AssemblyFeedback(
+      this.stage,
+      this.opt.audio,
+      {
+        locate: (socketId, out) => this.locate(socketId, out),
+        lid: (): RevealHinge | null => this.reveal?.rig.lid ?? this.lid,
+      },
+      { stages: 7 },
+    ));
+  }
+
+  /** The world position of what stands in solver socket `socketId`: the finished machine's own node during the reveal, else the part on the bench. */
+  private locate(socketId: string, out: Vector3): boolean {
+    const rotor = this.reveal?.rig.rotors.find((r) => r.socketId === socketId);
+    const object = rotor?.node ?? (this.build?.machine.sockets.get(socketId)?.getValue(Socket, 'occupant') as Entity | null | undefined)?.object3D;
+    if (!object) return false;
+    object.getWorldPosition(out);
+    return true;
   }
 
   // ---- The Clock Tower (ADR-047) ------------------------------------------------------------------------------------
@@ -475,12 +542,19 @@ export class Gameplay {
     });
     this.lid = openLid(machine.object);
 
-    // What each socket takes from the player, and what the game seats itself (src/build-plan.ts).
-    const { fixed, seatNow, spawnIds, handBuilt } = planBuild(blueprint, repair, machine.sockets.size, (socketId) => machine.sockets.has(socketId));
+    // What each socket takes from the player, and what the game seats itself (src/build-plan.ts). The intricate build (ADR-050) is the first build of a machine
+    // that tells its build in stages, at the player's level; a repair and the daily repair keep the build they had, their hardware seated by the game.
+    const level = this.session.save.settings.difficulty;
+    const staged = INTRICATE_ASSEMBLY && level !== null && repair === null && daily === null && blueprint.stages !== undefined;
+    const { fixed, seatNow, spawnIds, handBuilt, stages } = planBuild(blueprint, repair, machine.sockets.size, (socketId) => machine.sockets.has(socketId), staged ? level : undefined);
     const build: Build = { blueprint, machine, parts: [], fixed, repair, daily: daily?.date ?? null, key: null };
     const traySpawned = spawnIds.length - seatNow.length;
     this.build = build;
-    if (handBuilt) {
+    const deep = staged && needsDirector(blueprint, stages);
+    if (deep) {
+      this.setLevel(level);
+      if (!(await this.startDeep(build, stages, token, at))) return;
+    } else if (handBuilt) {
       // Each part lies in the compartment made for it (parts_tray.glb, src/tray-layout.ts), in its final pose from the start: the pose it is
       // spawned in is the one it returns to when it is let go.
       const slots = this.ui.traySlots().map((v) => this.stage.worldToLocal(v));
@@ -503,11 +577,82 @@ export class Gameplay {
     }
     this.ui.showBlueprint({
       title: blueprint.name,
-      slots: blueprint.sockets.map((s) => ({ id: s.id, label: requirePart(blueprint.intended[s.id]).name })),
+      slots: blueprint.sockets.filter((s) => s.family !== 'fastener').map((s) => ({ id: s.id, label: requirePart(blueprint.intended[s.id]).name })), // hardware is not a slot (ADR-050)
     });
     this.windUnits = 0;
     for (const socketId of Object.keys(fixed)) this.ui.setSlotFilled(socketId, true);
+    this.bench?.begin(); // after the sheet: the director puts the stage list on it
     this.checkComplete();
+  }
+
+  /**
+   * The intricate build's bench (ADR-050, design §3): the caddy on the bench, the director with its stage bags, the dispensers and the Helper. The hardware files
+   * are loaded first, so a piece can be made in the very frame the dispenser or the game asks for it. False when the build was replaced while this was loading.
+   */
+  private async startDeep(build: Build, asked: StagesPlan, token: number, at: { readonly x: number; readonly y: number; readonly z: number }): Promise<boolean> {
+    const { blueprint, machine } = build;
+    const hardwareAssets = new Set(Object.values(blueprint.intended).filter(isFastener).map((partId) => requirePart(partId).visual.assetId));
+    const [caddy] = await Promise.all([this.loadCaddy(), ...[...hardwareAssets].map((assetId) => this.loader.load(assetId))]);
+    if (token !== this.buildToken) {
+      caddy?.removeFromParent();
+      return false;
+    }
+    this.caddy = caddy;
+    // No caddy, no bins: Standard and Master would wait for hardware nothing hands out, so the game seats it as in Relaxed.
+    const plan = caddy ? asked : withoutCaddy(blueprint, asked);
+    if (plan !== asked) console.warn(`[wound-up] No fastener caddy on the bench: the game seats the hardware at ${asked.difficulty}, as in Relaxed.`);
+    // Every big part of the build has its compartment from the start (so the tray never reshuffles as bags open); a stage's parts are made when it opens.
+    const bigIds = plan.stages.flatMap((st) => st.bag.big);
+    const slots = this.ui.traySlots().map((v) => this.stage.worldToLocal(v));
+    const lies = placeTrayParts(
+      bigIds.map((id) => ({ assetId: requirePart(id).visual.assetId, family: requirePart(id).family })),
+      slots,
+      _at.set(at.x, at.y + 0.05, at.z),
+    );
+    this.bench = new Bench({
+      world: this.world,
+      stage: this.stage,
+      loader: this.loader,
+      machine,
+      blueprint,
+      plan,
+      ui: this.ui,
+      audio: this.opt.audio,
+      feedback: this.feedbackFor(),
+      copy: HELPER_COPY,
+      caddy,
+      lies,
+      assembly: () => this.assembly(),
+      track: (part) => void build.parts.push(part),
+      untrack: (part) => {
+        const i = build.parts.indexOf(part);
+        if (i >= 0) build.parts.splice(i, 1);
+      },
+      anyHeld: () => {
+        for (const part of build.parts) if (part.entity.hasComponent(Grabbed)) return true;
+        return false;
+      },
+      onSeated: () => this.checkComplete(),
+      quiet: () => (this.session.mode !== 'build' && this.session.mode !== 'wind') || this.ui.panelOpen(),
+    });
+    this.feedbackFor().reset();
+    return true;
+  }
+
+  /** The fastener caddy on the bench (design §3.3), or null when its file does not load: then every level plays its hardware as Relaxed does (`withoutCaddy`). */
+  private async loadCaddy(): Promise<Object3D | null> {
+    try {
+      const model = await loadModel(CADDY_MODEL_PATH);
+      const root = model.scene.clone(true);
+      applyLibraryMaterials(root, this.opt.materials);
+      root.name = 'FastenerCaddy';
+      root.position.set(CADDY_AT.x, CADDY_AT.y, CADDY_AT.z);
+      this.ui.benchRoot.add(root);
+      return root;
+    } catch (error) {
+      console.warn('[wound-up] The fastener caddy did not load.', error);
+      return null;
+    }
   }
 
   /** The parts of the bench machine that stand in a socket now. Allocates: X-ray asks when it turns on. */
@@ -562,19 +707,24 @@ export class Gameplay {
     const build = this.build;
     switch (intent.type) {
       case 'snapped': {
-        if (!build) return;
-        const socketId = this.socketIdOf(build, intent.socket);
-        if (socketId === undefined) return; // a plot socket: the town's
+        const socketId = build ? this.socketIdOf(build, intent.socket) : undefined;
+        if (!build || socketId === undefined) {
+          // A plot socket: the town's. `bindInteractionAudio(audio, { snaps: false })` leaves every snap click to this layer, so the machine's click on its plot sounds here.
+          this.opt.audio.snap();
+          return;
+        }
         if (unmetDependencies(build.blueprint, this.assembly(), socketId).length > 0) {
           intent.part.removeComponent(SnappedTo); // the socket is not ready for it: out again, and the tray takes it back
           this.opt.audio.bonk();
+          this.bench?.wrong();
           return;
         }
         if (requirePart(intent.partId).family === 'winding_key') {
           intent.part.addComponent(WindKey, { axis: [0, 0, 1], maxUnits: MAX_WIND_UNITS });
           build.key = intent.part;
         }
-        this.ui.setSlotFilled(socketId, true);
+        if (!this.bench) this.opt.audio.snap(); // an intricate build's bench plays it, in the voice of the part's material, and reads the step engine (bench.ts)
+        if (!isFastener(intent.partId)) this.ui.setSlotFilled(socketId, true); // hardware is not a slot (ADR-050)
         this.checkComplete();
         break;
       }
@@ -582,7 +732,7 @@ export class Gameplay {
         if (!build) return;
         const socketId = this.socketIdOf(build, intent.socket);
         if (socketId === undefined) return;
-        this.ui.setSlotFilled(socketId, false);
+        if (!isFastener(intent.partId)) this.ui.setSlotFilled(socketId, false);
         if (build.key === intent.part) {
           intent.part.removeComponent(WindKey);
           build.key = null;
@@ -599,6 +749,9 @@ export class Gameplay {
         }
         break;
       }
+      case 'rejected':
+        this.bench?.wrong(); // a wrong attempt: it counts towards the Helper's offer
+        break;
       case 'wind':
       case 'windEnd':
         this.windUnits = intent.units;
@@ -647,6 +800,7 @@ export class Gameplay {
     const town = this.runtime ?? (await this.townReady);
     const rig = await buildMachine(id, loadModel, this.opt.materials, BLUEPRINT_SOCKET_IDS);
     if (!rig || this.build !== build) return;
+    const deep = this.bench !== null; // an intricate build ends in the reveal (design §10.4)
     const housing = build.machine.object;
     rig.root.position.copy(housing.position);
     rig.root.quaternion.copy(housing.quaternion);
@@ -656,8 +810,15 @@ export class Gameplay {
     this.disposeBuild();
 
     rig.result = result;
-    rig.running = true;
-    this.runs.push({ rig, left: result.continuous ? PLACED_RUN_CAP_S : Math.min(result.runSeconds, PLACED_RUN_CAP_S) });
+    if (deep) {
+      // The power path walks the standing machine, then the lid shuts, a held breath, and it lifts as the melody starts (`startRunning`).
+      rig.running = false;
+      this.reveal = { rig, result, wait: REVEAL_AFTER_S };
+      this.feedbackFor().onFirstRun(build.blueprint);
+    } else {
+      rig.running = true;
+      this.runs.push({ rig, left: result.continuous ? PLACED_RUN_CAP_S : Math.min(result.runSeconds, PLACED_RUN_CAP_S) });
+    }
     town.addRig(rig);
     this.carried = { rig, entity: makeCarriable(this.world, rig), pending: null };
     if (id === 'clock_tower') this.attachTower(rig, this.carried.entity);
@@ -666,6 +827,15 @@ export class Gameplay {
     else if (build.repair) this.session.repairVerified(build.repair.id);
     this.session.machineRanCorrectly(id);
     this.ui.onModeChange();
+    this.opt.keepAwake();
+  }
+
+  /** The reveal's lid is lifting: the machine runs for as long as its spring lasts, as a build that is not intricate does at once. */
+  private startRunning(rig: MachineRig, result: SolveResult): void {
+    if (this.reveal?.rig === rig) this.reveal = null;
+    rig.running = true;
+    this.runs = this.runs.filter((r) => r.rig !== rig);
+    this.runs.push({ rig, left: result.continuous ? PLACED_RUN_CAP_S : Math.min(result.runSeconds, PLACED_RUN_CAP_S) });
     this.opt.keepAwake();
   }
 
@@ -727,6 +897,10 @@ export class Gameplay {
   private disposeBuild(): void {
     const build = this.build;
     this.build = null;
+    this.bench?.end(); // before the parts go: it hands the pieces still waiting in the caddy back
+    this.bench = null;
+    this.caddy?.removeFromParent();
+    this.caddy = null;
     this.seating = null;
     this.lid = null;
     this.buildToken++;
@@ -740,6 +914,8 @@ export class Gameplay {
   /** Restart was confirmed: back to the frozen town and the trunk. The session and the UI have reset themselves. */
   private reset(): void {
     this.disposeBuild();
+    this.reveal = null;
+    this.feedback?.reset();
     if (this.carried) {
       this.retire(this.carried.rig, this.carried.entity);
       this.carried = null;
@@ -782,7 +958,7 @@ export class Gameplay {
     return {
       blueprintId: machineId,
       blueprintVersion: blueprint.version,
-      placements: Object.entries(assembly).map(([socketId, partId]) => ({ socketId, partId })),
+      placements: giftPlacements(blueprint, assembly), // the big parts only: hardware is implied (ADR-050)
       engraving,
     };
   }
@@ -792,6 +968,8 @@ export class Gameplay {
     this.unsubscribe();
     this.unbindTowerAudio();
     this.disposeBuild();
+    this.feedback?.dispose();
+    this.feedback = null;
   }
 
   // ---- QA -----------------------------------------------------------------------------------------------------------
@@ -812,6 +990,21 @@ export class Gameplay {
       state: () => ({
         mode: this.session.mode,
         build: this.build ? { blueprint: this.build.blueprint.id, parts: this.build.parts.length, seated: Object.keys(this.build.machine.assembly()).length, fixed: Object.keys(this.build.fixed).length } : null,
+        bench: this.bench
+          ? {
+              level: this.bench.difficulty,
+              stage: this.bench.director.steps?.stage ?? null,
+              armed: this.bench.director.steps?.armed ?? [],
+              next: this.bench.director.steps?.next ?? null,
+              /** The catalogue id of the part the next step takes, and whether it is hardware (a piece from the caddy). */
+              nextPart: this.build ? (this.build.blueprint.intended[this.bench.director.steps?.next ?? ''] ?? null) : null,
+              complete: this.bench.director.steps?.complete ?? false,
+              offer: this.bench.director.ladder.view.offer,
+              slip: this.bench.director.ladder.view.slip,
+              caddy: this.bench.binReport(),
+            }
+          : null,
+        revealing: this.reveal !== null,
         windUnits: this.windUnits,
         carried: Boolean(this.carried),
         placed: [...this.placed.keys()],
@@ -835,10 +1028,31 @@ export class Gameplay {
       seatAll: (): number => {
         const build = this.build;
         if (!build) return 0;
+        if (this.bench) {
+          // The intricate build: one armed step after another. A stage's tray opens when the stage before it closes and the game seats Relaxed's hardware a few frames
+          // later, so call it again (`seatAllByHelper` in tests/e2e/support/flow.ts does) until the machine is complete.
+          let n = 0;
+          while (this.bench.debugSeatNext()) n++;
+          return n;
+        }
         const loose = build.parts.filter((p) => !p.entity.hasComponent(SnappedTo));
         const plan = Object.entries(build.blueprint.intended).filter(([id, partId]) => !(id in build.fixed) && build.machine.sockets.has(id) && !build.machine.assembly()[id] && loose.some((p) => p.partId === partId));
         this.seat(build, loose, plan);
         return plan.length;
+      },
+      /** The intricate build's bench (the director, the dispenser, the Helper), or null. */
+      bench: (): Bench | null => this.bench,
+      /** World position of the tray compartment a part (by id) was made to lie in: where it returns to when let go. Null when the bench has no such part. */
+      homeOf: (partId: string): { x: number; y: number; z: number } | null => {
+        const home = this.bench?.restOf(partId, _at);
+        return home ? { x: _at.x, y: _at.y, z: _at.z } : null;
+      },
+      /** World position of the empty of blueprint socket `id` on the bench machine (a hardware seat only exists while its carrier is seated), or null. */
+      socketAt: (id: string): { x: number; y: number; z: number } | null => {
+        const node = this.build?.machine.sockets.get(id)?.getValue(Socket, 'node') as Object3D | undefined;
+        if (!node) return null;
+        node.getWorldPosition(_at);
+        return { x: _at.x, y: _at.y, z: _at.z };
       },
       /** A hand pulls the seated part `partId` out of its socket. */
       pull: (partId: string): boolean => {

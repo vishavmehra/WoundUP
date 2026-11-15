@@ -54,7 +54,7 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
     // The parts that carry sockets of their own are built into their machine, as the game does.
     const carrier: Record<string, string> = { carousel_canopy: 'carousel', windmill_tower: 'windmill', clock_face: 'clock_tower' };
     for (const def of PART_DEFINITIONS) {
-      const machineId = carrier[def.visual.assetId];
+      const machineId = carrier[def.visual.assetId] ?? 'music_box'; // the Music Box's gears, spring and brackets carry hardware seats (ADR-050): built into it too
       const machine = machineId === undefined ? undefined : await loader.spawnMachine(machineId, { parent: scene });
       const part = await loader.spawnPart(def.id, { parent: scene, machine });
       expect(part.warnings, def.id).toEqual([]);
@@ -93,21 +93,44 @@ describe.skipIf(missing.length > 0)('PartLoader on the real GLBs', () => {
         const asset = PART_DEFINITIONS.find((p) => p.id === partId)!.visual.assetId;
         if (asset === 'carousel_canopy' || asset === 'windmill_tower') await loader.spawnPart(partId, { parent: scene, machine });
       }
-      const withNode = bp.sockets.filter((s) => s.node !== undefined).map((s) => s.id);
+      // Hardware sits on the empty of the part that carries it (a gear's Pin): the loader binds the housing's and the nested parts', not those yet (ADR-050).
+      const carried = bp.sockets.filter((s) => s.family === 'fastener' && s.carrier !== undefined).map((s) => s.id);
+      const withNode = bp.sockets.filter((s) => s.node !== undefined && !carried.includes(s.id)).map((s) => s.id);
       expect(withNode.filter((id) => !machine.sockets.has(id)), `${bp.id}: sockets whose empty was not found`).toEqual([]);
       for (const [id, entity] of machine.sockets) {
         expect(entity.getValue(Socket, 'accepts'), `${bp.id}/${id}`).toEqual(bp.sockets.find((s) => s.id === id)!.acceptedPartIds);
       }
-      if (bp.id === 'music_box') expect(machine.unbound()).toEqual([]);
+      if (bp.id === 'music_box') expect(machine.unbound().sort()).toEqual([...carried].sort());
       machine.dispose();
     }
+  });
+
+  it('leaves the housing its own sockets: a spring\'s Key empty and a shaft\'s Cylinder empty never take the place of the case\'s, and are shut (a repair has two springs)', async () => {
+    const { scene, loader } = setup();
+    const machine = await loader.spawnMachine('music_box', { parent: scene });
+    const key = machine.sockets.get('winding_key');
+    const cylinder = machine.sockets.get('cylinder');
+    expect(key).toBeDefined();
+    expect(cylinder).toBeDefined();
+    const parts = [
+      await loader.spawnPart('spring_worn_brass', { parent: scene, machine }),
+      await loader.spawnPart('spring_standard_brass', { parent: scene, machine }),
+      await loader.spawnPart('shaft_short_brass', { parent: scene, machine }),
+    ];
+    expect(machine.sockets.get('winding_key'), 'the key still seats in the case\'s own Key').toBe(key);
+    expect(machine.sockets.get('cylinder'), 'the cylinder still seats in the case\'s own Cylinder').toBe(cylinder);
+    const homonyms = parts.flatMap((p) => p.sockets).filter((s) => s !== key && s !== cylinder && ['Key', 'Cylinder'].includes(s.getValue(Socket, 'name') as string));
+    expect(homonyms.length, 'two springs and a shaft each carry one such empty').toBe(3);
+    for (const socket of homonyms) expect(socket.getValue(Socket, 'armed'), 'an empty no blueprint socket owns takes nothing').toBe(false);
+    expect([...machine.sockets.values()].filter((s) => (s.getValue(Socket, 'name') as string) === 'Key')).toHaveLength(1);
+    machine.dispose();
   });
 
   it('puts the Music Box sockets at the blueprint poses, +1.0 mm gear spacing included', async () => {
     const { scene, loader } = setup();
     const machine = await loader.spawnMachine('music_box', { parent: scene });
     const group = new Group();
-    for (const s of BLUEPRINTS[0].sockets) {
+    for (const s of BLUEPRINTS[0].sockets.filter((x) => x.position !== undefined)) {
       const node = machine.sockets.get(s.id)!.getValue(Socket, 'node') as Object3D;
       expect(node.getWorldPosition(group.position).toArray(), s.id).toEqual(s.position!.map((v) => expect.closeTo(v, 9)));
       const want = new Quaternion(...(s.rotation ?? [0, 0, 0, 1])).normalize();

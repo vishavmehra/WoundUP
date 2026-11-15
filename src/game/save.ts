@@ -9,6 +9,7 @@
 
 import {
   ALL_LETTER_IDS,
+  DIFFICULTIES,
   isOneOf,
   LESSON_IDS,
   LETTER_STATUSES,
@@ -16,6 +17,7 @@ import {
   MACHINE_IDS,
   MACHINE_PLOT,
   PLOT_IDS,
+  type Difficulty,
   type LessonId,
   type LetterId,
   type LetterStatus,
@@ -23,6 +25,8 @@ import {
   type PlotId,
 } from './content';
 import { isDateKey } from './date';
+
+export type { Difficulty };
 
 export const SAVE_KEY = 'woundup.save';
 export const SAVE_VERSION = 1;
@@ -44,7 +48,16 @@ export interface Settings {
   readonly rayMode: boolean;
   readonly xrayHint: boolean;
   readonly night: boolean;
+  /**
+   * Build difficulty (INTRICATE_ASSEMBLY_DESIGN §6.2, ADR-050): `null` until the player answers the choice card at the first build.
+   * A save written before it existed has no such key and loads as `null`, so there is no version bump.
+   */
+  readonly difficulty: Difficulty | null;
 }
+
+/** The settings that are plain on/off switches (the Pause menu's toggle rows). */
+const BOOLEAN_SETTINGS = ['easySnap', 'gazeMode', 'rayMode', 'xrayHint', 'night'] as const;
+export type BooleanSettingKey = (typeof BOOLEAN_SETTINGS)[number];
 
 export interface SaveV1 {
   readonly version: 1;
@@ -63,7 +76,7 @@ export interface SaveV1 {
  * Starting values for a missing or reset setting. The specifications list the four settings but not their defaults;
  * the X-ray hint starts on so it can teach the gesture before the player turns it off (PRODUCT_SPEC §17).
  */
-export const DEFAULT_SETTINGS: Settings = { easySnap: false, gazeMode: false, rayMode: false, xrayHint: true, night: false };
+export const DEFAULT_SETTINGS: Settings = { easySnap: false, gazeMode: false, rayMode: false, xrayHint: true, night: false, difficulty: null };
 
 /** A new player's save: every letter locked, nothing built. A new object on every call. */
 export function freshSave(): SaveV1 {
@@ -136,12 +149,17 @@ export function validateSave(data: unknown): ValidateResult {
   // Settings are defaulted when missing (SAVE §4.5) but a present value of the wrong type is corruption.
   const rawSettings = data.settings === undefined ? {} : data.settings;
   if (!isRecord(rawSettings)) return bad('settings is not an object');
-  const settings: { -readonly [K in keyof Settings]: boolean } = { ...DEFAULT_SETTINGS };
-  for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]) {
+  const settings: { -readonly [K in keyof Settings]: Settings[K] } = { ...DEFAULT_SETTINGS };
+  for (const key of BOOLEAN_SETTINGS) {
     const value = rawSettings[key];
     if (value === undefined) continue;
     if (typeof value !== 'boolean') return bad('a setting is not a boolean');
     settings[key] = value;
+  }
+  const difficulty = rawSettings.difficulty;
+  if (difficulty !== undefined) {
+    if (difficulty !== null && !isOneOf(DIFFICULTIES, difficulty)) return bad('difficulty is not a known level or null');
+    settings.difficulty = difficulty;
   }
 
   // Lessons learned: a save written before the ghost hands existed has none. Names this build does not know (a newer build's lesson) are

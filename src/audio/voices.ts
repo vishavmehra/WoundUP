@@ -4,7 +4,7 @@
  * Peak levels are small on purpose; the engine's buses and compressor keep the mix quiet (UI_UX_SPEC §22: "audio should
  * support the interaction rather than compete with it").
  */
-import { midiToHz } from './notes';
+import { midiToHz, stageChord, stepLift } from './notes';
 
 const SILENT = 0.0001;
 const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
@@ -162,4 +162,95 @@ export function makeNoise(ctx: AudioContext, seconds = 0.06): AudioBuffer {
     data[i] = (seed / 0x80000000) - 1;
   }
   return buffer;
+}
+
+/**
+ * The sound of each kind of hardware and part as it seats (INTRICATE_ASSEMBLY_DESIGN §10.1). A part's catalogue `feedback.voice`
+ * is one of these. `brass` is today's snap (gears, springs, anything without a voice of its own).
+ */
+export const SNAP_VOICES = ['brass', 'pin', 'washer', 'bush', 'collar', 'screw', 'wood', 'clip'] as const;
+export type SnapVoice = (typeof SNAP_VOICES)[number];
+
+export function isSnapVoice(value: unknown): value is SnapVoice {
+  return typeof value === 'string' && (SNAP_VOICES as readonly string[]).includes(value);
+}
+
+/**
+ * One part seating, by material. `step` is how many placements of the current stage came before (0 first): every pitch rises
+ * along a pentatonic run, so a stage climbs a short scale. Each recipe is a few noise clicks and tones, all stopped by themselves.
+ */
+export function materialSnapVoice(ctx: AudioContext, out: AudioNode, noise: AudioBuffer, voice: SnapVoice, step: number): void {
+  const t = ctx.currentTime;
+  const k = stepLift(step);
+  switch (voice) {
+    case 'pin': // a high short tink
+      noiseClick(ctx, out, noise, t, 5200 * k, 9, 0.22, 0.008);
+      toneVoice(ctx, out, t, 4200 * k, 3900 * k, 0.12, 0.09);
+      break;
+    case 'washer': // a small ring that dies in 80 ms
+      noiseClick(ctx, out, noise, t, 3400 * k, 6, 0.25, 0.01);
+      toneVoice(ctx, out, t, 3100 * k, 3000 * k, 0.1, 0.08);
+      toneVoice(ctx, out, t, 4650 * k, 4500 * k, 0.05, 0.06);
+      break;
+    case 'bush': // a soft double click
+      noiseClick(ctx, out, noise, t, 1800 * k, 4, 0.3, 0.016);
+      noiseClick(ctx, out, noise, t + 0.045, 1800 * k, 4, 0.22, 0.016);
+      toneVoice(ctx, out, t, 260 * k, 200 * k, 0.06, 0.06);
+      break;
+    case 'collar': // a thunk with a click behind it
+      noiseClick(ctx, out, noise, t, 900 * k, 3, 0.3, 0.03);
+      toneVoice(ctx, out, t, 150 * k, 90 * k, 0.2, 0.09, 'triangle');
+      noiseClick(ctx, out, noise, t + 0.05, 2200 * k, 5, 0.12, 0.012);
+      break;
+    case 'screw': // three quick ratchet ticks over about 0.35 s as it drives itself in, then it seats
+      for (let i = 0; i < 3; i++) noiseClick(ctx, out, noise, t + i * 0.14, (2300 + i * 220) * k, 6, 0.3 - i * 0.04, 0.018);
+      toneVoice(ctx, out, t + 0.31, 1900 * k, 1500 * k, 0.07, 0.04);
+      break;
+    case 'wood': // a low tok
+      noiseClick(ctx, out, noise, t, 700 * k, 2.5, 0.25, 0.02);
+      toneVoice(ctx, out, t, 320 * k, 180 * k, 0.22, 0.07);
+      break;
+    case 'clip': // a spring snick
+      noiseClick(ctx, out, noise, t, 4800 * k, 8, 0.35, 0.008);
+      noiseClick(ctx, out, noise, t + 0.022, 2900 * k, 6, 0.25, 0.01);
+      toneVoice(ctx, out, t, 3400 * k, 2400 * k, 0.05, 0.03);
+      break;
+    default: // brass: today's snap, climbing with the stage
+      noiseClick(ctx, out, noise, t, 3600 * k, 7, 0.45, 0.02);
+      toneVoice(ctx, out, t, 2100 * k, 1700 * k, 0.1, 0.05);
+  }
+}
+
+/** The chord that closes a stage: a quick bell arpeggio on the stage's rung of the rising scale, ringing longest on the home chord. */
+export function stageChordVoice(ctx: AudioContext, out: AudioNode, index: number, total: number): void {
+  const notes = stageChord(index, total);
+  const home = index >= total - 1;
+  const t = ctx.currentTime + 0.02;
+  for (let i = 0; i < notes.length; i++) {
+    const at = t + i * 0.045;
+    const hz = midiToHz(notes[i]);
+    toneVoice(ctx, out, at, hz, hz, 0.13 - i * 0.012, home ? 2.4 : 1.1);
+    toneVoice(ctx, out, at, hz * 2.01, hz * 2.01, 0.04, home ? 0.9 : 0.4);
+  }
+}
+
+/** The progress dial advancing one tick: a small dry brass click, just after the chord begins. */
+export function dialTickVoice(ctx: AudioContext, out: AudioNode, noise: AudioBuffer): void {
+  const at = ctx.currentTime + 0.09;
+  noiseClick(ctx, out, noise, at, 2400, 8, 0.2, 0.012);
+  toneVoice(ctx, out, at, 1800, 1500, 0.05, 0.03);
+}
+
+/** The lid shutting: a soft low thump. */
+export function lidThumpVoice(ctx: AudioContext, out: AudioNode, noise: AudioBuffer): void {
+  const t = ctx.currentTime;
+  noiseClick(ctx, out, noise, t, 500, 1.5, 0.25, 0.05);
+  toneVoice(ctx, out, t, 95, 55, 0.32, 0.18);
+}
+
+/** The lid lifting as the melody is about to start: one soft rising sweep. */
+export function revealRiseVoice(ctx: AudioContext, out: AudioNode): void {
+  const t = ctx.currentTime;
+  toneVoice(ctx, out, t, 392, 784, 0.06, 1.5);
+  toneVoice(ctx, out, t + 0.1, 588, 1176, 0.03, 1.3);
 }

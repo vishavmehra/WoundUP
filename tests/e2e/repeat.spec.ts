@@ -46,12 +46,12 @@ async function world(page: Page) {
   });
 }
 
-/** Frozen town -> bench -> 12 parts by hand -> wind (helper) -> Run (helper) -> carried by hand onto the plot. */
+/** Frozen town -> bench -> the 12 big parts by hand, stage by stage (the game seats the hardware) -> wind (helper) -> Run (helper) -> carried by hand onto the plot. */
 async function flowByHand(page: Page, hand: Hand): Promise<string[]> {
   const notes: string[] = [];
   await openTrunkAndSetBench(page);
   const reports = await assembleByHand(page, hand);
-  const bad = reports.filter((r, i) => !(r.grabbed && r.snapped && r.releasedAt < 0.04 && r.seatedAfter === i + 1));
+  const bad = reports.filter((r, i) => !(r.grabbed && r.snapped && r.releasedAt < 0.04 && r.seatedAfter > (i === 0 ? 0 : reports[i - 1].seatedAfter))); // the game's own hardware seats count too (ADR-050)
   expect(bad, '12 parts pinched, carried and snapped').toEqual([]);
   await waitForMode(page, 'wind');
   await windByHelper(page, 8);

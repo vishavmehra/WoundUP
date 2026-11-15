@@ -117,7 +117,9 @@ test.describe('no WebXR: Play in your browser', () => {
 
     // The parts are made when the parcel opens, long after the page chose its grab component (ADR-024); they must follow the new headset.
     await openTrunkAndSetBench(page); // the trunk, letter and parcel go through the ?debug helper, as in the other specs
-    const parts = await listParts(page);
+    // The intricate build (ADR-050) seats the spring's anchor itself at Relaxed: a piece the game seats is not grabbable (no ReturnsToRest), so it is not one the hand takes.
+    const parts: Awaited<ReturnType<typeof listParts>> = [];
+    for (const part of await listParts(page)) if (await hasComponent(page, part, 'ReturnsToRest')) parts.push(part);
     expect(parts.length).toBeGreaterThan(0);
     for (const part of parts) {
       expect(await hasComponent(page, part, 'OneHandGrabbable'), `${part.name} near grab`).toBe(true);

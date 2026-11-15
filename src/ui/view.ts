@@ -28,6 +28,10 @@ export interface ViewContext {
   dailyAvailable?: boolean;
   /** The X-ray hint setting (SaveV1 `settings.xrayHint`). */
   xrayHint: boolean;
+  /** A build with stages is on the bench (the director gave the UI a step list): the Helper medallion shows while it is built and wound (ADR-050). */
+  helper?: boolean;
+  /** The first-build difficulty card is due: the next build has stages and the player has not chosen a level yet. It stands over the closed parcel. */
+  chooseDifficulty?: boolean;
   /** Whether the town's models are in (`TownLoad`). Absent: they are, which is every page that has no deferred town. */
   townLoad?: TownLoad;
 }
@@ -53,9 +57,11 @@ export interface View {
   dailyButton: boolean;
   /** The lens button (the accessible way to X-ray): wherever a machine is being built or carried. */
   lens: boolean;
+  /** The Helper medallion (ADR-050): with the tray, while a machine with stages is built or wound. */
+  helperButton: boolean;
   /** The X-ray hint: after a run that did not work out, when looking inside can help, and only if the player left the hint on. */
   xrayHint: boolean;
-  panel: 'none' | 'pause' | 'restart' | 'gift';
+  panel: 'none' | 'pause' | 'restart' | 'gift' | 'difficulty';
   /** The slip over the town once the trunk has opened but the town is not there: it is still `waiting` to arrive, or `failed` to load and offers a retry. */
   townCue: 'none' | 'waiting' | 'failed';
 }
@@ -73,7 +79,13 @@ export function viewFor(state: ModeState, local: LocalFlow, ctx: ViewContext): V
   const bench = BENCH_MODES.includes(mode);
   const parcelOpen = bench && local.parcel === 'open';
   const inTown = mode === 'town';
-  const panel = paused ? (state.restartArmed ? 'restart' : 'pause') : mode === 'gift' ? 'gift' : 'none';
+  const panel: View['panel'] = paused
+    ? (state.restartArmed ? 'restart' : 'pause')
+    : mode === 'gift'
+      ? 'gift'
+      : ctx.chooseDifficulty === true && mode === 'build' && local.parcel === 'closed'
+        ? 'difficulty'
+        : 'none';
   const townLoad = ctx.townLoad ?? 'ready';
   return {
     trunk: mode === 'intro' || local.trunk === 'opening' || local.trunk === 'withdrawing',
@@ -91,6 +103,7 @@ export function viewFor(state: ModeState, local: LocalFlow, ctx: ViewContext): V
     giftButton: inTown && ctx.giftAvailable && !paused,
     dailyButton: inTown && ctx.dailyAvailable === true && !paused,
     lens: bench && !paused,
+    helperButton: ctx.helper === true && parcelOpen && (mode === 'build' || mode === 'wind') && !paused,
     xrayHint: bench && !paused && ctx.xrayHint && local.result !== null && !local.result.canContinue,
     panel,
     // Nothing to wait for before the trunk opens (the town is hidden until then); a panel has the player's attention and covers the spot.

@@ -11,6 +11,12 @@ export const SOCKET_PREFIX = 'SOCKET_';
 export const COLLIDER_PREFIX = 'COL_';
 /** Smallest grab collider, a 1.2 cm radius, so tiny parts stay selectable (INTERACTION_SPEC §7.2). */
 export const MIN_GRAB_RADIUS_M = 0.012;
+/**
+ * A carrier's `COL_Grip` (the sphere over a unit's mass, INTRICATE_ASSEMBLY_DESIGN §5.3) answers to a pointer before any other collider under the
+ * cursor, nearer or not: `pointerEventsOrder` of @pmndrs/pointer-events sorts higher numbers first, ahead of distance. So pinching where a seated gear
+ * and the carrier's grip overlap takes the carrier. Every other collider has the default order 0.
+ */
+export const GRIP_POINTER_ORDER = 1;
 
 export interface SocketDef {
   /** Node name without the `SOCKET_` prefix. */
@@ -166,11 +172,27 @@ export function attachColliderProxies(colliders: readonly ColliderDef[]): Mesh[]
     const proxy = new Mesh(def.shape === 'box' ? unitBox : unitSphere, hidden());
     proxy.name = `${def.node.name}_proxy`;
     proxy.userData.wuProxy = { purpose: def.purpose, shape: def.shape } satisfies ProxyMark & { shape: string };
+    if (def.purpose === 'grip') proxy.pointerEventsOrder = GRIP_POINTER_ORDER;
     def.node.add(proxy);
     lift(proxy, def.shape, def.purpose);
     proxies.push(proxy);
   }
   return proxies;
+}
+
+/**
+ * An invisible sphere under `parent` that a pointer ray can hit, `radiusM` real metres across whatever scale `parent` has (the tap-to-fasten ring,
+ * seat-now.ts). The caller removes it with `removeFromParent()`; geometry and material are shared.
+ */
+export function createHitProxy(parent: Object3D, radiusM: number, name: string): Mesh {
+  unitSphere ??= new SphereGeometry(1, 12, 8);
+  const proxy = new Mesh(unitSphere, hidden());
+  proxy.name = name;
+  parent.add(proxy);
+  parent.updateWorldMatrix(true, false);
+  parent.getWorldScale(_scale);
+  proxy.scale.setScalar(radiusM / Math.max(Math.abs(_scale.x), Math.abs(_scale.y), Math.abs(_scale.z), 1e-6));
+  return proxy;
 }
 
 /** Recomputes the minimum size of every grab proxy under `root`. Call it after the root's scale changes, for example when a machine takes the town's scale. */

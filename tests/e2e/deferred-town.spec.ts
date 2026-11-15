@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- these specs reach into the ?debug world handle */
 import { expect, test, type Page } from '@playwright/test';
-import { whenActive } from './support/flow';
+import { answerDifficultyCard, whenActive } from './support/flow';
 import { press, pressWhenReady } from './support/xr';
 
 /**
@@ -137,6 +137,9 @@ test.describe('a town that cannot be loaded', () => {
     await pressWhenReady(page, 'envelope');
     await whenActive(page, 'UI_Accept');
     expect(await press(page, 'UI_Accept')).toBe(true);
+    // The Music Box is the first deep build (ADR-050): the level card stands over the closed parcel until it is answered, town or no town.
+    expect(await answerDifficultyCard(page)).toBe(true);
+    expect((await townCue(page)).cue).toBe('failed'); // the card has gone, so the slip over the town is back
     await pressWhenReady(page, 'parcel');
     await page.waitForTimeout(1000);
     expect(await page.evaluate(() => (window as any).__wu.state().build)).toBeNull();

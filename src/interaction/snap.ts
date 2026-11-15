@@ -11,17 +11,43 @@ import { Quaternion, Vector3 } from 'three';
 export const SNAP_RADIUS_M = 0.04;
 /** Easy Snap radius, 7 cm (INTERACTION_SPEC §8). */
 export const EASY_SNAP_RADIUS_M = 0.07;
+/** Relaxed snap radius, 7 cm, and with Easy Snap 9 cm (INTRICATE_ASSEMBLY_DESIGN §5.2, ADR-050). */
+export const RELAXED_SNAP_RADIUS_M = 0.07;
+export const RELAXED_EASY_SNAP_RADIUS_M = 0.09;
 /** A seated part comes out once pulled further than this, 3 cm (INTERACTION_SPEC §9). Smaller than the snap radius on purpose: it is the hysteresis that keeps tracking noise from detaching a part. */
 export const UNSNAP_DISTANCE_M = 0.03;
-/** "Short tween" of a successful snap (INTERACTION_SPEC §16). */
+/** A deliberate pull: the limit of a part inside a finished unit, so grabbing the carrier never pulls a gear out by mistake (design §5.3). */
+export const FIRM_UNSNAP_DISTANCE_M = 0.06;
+/** "Short tween" of a successful snap (INTERACTION_SPEC §16): the flight of the last stretch into the socket. */
 export const SNAP_TWEEN_S = 0.12;
+/** The settle that follows the flight: the part pushes 0.4 mm past home along its travel and eases back (design §5.2, §10.1). */
+export const SETTLE_S = 0.09;
+export const SETTLE_OVERSHOOT_M = 0.0004;
 /** `SocketSample.occupant` value of an empty socket. */
 export const NO_PART = -1;
 
-export const snapRadius = (easySnap: boolean): number => (easySnap ? EASY_SNAP_RADIUS_M : SNAP_RADIUS_M);
+/** The difficulty levels of ADR-050. Declared here so the interaction layer does not import the game layer; the strings are the same. */
+export type SnapLevel = 'relaxed' | 'standard' | 'master';
 
-/** `valid`: would snap. `family`: wrong part for this socket (red). `occupied`: another part sits there (red). */
-export type SnapStatus = 'valid' | 'family' | 'occupied';
+/** Real centimetres from the socket to the part's origin (design §5.2 table). Relaxed behaves as if Easy Snap were on, and the toggle adds 2 cm more; Easy Snap is an accessibility setting, never a hint, so Master uses the player's own. */
+export function snapRadius(easySnap: boolean, level: SnapLevel = 'standard'): number {
+  if (level === 'relaxed') return easySnap ? RELAXED_EASY_SNAP_RADIUS_M : RELAXED_SNAP_RADIUS_M;
+  return easySnap ? EASY_SNAP_RADIUS_M : SNAP_RADIUS_M;
+}
+
+/** `valid`: would snap. `family`: wrong part for this socket (red). `occupied`: another part sits there (red). `order`: the right part, but the socket is not armed yet, so the step before it is still open (red, ADR-050). */
+export type SnapStatus = 'valid' | 'family' | 'occupied' | 'order';
+
+/** Parts small enough that a hand opening the pinch moves them: the release assist (below) is for these. */
+const TINY_FAMILIES: ReadonlySet<string> = new Set(['fastener']);
+export const isTinyFamily = (family: string): boolean => TINY_FAMILIES.has(family);
+/** A preview that was valid this recently still counts when the pinch opens: the fingers drift apart as they let go. */
+export const ASSIST_WINDOW_S = 0.15;
+/** ...as long as the part is still within this many snap radii of that socket. */
+export const ASSIST_REACH = 1.5;
+
+/** Release assist: should a tiny part released out of range still go home to the socket it previewed `ageS` seconds ago, `distanceM` away? */
+export const assistedRelease = (ageS: number, distanceM: number, radiusM: number): boolean => ageS <= ASSIST_WINDOW_S && distanceM <= radiusM * ASSIST_REACH;
 
 /** One socket as the picker sees it. The system keeps these in an array and rewrites x, y, z in place each frame. */
 export interface SocketSample {
@@ -32,6 +58,10 @@ export interface SocketSample {
   accepts: readonly string[];
   /** Key of the part seated here, or NO_PART. */
   occupant: number;
+  /** False while the step before this one is still open: only armed sockets preview and snap (design §3.4). A machine with no stages has every socket armed. */
+  armed: boolean;
+  /** True while this socket is an empty of the held part itself (a carrier's child seat): a part is never a candidate for its own sockets. Written before each pick. */
+  own?: boolean;
   /** Own capture radius in metres, and the one with Easy Snap; absent or 0 when the socket uses the global radius. Only ever widens the global one. */
   captureRadius?: number;
   captureRadiusEasy?: number;
@@ -61,10 +91,12 @@ export function isCompatible(accepts: readonly string[], partId: string, family:
   return accepts.includes(partId) || (family !== '' && accepts.includes(family));
 }
 
-function statusOf(socket: SocketSample, part: PartSample): SnapStatus {
+/** What would happen if `part` were released at `socket`: see `SnapStatus`. */
+export function statusOf(socket: SocketSample, part: PartSample): SnapStatus {
   if (!isCompatible(socket.accepts, part.id, part.family)) return 'family';
   // A part counts as free to return to the socket it already occupies.
   if (socket.occupant !== NO_PART && socket.occupant !== part.key) return 'occupied';
+  if (!socket.armed && socket.occupant !== part.key) return 'order';
   return 'valid';
 }
 
@@ -82,6 +114,7 @@ export function pickSocket(part: PartSample, sockets: readonly SocketSample[], r
   let bestD2 = Infinity;
   for (let i = 0; i < sockets.length; i++) {
     const s = sockets[i];
+    if (s.own === true) continue;
     const dx = s.x - part.x;
     const dy = s.y - part.y;
     const dz = s.z - part.z;
@@ -102,10 +135,13 @@ export function pickSocket(part: PartSample, sockets: readonly SocketSample[], r
   return out.index >= 0;
 }
 
-/** A seated part detaches once it is pulled more than 3 cm from its socket (INTERACTION_SPEC §9). */
-export const shouldUnsnap = (distanceM: number): boolean => distanceM > UNSNAP_DISTANCE_M;
+/** A seated part detaches once it is pulled more than 3 cm from its socket (INTERACTION_SPEC §9), or more than `limitM` where a socket asks for a firmer hold. */
+export const shouldUnsnap = (distanceM: number, limitM: number = UNSNAP_DISTANCE_M): boolean => distanceM > limitM;
 
 export const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
+
+/** Shape of the settle, `u` in 0..1: 0 at both ends, 1 in the middle. Multiply by `SETTLE_OVERSHOOT_M` and the travel direction. */
+export const settleBump = (u: number): number => Math.sin(Math.PI * Math.min(1, Math.max(0, u)));
 
 const _from = new Vector3();
 const _swing = new Quaternion();

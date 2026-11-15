@@ -1,9 +1,9 @@
 // What a build starts with: which parts the game seats itself, which lie in the tray for the hands, and whether there is a tray at all.
 // Pure (no ECS, no IWSDK) so Vitest can hold it to the real blueprints; `Gameplay.startBuild` is the one caller.
-import { repairStart } from './content/blueprints';
-import type { Assembly, MachineBlueprint } from './content/blueprints';
+import { INTRICATE_ASSEMBLY, planStages, repairStart } from './content/blueprints';
+import type { Assembly, MachineBlueprint, StagesPlan } from './content/blueprints';
 import { requirePart } from './content/parts';
-import type { RepairDef } from './game/content';
+import type { Difficulty, RepairDef } from './game/content';
 import { dropSeatedByGame } from './tray-layout';
 
 export interface BuildPlan {
@@ -17,6 +17,11 @@ export interface BuildPlan {
   readonly spawnIds: readonly string[];
   /** True when there are parts to show on the bench (and so a tray). */
   readonly handBuilt: boolean;
+  /**
+   * The stages of the build at the difficulty asked (design §6, R5): what the player places, what the game seats and the bag of each stage. With
+   * `INTRICATE_ASSEMBLY` false, or no difficulty, it is the Relaxed plan whose hardware the game has already seated in `fixed`.
+   */
+  readonly stages: StagesPlan;
 }
 
 /**
@@ -25,21 +30,50 @@ export interface BuildPlan {
  * A first build whose tray still holds parts after the game has seated its own shows the tray even if no socket can be reached: those
  * parts are the decoys. The Clock Tower is such a build (Letter 6, ADR-047): its movement is seated by the game, and the worn spring
  * and the 12-tooth bevel gear still lie in the tray, where the player may try them. No socket takes either, so they stay loose.
+ *
+ * `difficulty` is the player's level (ADR-050). Left out, the build is planned as it was before ADR-050: hardware that has no reachable socket is
+ * seated by the game and the rest is placed by hand. With the fallback switch `INTRICATE_ASSEMBLY` false, every piece of hardware is seated by the game
+ * at the start whatever the level (design §12.4), and nothing else changes.
  */
-export function planBuild(blueprint: MachineBlueprint, repair: RepairDef | null, socketCount: number, hasSocket: (socketId: string) => boolean): BuildPlan {
+export function planBuild(
+  blueprint: MachineBlueprint,
+  repair: RepairDef | null,
+  socketCount: number,
+  hasSocket: (socketId: string) => boolean,
+  difficulty?: Difficulty,
+): BuildPlan {
+  const stages = planStages(blueprint, difficulty ?? 'standard', { intricate: INTRICATE_ASSEMBLY });
   const start = repair ? repairStart(repair) : undefined;
   const target: Assembly = start ? start.assembly : {};
   const trayIds: string[] = [];
   for (const entry of start ? start.tray : blueprint.tray) for (let i = 0; i < entry.quantity; i++) trayIds.push(entry.partId);
-  const handPlaced = (socketId: string, partId: string): boolean => hasSocket(socketId) && requirePart(partId).grab.enabled;
+  // With a difficulty the director runs the bags and the caddy (design §3.5): hardware sits on a part's own empty, which no `hasSocket` can answer before that
+  // part is built into the machine, so it is the player's (or the bundle's) and never seated by the game just because the housing has no socket for it.
+  const directed = difficulty !== undefined && INTRICATE_ASSEMBLY;
+  // Without a director nobody hands out hardware: a repair, the daily repair and the fallback seat every pin and screw themselves, whether the housing has an empty for it or not.
+  const handPlaced = (socketId: string, partId: string): boolean => {
+    const hardware = requirePart(partId).family === 'fastener';
+    return (hardware ? directed : hasSocket(socketId)) && requirePart(partId).grab.enabled;
+  };
   const fixed: Record<string, string> = {};
+  const seatedAtStart = new Set(stages.seat === 'at-start' ? stages.atStart : []);
   for (const [socketId, partId] of Object.entries(start ? start.assembly : blueprint.intended)) {
-    if (!handPlaced(socketId, partId)) fixed[socketId] = partId;
+    if (seatedAtStart.has(socketId) || !handPlaced(socketId, partId)) fixed[socketId] = partId;
   }
   if (!start) dropSeatedByGame(trayIds, fixed); // a part the game seats itself has no place in the tray
   const seatNow = Object.entries(target).filter(([socketId]) => !(socketId in fixed));
   const pinchable = trayIds.filter((id) => requirePart(id).grab.enabled);
   const spawnIds = [...pinchable, ...seatNow.map(([, partId]) => partId)];
   const handBuilt = socketCount > 0 || seatNow.length > 0 || (!start && pinchable.length > 0);
-  return { fixed, trayIds, seatNow, spawnIds, handBuilt };
+  return { fixed, trayIds, seatNow, spawnIds, handBuilt, stages };
+}
+
+/**
+ * The plan for a bench whose fastener caddy did not load: no bin can hand out hardware, so a Standard or Master build would wait for pins that never
+ * come. The game seats the hardware instead, as in Relaxed, and the level stays (the Helper and the rings keep it). The same plan when no hardware was
+ * the player's. The plan remembers it (`noCaddy`), so a level changed in Pause later keeps the hardware the game's.
+ */
+export function withoutCaddy(blueprint: MachineBlueprint, plan: StagesPlan): StagesPlan {
+  if (plan.stages.every((st) => st.bag.hardware.length === 0)) return plan;
+  return planStages(blueprint, plan.difficulty, { intricate: plan.intricate, stand: plan.stand, noCaddy: true });
 }

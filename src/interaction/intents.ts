@@ -9,8 +9,16 @@ export type InteractionIntent =
   | { type: 'snapped'; part: Entity; socket: Entity; socketName: string; partId: string }
   /** A seated part was pulled more than 3 cm out, so its socket is free again. */
   | { type: 'unsnapped'; part: Entity; socket: Entity; socketName: string; partId: string }
-  /** A part was released next to a socket that cannot take it (wrong family or already occupied). It returns to its tray. Play the soft bonk. */
-  | { type: 'rejected'; part: Entity; socket: Entity; socketName: string; partId: string; reason: 'family' | 'occupied' }
+  /**
+   * A part was released next to a socket that cannot take it: the wrong family, already occupied, or `order`: the right part for a socket whose
+   * step is not open yet (ADR-050). It returns to its tray or bin. Play the soft bonk.
+   */
+  | { type: 'rejected'; part: Entity; socket: Entity; socketName: string; partId: string; reason: 'family' | 'occupied' | 'order' }
+  /**
+   * A seated part reached its socket: the 120 ms flight is over and the 90 ms settle begins. Emitted on `settleIntents`, not on `interactionIntents`,
+   * so listeners that count snaps are unaffected. The hook for the glint, the screw's quarter turn and the stage beats.
+   */
+  | { type: 'settled'; part: Entity; socket: Entity; socketName: string; partId: string }
   /** Wind units were added. `units` is the new total, `gained` the units added by this event (1). */
   | { type: 'wind'; key: Entity; units: number; gained: number; hand: 'left' | 'right' }
   /** The player let go of the key. `gained` is the total added during that grab. */
@@ -38,3 +46,6 @@ export class IntentBus {
 
 /** The one bus the interaction systems emit on. The game layer subscribes to it. */
 export const interactionIntents = new IntentBus();
+
+/** The bus of the settle hook (`settled`): the arrival of a seated part, for feedback that must not be counted as a placement. */
+export const settleIntents = new IntentBus();

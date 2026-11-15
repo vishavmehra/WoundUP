@@ -4,8 +4,8 @@ import { filledDependents, MUSIC_BOX, unmetDependencies } from '../../src/conten
 describe('socket dependency rules (MUSIC_BOX_BLUEPRINT §7.1 Removal)', () => {
   it('say which sockets must be filled first, and only those still empty', () => {
     expect(unmetDependencies(MUSIC_BOX, {}, 'bracket_left')).toEqual([]);
-    expect(unmetDependencies(MUSIC_BOX, {}, 'arbor')).toEqual(['bracket_left', 'bracket_right']);
-    expect(unmetDependencies(MUSIC_BOX, { bracket_left: 'bracket_support_brass' }, 'arbor')).toEqual(['bracket_right']);
+    expect(unmetDependencies(MUSIC_BOX, {}, 'arbor')).toEqual(['bracket_left', 'bracket_right', 'bush_left', 'bush_right']); // and the bushes (ADR-050)
+    expect(unmetDependencies(MUSIC_BOX, { bracket_left: 'bracket_support_brass' }, 'arbor')).toEqual(['bracket_right', 'bush_left', 'bush_right']);
     expect(unmetDependencies(MUSIC_BOX, MUSIC_BOX.intended, 'arbor')).toEqual([]);
     expect(unmetDependencies(MUSIC_BOX, {}, 'no_such_socket')).toEqual([]);
   });

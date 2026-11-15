@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COMFORT_ANGLE_DEG, COMFORT_REACH_M, eyeAt, reachFromChest, targetAngleDeg } from '../../src/ui/comfort';
 import { BENCH, BUILD_ZONE, GIFT_SPOT, LENS_HINT_SPOT, LENS_SPOT, PANEL_SPOT, PAUSE_PANEL_BASE, PAUSE_PANEL_SCALE, PAUSE_PANEL_SPOT, PAUSE_SPOT, POKE_PRESS_M, benchZ, essentialAnchors } from '../../src/ui/layout';
-import { PAUSE_PLAQUES, placePanel } from './panel-geometry';
+import { PAUSE_PANELS, PAUSE_PLAQUES, placePanel } from './panel-geometry';
 
 /** Eyes over the stand (55 cm ahead, 38 cm above) and the spread a real table gives (INTERACTION_SPEC ยง3). */
 // The surface may be 20 to 60 cm below the eyes and its centre 40 to 60 cm ahead (placement.ts); it takes the candidate nearest the 55 cm aim
@@ -67,11 +67,13 @@ describe('flow UI layout against INTERACTION_SPEC ยง3', () => {
 // The pause panel (five setting rows and Resume / Restart chapter) is the one panel taller than the space between the machine's lid and the table (38 cm at full
 // size), so it has its own spot and size (layout.ts). Its centre is an essential anchor above; this holds every row to the reach, from every eye, not just the centre.
 describe('the pause panel against INTERACTION_SPEC ง3 and UI_UX_SPEC ง23', () => {
-  it('keeps every plaque, at its centre and at its four corners, within 60 cm of the chest from every eye', () => {
-    for (const eye of EYES) {
-      for (const plaque of placePanel(eye, PAUSE_PLAQUES)) {
-        for (const [i, point] of [plaque.centre, ...plaque.corners].entries()) {
-          expect(reachFromChest(eye, point), `${plaque.name} ${i === 0 ? 'centre' : `corner ${i}`}, eyes ${eye.y}/${eye.z}`).toBeLessThanOrEqual(COMFORT_REACH_M);
+  it('keeps every plaque, at its centre and at its four corners, within 60 cm of the chest from every eye, with five setting rows and with the Difficulty row (ADR-050)', () => {
+    for (const panel of PAUSE_PANELS) {
+      for (const eye of EYES) {
+        for (const plaque of placePanel(eye, panel.plaques, panel.spot)) {
+          for (const [i, point] of [plaque.centre, ...plaque.corners].entries()) {
+            expect(reachFromChest(eye, point), `${panel.name}: ${plaque.name} ${i === 0 ? 'centre' : `corner ${i}`}, eyes ${eye.y}/${eye.z}`).toBeLessThanOrEqual(COMFORT_REACH_M);
+          }
         }
       }
     }

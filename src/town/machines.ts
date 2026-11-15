@@ -10,6 +10,8 @@
  */
 import { Quaternion } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
+import { MUSIC_BOX, socketIdOfNode } from '../content/blueprints';
+import { modelPath, requirePart } from '../content/parts';
 import type { MachineId } from '../game/content';
 import { BELFRY_BELL_NODE, buildBelfry } from '../machines/belfry/build';
 import { buildClockTower } from '../machines/clock-tower/build';
@@ -169,6 +171,28 @@ export async function buildCarousel(source: ModelSource, registry: MaterialRegis
   return rig;
 }
 
+/**
+ * The 22 pieces of hardware of the deep build (INTRICATE_ASSEMBLY_DESIGN §8, ADR-050): each on the empty of the part that carries it, as a child of that part (so a pin
+ * turns with its gear, a washer with the arbor, a screw stays with its bracket, and `bakeRig` merges every one into the frame of the part it retains), in blueprint
+ * order, which puts a carrier before what it carries (a screw on a clip on the comb). A piece whose empty or file is missing is left out with a warning: the machine
+ * still runs without it.
+ */
+async function seatHardware(a: Assembler, box: Object3D, placed: Map<string, Object3D>): Promise<void> {
+  for (const s of MUSIC_BOX.sockets) {
+    if (s.family !== 'fastener' || s.node === undefined) continue;
+    const host = s.carrier === undefined ? box : placed.get(s.carrier);
+    const socket = host?.getObjectByName(`SOCKET_${s.node}`);
+    const path = modelPath(requirePart(MUSIC_BOX.intended[s.id]).visual.assetId);
+    if (!socket || path === undefined) {
+      console.warn(`[wound-up] the Music Box has no place for its ${s.id}: left out.`);
+      continue;
+    }
+    const piece = await a.load(path);
+    seat(socket, piece);
+    placed.set(s.id, piece);
+  }
+}
+
 export async function buildMusicBox(source: ModelSource, registry: MaterialRegistry): Promise<MachineRig> {
   const a = new Assembler(source, registry);
   const box = await a.load(`${MODELS}music_box/music_box_case.glb`);
@@ -176,14 +200,18 @@ export async function buildMusicBox(source: ModelSource, registry: MaterialRegis
   const rig = createRig('music_box', box);
 
   const turning: Array<{ node: Object3D; slot: string; socketName: string }> = [];
+  const placed = new Map<string, Object3D>(); // blueprint socket id -> the node of its part, for the hardware that part carries
   for (const [socketName, path, turns] of MUSIC_BOX_PARTS) {
     const socket = find(box, `SOCKET_${socketName}`);
     const part = await a.seatAt(box, socketName, path);
+    const id = socketIdOfNode(MUSIC_BOX, socketName);
+    if (part && id !== undefined) placed.set(id, part);
     if (!part || !socket || !turns) continue;
     const slot = (socket.userData.wu as { slot?: string } | undefined)?.slot ?? socketName.toLowerCase();
     turning.push({ node: part, slot, socketName });
   }
   await addHandle(a, box);
+  await seatHardware(a, box, placed);
 
   // The key sits on the mainspring's arbor and unwinds with it: it takes the speed of the spring's slot.
   const springSlot = turning.find((t) => t.socketName === 'Spring')?.slot;

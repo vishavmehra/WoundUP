@@ -98,7 +98,7 @@ describe('SocketSnapSystem', () => {
     expect(glb.sockets[0].getValue(Socket, 'occupant')).toBe(gear);
     expect(scene.children.length).toBe(before); // the ghost is gone
 
-    for (let i = 0; i < 12; i++) tick(world); // 0.12 s tween at 72 Hz
+    for (let i = 0; i < 16; i++) tick(world); // 0.12 s flight and 0.09 s settle at 72 Hz
     expect(gear.object3D!.position.length()).toBeLessThan(1e-6);
 
     // The housing moves: the seated part goes with it.
@@ -191,7 +191,7 @@ describe('SocketSnapSystem', () => {
     tick(world);
     letGo(far);
     expect(types()).toEqual(['snapped']);
-    for (let i = 0; i < 12; i++) tick(world);
+    for (let i = 0; i < 24; i++) tick(world); // the 120 ms flight and the 90 ms settle (ADR-050)
     expect(far.object3D!.position.length()).toBeLessThan(1e-6); // and it settles onto the socket
     glb.dispose();
 
@@ -255,10 +255,11 @@ describe('SocketSnapSystem with GrabFeedbackSystem (the order that installIntera
     tick(world);
     letGo(gear);
     // Inside the 0.35 s return-to-tray ease: the pose the frame ends with must already be the socket's. If the feedback
-    // system ran after the snap system it would win these frames and the part would drift towards the tray.
-    for (let i = 0; i < 20; i++) {
+    // system ran after the snap system it would win these frames and the part would drift towards the tray (centimetres).
+    for (let i = 0; i < 22; i++) {
       tick(world);
-      if (i >= 9) expect(gear.object3D!.position.length(), `frame ${i}`).toBeLessThan(1e-6); // tween (0.12 s) is done
+      if (i >= 9) expect(gear.object3D!.position.length(), `frame ${i}`).toBeLessThan(0.0005); // flight (0.12 s) is done: only the 0.4 mm settle is left
+      if (i >= 16) expect(gear.object3D!.position.length(), `frame ${i}`).toBeLessThan(1e-6); // settle (0.09 s) is done
     }
     for (let i = 0; i < 40; i++) tick(world); // well past the ease
     expect(types()).toEqual(['snapped']);

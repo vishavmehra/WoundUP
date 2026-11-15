@@ -23,10 +23,12 @@ import wu_common as wu
 from lib import empties
 
 import gen_mech_common as mc
+import gen_fastener as fast
 from gen_gear_spur import dome_shell
 
 FAMILY = "structural"
 BORE_R = 4.0
+BUSH_SEAT_R = 6.1                   # bracket_support only (ADR-050): the bearing seat takes bush_split_8 (OD 12.0 mm), which then carries the 8.2 mm arbor bore
 
 PARAMS = {
     "bearing_pillow_block": dict(grab_radius=0.012),
@@ -145,7 +147,7 @@ def build_bracket(entry, params):
     mc.prism(bm, bracket_outline(), -2.0, 2.0)                               # 4 mm plate
     mc.clean(bm)
     mc.bevel_hard(bm, 0.45)
-    cuts = [tool(mc.lathe, [(0.0, -2.8), (5.0, -2.8), (5.0, 2.8), (0.0, 2.8)], nseg=20)]      # seat opening, hidden behind the boss ring
+    cuts = [tool(mc.lathe, [(0.0, -2.8), (BUSH_SEAT_R + 0.2, -2.8), (BUSH_SEAT_R + 0.2, 2.8), (0.0, 2.8)], nseg=24)]      # bearing seat opening: the boss ring's inner wall (r 6.1) shows inside it
     slot = new()                                                             # lightening slot in the web, chamfered both faces
     mc.loft(slot, [(mc.stadium(0, -21.0, -17.0, 2.0, 0.8, 7), -2.4), (mc.stadium(0, -21.0, -17.0, 2.0, 0.0, 7), -1.6),
                    (mc.stadium(0, -21.0, -17.0, 2.0, 0.0, 7), 1.6), (mc.stadium(0, -21.0, -17.0, 2.0, 0.8, 7), 2.4)])
@@ -157,27 +159,32 @@ def build_bracket(entry, params):
         cuts.append(c)
     bm = mc.boolean(bm, cuts, "DIFFERENCE")
     # boss ring with the 8 mm shaft bore, and rivet heads: separate closed shells that overlap the plate (no union boolean)
-    mc.lathe(bm, [(4.6, -3.0), (6.2, -3.0), (6.8, -2.4), (6.8, 2.4), (6.2, 3.0), (4.6, 3.0), (BORE_R, 2.4), (BORE_R, -2.4)], nseg=24)
+    mc.lathe(bm, [(BUSH_SEAT_R, -3.0), (6.35, -3.0), (6.8, -2.55), (6.8, 2.55), (6.35, 3.0), (BUSH_SEAT_R, 3.0)], nseg=24)      # 6 mm boss lip round the bush seat
     ring = [(8.6 * math.cos(math.radians(a)), 8.6 * math.sin(math.radians(a))) for a in (90, 210, 330)]
     rivets(bm, ring, +1, 2.0)
     rivets(bm, ring, -1, -2.0)
     name = entry["meshes"][0]
     obj = mc.make_object(bm, name, [entry["materials"][0]])
-    obj["wu"] = dict(id=entry["id"], family=FAMILY, shaftBoreRadiusMm=BORE_R, shaftAxis="+Z", seatHeightAboveFootMm=SEAT_ABOVE_FOOT)
+    obj["wu"] = dict(id=entry["id"], family=FAMILY, shaftBoreRadiusMm=BORE_R, bushSeatRadiusMm=BUSH_SEAT_R, shaftAxis="+Z", seatHeightAboveFootMm=SEAT_ABOVE_FOOT)
     col = empties.add_collider(obj, "Grab", "sphere", params["grab_radius"], loc_g=(0.0, -0.012, 0.0))
-    return [obj, col], dict(closed=True, checks=[bore_check(obj)])
+    # ADR-050: the bush seats on the shaft axis (the seat centre, +Z along the shaft, opening towards +Y); the screw goes into the front foot hole (local x -7.5,
+    # towards the player in the Music Box), head on the plate's -Z face, shank through the 4 mm foot, so its axis is -Z.
+    socks = [fast.hw_socket(obj, "Bush", "bush_split_8", (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), carried=True, note="bearing seat centre; the C-shaped bush opens towards +Y"),
+             fast.hw_socket(obj, "Screw", "screw_slot_m3", (-7.5e-3, (-SEAT_ABOVE_FOOT + 2.0) * 1e-3, -2.0e-3), (0.0, 0.0, -1.0), carried=True,
+                            note="front foot hole, head on the -Z face")]
+    return [obj, col] + socks, dict(closed=True, checks=[bore_check(obj, BUSH_SEAT_R)])
 
 
-def bore_check(obj):
+def bore_check(obj, radius=BORE_R):
     def run(g, objs):
         c = np.empty(len(obj.data.vertices) * 3)
         obj.data.vertices.foreach_get("co", c)
         c = c.reshape(-1, 3)
         r = np.hypot(c[:, 0], c[:, 2])                                       # the shaft axis is Blender Y; the seat is at the origin
-        near = r[r < 5.5e-3]
+        near = r[r < radius * 1e-3 + 1.5e-3]
         g.info.update(boreRadiusMm=round(float(near.min()) * 1000, 4))
-        if abs(float(near.min()) - BORE_R * 1e-3) > 5e-5:
-            g.fail("Q13", f"bore radius {near.min() * 1000:.4f} mm, expected {BORE_R} mm")
+        if abs(float(near.min()) - radius * 1e-3) > 5e-5:
+            g.fail("Q13", f"bore radius {near.min() * 1000:.4f} mm, expected {radius} mm")
     return run
 
 

@@ -1,10 +1,19 @@
+/**
+ * The intricate assembly of ADR-050 (stages, hardware, difficulty, the Helper). The one fallback switch of design §12.4: when false the
+ * difficulty picker is hidden and the game ships in Relaxed with the hardware seated by the game at the start, which is the build before
+ * ADR-050 plus invisible fasteners. No data is lost and no code is removed. Rules take it as an argument (`planStages`'s `intricate`), so the
+ * pure layer never reads a global; `planBuild` passes this constant.
+ */
+export const INTRICATE_ASSEMBLY = true;
+
 export * from './gift';
 export * from './registry';
 export * from './repair';
 export * from './rules';
 export * from './solve';
+export * from './steps';
 export * from './types';
-export { validateMachineBlueprint } from './validate';
+export { MAX_HARDWARE_KINDS_PER_STAGE, validateMachineBlueprint } from './validate';
 export { BELFRY, BELFRY_BELL_PROFILE, BELFRY_BELL_SWING_RAD, BELFRY_ROCKS_PER_TURN, BELFRY_SHELL } from './belfry';
 export { CAROUSEL, HORSE_TRAVEL_M } from './carousel';
 export {

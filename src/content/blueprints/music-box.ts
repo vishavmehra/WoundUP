@@ -4,6 +4,9 @@
 //   main_spring == spring_pinion 10T --mesh--> cylinder_wheel 20T == arbor == cylinder          (stage 1: 0.8 to -0.4 rad/s)
 //                                                                       \== governor_wheel 16T --mesh--> governor_pinion 12T == governor (stage 2)
 //
+// The deep build (INTRICATE_ASSEMBLY_DESIGN §8, ADR-050): the 12 sockets keep their ids, nodes and poses; 22 pieces of hardware (pins, washers, bushes,
+// screws, clips, collars, a dowel) are added as `required` sockets of family `fastener`, and the build is told in 7 stages. 34 sockets in all.
+//
 // Choices where the document leaves a value open (also in the gaps list of the hand-over):
 //  - Spring constants: option B of §4.2 (drain on the spring part), see content/parts/catalogue.ts. src/sim's REFERENCE_* constants
 //    are option A (one drain rate, 10 s at full wind); both give the worn spring 1.5 s.
@@ -13,7 +16,7 @@
 import { MACHINE_TARGET_SPECS } from '../../sim';
 import type { MechanicalConnection } from '../../sim';
 import { partId, SPUR_GEAR_IDS, trayOf } from './shared';
-import type { MachineBlueprint, SocketDefinition } from './types';
+import type { MachineBlueprint, SocketDefinition, StageDefinition } from './types';
 
 /** §4.4: at least this long at eight wind units, seconds. Half of one cylinder turn at 0.4 rad/s (2 pi / 0.4 = 15.708 s). */
 export const MUSIC_BOX_MIN_RUN_SECONDS = 7.854;
@@ -76,27 +79,103 @@ const socket = (
   accepts: readonly string[],
   dependencies: readonly string[] = [],
   rotation: SocketDefinition['rotation'] = R_X,
-): SocketDefinition => ({ id, family, node, required: true, acceptedPartIds: accepts, dependencies, position: POSITION[id], rotation });
+  // The deep build (design §8.1): the part that carries this seat on a stand unit, and the empty it has there.
+  unit?: { readonly carrier: string; readonly unitNode: string },
+): SocketDefinition => ({
+  id,
+  family,
+  node,
+  required: true,
+  acceptedPartIds: accepts,
+  dependencies,
+  position: POSITION[id],
+  rotation,
+  ...(unit === undefined ? {} : { carrier: unit.carrier, unitNode: unit.unitNode }),
+});
+
+/**
+ * A piece of hardware (design §4.1): one exact part id, always required, never shared in a gift (`implied`). `carrier` is the socket of the part whose GLB
+ * has the empty `SOCKET_<node>`; none means the case's own. No position: the empty in the carrier's GLB is the pose. `role` is a key for the step list.
+ */
+const hardware = (id: string, asset: string, node: string, carrier: string | undefined, role: string, group?: string): SocketDefinition => ({
+  id,
+  family: 'fastener',
+  node,
+  required: true,
+  acceptedPartIds: [partId(asset)],
+  implied: true,
+  role,
+  ...(carrier === undefined ? {} : { carrier }),
+  ...(group === undefined ? {} : { group }),
+});
 
 const BRACKET = partId('bracket_support');
 const STANDARD_SPRING = partId('spring_standard');
 const WORN_SPRING = partId('spring_worn');
+const BUSH = 'bush_split_8';
+const SCREW = 'screw_slot_m3';
+const PIN = 'pin_taper_2';
+const WASHER = 'washer_plain_8';
 
-// §7.1, in slot order.
-const sockets: readonly SocketDefinition[] = [
+// §8.1 in stage order, which is also an order every socket's dependencies allow (a repair seats `intended` in this order). The 12 big sockets keep §7.1's
+// ids, nodes, poses and rotations; their `dependencies` only gain what §8.1 adds (the bushes under the arbor, the anchor under the spring).
+const draft: readonly SocketDefinition[] = [
+  // 1 Frame
   socket('bracket_left', 'structural', 'BracketL', [BRACKET]),
+  hardware('bush_left', BUSH, 'Bush', 'bracket_left', 'left_bracket_bush'),
+  hardware('screw_bracket_left', SCREW, 'Screw', 'bracket_left', 'left_bracket_screw'),
   socket('bracket_right', 'structural', 'BracketR', [BRACKET]),
-  socket('arbor', 'shaft', 'Arbor', [partId('shaft_short')], ['bracket_left', 'bracket_right']),
-  socket('cylinder', 'cylinder', 'Cylinder', [partId('cylinder_music_box')], ['arbor']),
+  hardware('bush_right', BUSH, 'Bush', 'bracket_right', 'right_bracket_bush'),
+  hardware('screw_bracket_right', SCREW, 'Screw', 'bracket_right', 'right_bracket_screw'),
+  // 2 Governor end of the arbor
+  socket('arbor', 'shaft', 'Arbor', [partId('shaft_short')], ['bracket_left', 'bracket_right', 'bush_left', 'bush_right']),
+  socket('governor_wheel', 'spur_gear', 'GearC', SPUR_GEAR_IDS, ['arbor'], R_X, { carrier: 'arbor', unitNode: 'WheelL' }),
+  hardware('pin_governor_wheel', PIN, 'Pin', 'governor_wheel', 'governor_wheel_pin'),
+  hardware('washer_arbor_l1', WASHER, 'WasherL1', 'arbor', 'washer_wheel_to_bracket', 'arbor_washers'),
+  hardware('washer_arbor_l2', WASHER, 'WasherL2', 'arbor', 'washer_bracket_to_cylinder', 'arbor_washers'),
+  // 3 Melody cylinder
+  socket('cylinder', 'cylinder', 'Cylinder', [partId('cylinder_music_box')], ['arbor'], R_X, { carrier: 'arbor', unitNode: 'Cylinder' }),
+  hardware('collar_cylinder_l', 'collar_set_8', 'CollarL', 'cylinder', 'cylinder_collar_left'),
+  hardware('collar_cylinder_r', 'collar_set_8', 'CollarR', 'cylinder', 'cylinder_collar_right'),
+  hardware('washer_arbor_r1', WASHER, 'WasherR1', 'arbor', 'washer_cylinder_to_bracket', 'arbor_washers'),
+  // 4 Drive end of the arbor (on a stand the unit is carried into the case after it)
+  hardware('washer_arbor_r2', WASHER, 'WasherR2', 'arbor', 'washer_bracket_to_wheel', 'arbor_washers'),
+  socket('cylinder_wheel', 'spur_gear', 'GearB', SPUR_GEAR_IDS, ['arbor'], R_X, { carrier: 'arbor', unitNode: 'WheelR' }),
+  hardware('pin_cylinder_wheel', PIN, 'Pin', 'cylinder_wheel', 'cylinder_wheel_pin'),
+  // 5 Comb
   socket('comb', 'comb', 'Comb', [partId('comb_music_box')], [], IDENTITY),
-  socket('cylinder_wheel', 'spur_gear', 'GearB', SPUR_GEAR_IDS, ['arbor']),
-  socket('governor_wheel', 'spur_gear', 'GearC', SPUR_GEAR_IDS, ['arbor']),
-  socket('main_spring', 'spring', 'Spring', [STANDARD_SPRING, WORN_SPRING]),
-  socket('spring_pinion', 'spur_gear', 'GearA', SPUR_GEAR_IDS, ['main_spring']),
+  hardware('clip_comb_l', 'clip_angle_small', 'ClipL', 'comb', 'comb_clip_left'),
+  hardware('screw_clip_l', SCREW, 'Screw', 'clip_comb_l', 'comb_clip_left_screw'),
+  hardware('clip_comb_r', 'clip_angle_small', 'ClipR', 'comb', 'comb_clip_right'),
+  hardware('screw_clip_r', SCREW, 'Screw', 'clip_comb_r', 'comb_clip_right_screw'),
+  // 6 Governor
   socket('governor', 'governor', 'Governor', [partId('governor_standard')]),
-  socket('governor_pinion', 'spur_gear', 'GearD', SPUR_GEAR_IDS, ['governor']),
-  socket('winding_key', 'winding_key', 'Key', [partId('winding_key')], ['main_spring']),
+  socket('governor_pinion', 'spur_gear', 'GearD', SPUR_GEAR_IDS, ['governor'], R_X, { carrier: 'governor', unitNode: 'Pinion' }),
+  hardware('pin_governor_pinion', PIN, 'Pin', 'governor_pinion', 'governor_pinion_pin'),
+  hardware('screw_governor_frame', SCREW, 'FrameScrew', 'governor', 'governor_frame_screw'),
+  // 7 Power unit
+  hardware('anchor_spring', 'pin_dowel_3', 'SpringAnchor', undefined, 'spring_anchor'),
+  socket('main_spring', 'spring', 'Spring', [STANDARD_SPRING, WORN_SPRING], ['anchor_spring']),
+  hardware('washer_spring', WASHER, 'Washer', 'main_spring', 'washer_pinion_to_coil'),
+  socket('spring_pinion', 'spur_gear', 'GearA', SPUR_GEAR_IDS, ['main_spring'], R_X, { carrier: 'main_spring', unitNode: 'Pinion' }),
+  hardware('pin_spring_pinion', PIN, 'Pin', 'spring_pinion', 'spring_pinion_pin'),
+  socket('winding_key', 'winding_key', 'Key', [partId('winding_key')], ['main_spring'], R_X, { carrier: 'main_spring', unitNode: 'Key' }),
+  hardware('screw_key', SCREW, 'Screw', 'winding_key', 'winding_key_screw'),
 ];
+
+/** The arbor's unit is built on the stand over three stages and carried into the case after the third; the governor's is one stage (design §8.1, P1). */
+const ARBOR_UNIT = { carrier: 'arbor', grip: 'COL_Grip' } as const;
+const STAGES: readonly StageDefinition[] = [
+  { id: 'frame', name: 'Frame', site: 'case', sockets: ['bracket_left', 'bush_left', 'screw_bracket_left', 'bracket_right', 'bush_right', 'screw_bracket_right'] },
+  { id: 'governor_end', name: 'Governor end of the arbor', site: 'stand', unit: ARBOR_UNIT, sockets: ['arbor', 'governor_wheel', 'pin_governor_wheel', 'washer_arbor_l1', 'washer_arbor_l2'] },
+  { id: 'cylinder', name: 'Melody cylinder', site: 'stand', unit: ARBOR_UNIT, sockets: ['cylinder', 'collar_cylinder_l', 'collar_cylinder_r', 'washer_arbor_r1'] },
+  { id: 'drive_end', name: 'Drive end of the arbor', site: 'stand', unit: ARBOR_UNIT, sockets: ['washer_arbor_r2', 'cylinder_wheel', 'pin_cylinder_wheel'] },
+  { id: 'comb', name: 'Comb', site: 'case', sockets: ['comb', 'clip_comb_l', 'screw_clip_l', 'clip_comb_r', 'screw_clip_r'] },
+  { id: 'governor', name: 'Governor', site: 'stand', unit: { carrier: 'governor', grip: 'COL_Grip' }, sockets: ['governor', 'governor_pinion', 'pin_governor_pinion', 'screw_governor_frame'] },
+  { id: 'power', name: 'Power unit', site: 'case', sockets: ['anchor_spring', 'main_spring', 'washer_spring', 'spring_pinion', 'pin_spring_pinion', 'winding_key', 'screw_key'] },
+];
+const STAGE_OF: ReadonlyMap<string, string> = new Map(STAGES.flatMap((st) => st.sockets.map((id) => [id, st.id] as const)));
+const sockets: readonly SocketDefinition[] = draft.map((s) => ({ ...s, stage: STAGE_OF.get(s.id) }));
 
 // §3.1. Teeth and module are read from the installed parts, so a wrong gear runs wrong instead of being ignored.
 const connections: readonly MechanicalConnection[] = [
@@ -110,7 +189,7 @@ const connections: readonly MechanicalConnection[] = [
 ];
 
 /** §3.2: the correct build. The governor gears are 16T on the arbor driving 12T on the governor. */
-const intended: Readonly<Record<string, string>> = {
+const BIG_PARTS: Readonly<Record<string, string>> = {
   bracket_left: BRACKET,
   bracket_right: BRACKET,
   arbor: partId('shaft_short'),
@@ -124,6 +203,11 @@ const intended: Readonly<Record<string, string>> = {
   governor_pinion: partId('gear_spur_12_m1'),
   winding_key: partId('winding_key'),
 };
+
+/** The 12 big parts and the 22 pieces of hardware, in socket (stage) order. */
+const intended: Readonly<Record<string, string>> = Object.fromEntries(
+  sockets.map((s) => [s.id, s.family === 'fastener' ? (s.acceptedPartIds ?? [])[0] : BIG_PARTS[s.id]] as const),
+);
 
 export const MUSIC_BOX: MachineBlueprint = {
   id: 'music_box',
@@ -139,5 +223,6 @@ export const MUSIC_BOX: MachineBlueprint = {
   },
   housing: { assetId: 'music_box_case', xray: { radius: 0.065, top: 0.1 } },
   intended,
-  tray: trayOf(intended), // §9.1: Letter 1, no decoys
+  tray: trayOf(BIG_PARTS), // §9.1: Letter 1, no decoys. The tray holds the 12 big parts; the hardware comes in the stage bags (design §3.5)
+  stages: STAGES,
 };

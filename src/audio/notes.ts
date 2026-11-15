@@ -86,3 +86,40 @@ export const WAKE_CHIMES: Readonly<Record<PlotId, readonly number[]>> = {
   plot_well: [64, 67, 71, 76], // E minor, low and round: water
   plot_belfry: [60, 67, 72, 79], // open fifths, a bell's overtones: C G C G
 };
+
+/**
+ * Semitones above the base pitch for each placement of a stage (INTRICATE_ASSEMBLY_DESIGN §10.1: "pitch rises one step along the
+ * stage so a stage climbs a short scale"). A major pentatonic run, so every snap of a stage is consonant with the one before.
+ */
+export const SNAP_STEP_SEMITONES: readonly number[] = [0, 2, 4, 7, 9, 12, 14, 16];
+/** The last rung of the climb: placements past it keep this pitch. */
+export const MAX_SNAP_STEP = SNAP_STEP_SEMITONES.length - 1;
+
+/** Frequency multiplier of the `step`-th placement of a stage (0 first). Clamped and rounded, so any number is safe. */
+export function stepLift(step: number): number {
+  const i = Number.isFinite(step) ? Math.min(MAX_SNAP_STEP, Math.max(0, Math.round(step))) : 0;
+  return 2 ** (SNAP_STEP_SEMITONES[i] / 12);
+}
+
+/** The stage chords: the diatonic triads I, ii, iii, IV, V and vi of C major, climbing one rung per stage. */
+const STAGE_RUNGS: ReadonlyArray<readonly number[]> = [
+  [72, 76, 79],
+  [74, 77, 81],
+  [76, 79, 83],
+  [77, 81, 84],
+  [79, 83, 86],
+  [81, 84, 88],
+];
+/** The last stage resolves on the home chord: C major an octave above the first rung, with the octave on top. */
+const STAGE_HOME: readonly number[] = [84, 88, 91, 96];
+
+/**
+ * The chord that closes stage `index` of `total` (INTRICATE_ASSEMBLY_DESIGN §10.2: "the stage's own rung of a rising scale, the
+ * seventh resolves on the home chord"). Seven stages use the six rungs in order and then the home chord; fewer stages spread the
+ * rungs evenly. Returns a shared table: never mutate it, and nothing is allocated.
+ */
+export function stageChord(index: number, total: number): readonly number[] {
+  if (!(total > 1) || index >= total - 1) return STAGE_HOME;
+  const rung = Math.round((Math.max(0, index) * (STAGE_RUNGS.length - 1)) / Math.max(1, total - 2));
+  return STAGE_RUNGS[Math.min(STAGE_RUNGS.length - 1, rung)];
+}

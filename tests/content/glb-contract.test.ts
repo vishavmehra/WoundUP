@@ -86,15 +86,17 @@ describe.skipIf(missing.length > 0)('the GLBs the catalogue and blueprints descr
     }
   });
 
-  it('music box case: the 12 slot empties are the 12 blueprint sockets, with the same slot ids', () => {
+  it('music box case: its slot empties are blueprint sockets with the same slot ids: the 12 big parts, and the spring anchor once the hardware is in (ADR-050)', () => {
     const empties = socketsOf('music_box_case');
     const slotEmpties = [...empties].filter(([name]) => name !== 'BaseHandle');
-    expect(slotEmpties).toHaveLength(12);
+    expect(slotEmpties.length).toBeGreaterThanOrEqual(12);
+    expect(slotEmpties.length).toBeLessThanOrEqual(13); // + SpringAnchor (INTRICATE_ASSEMBLY_DESIGN §11.2)
     for (const [name, wu] of slotEmpties) {
-      const s = MUSIC_BOX.sockets.find((x) => x.node === name);
-      expect(s, `SOCKET_${name} is not a blueprint socket`).toBeDefined();
+      const s = MUSIC_BOX.sockets.find((x) => x.node === name && (x.family !== 'fastener' || x.carrier === undefined));
+      expect(s, `SOCKET_${name} is not a blueprint socket of the case`).toBeDefined();
       expect(wu.slot, name).toBe(s?.id);
-      expect(wu.dependsOn, name).toEqual(s?.dependencies ?? []);
+      // `dependsOn` is what the case was authored with; the blueprint adds the hardware under it (the bushes under the arbor, the anchor under the spring)
+      expect(s?.dependencies ?? [], name).toEqual(expect.arrayContaining((wu.dependsOn as string[] | undefined) ?? []));
     }
   });
 

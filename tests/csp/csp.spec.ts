@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- these specs reach into the ?debug world handle and the emulator's device */
 import { expect, test, type Page } from '@playwright/test';
-import { giftCatalogue, MUSIC_BOX, verifyGift } from '../../src/content/blueprints/index.js';
+import { giftCatalogue, giftPlacements, MUSIC_BOX, verifyGift } from '../../src/content/blueprints/index.js';
 import { ENGRAVING_IDS } from '../../src/game/content.js';
 import { buildGiftUrl, encodeGift } from '../../src/game/gift.js';
 import { openTrunkAndSetBench } from '../e2e/support/flow.js';
@@ -111,7 +111,7 @@ test('a gift link', async ({ page, baseURL }) => {
   const gift = {
     blueprintId: MUSIC_BOX.id,
     blueprintVersion: MUSIC_BOX.version,
-    placements: Object.entries(MUSIC_BOX.intended).map(([socketId, partId]) => ({ socketId, partId })),
+    placements: giftPlacements(MUSIC_BOX, MUSIC_BOX.intended), // the big parts only: the Music Box's hardware is implied (ADR-050)
     engraving: ENGRAVING_IDS[0],
   };
   const encoded = await encodeGift(gift, { catalogue: giftCatalogue, verify: verifyGift });

@@ -9,6 +9,7 @@ import {
   pullByHand,
   removeKeyGrabHandle,
   runMachine,
+  seatAllByHelper,
   seatByHand,
   windByHand,
   windByHandAuto,
@@ -32,7 +33,10 @@ test.beforeAll(async ({ request }) => {
   await requireDevRuntime(request);
 });
 
-/** Frozen town -> bench with the 12 parts in the tray, hands switched on. UI presses go through the debug helper. */
+/**
+ * Frozen town -> bench with the first stage's parts in the tray, hands switched on. UI presses go through the debug helper. The Music Box is the intricate build
+ * (ADR-050) at the Relaxed level: its 12 big parts are placed by hand, stage by stage, and the game seats the 22 pieces of hardware (34 sockets in all).
+ */
 async function toBench(page: import('@playwright/test').Page): Promise<Hand> {
   await openGame(page);
   await Hand.enable(page);
@@ -45,46 +49,49 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
     const hand = await toBench(page);
     const state0 = await gameState(page);
     expect(state0.mode).toBe('build');
-    expect(state0.build).toMatchObject({ blueprint: 'music_box', parts: 12, seated: 0, fixed: 0 });
+    expect(state0.build).toMatchObject({ blueprint: 'music_box', fixed: 0 });
+    expect(state0.build?.parts, 'the first stage opens with its two brackets (and the spring anchor the game seats)').toBeGreaterThanOrEqual(2);
 
-    // Where every part lies in the tray, to check a pulled part comes home.
+    // Where every part lay in the tray before the hand took it, to check a pulled part comes home.
     const tray = new Map<string, Vec3>();
-    for (const p of await listParts(page)) tray.set(`${p.name}#${p.index}`, (await partPose(page, p)).origin);
-    expect(tray.size).toBe(12);
 
-    await test.step('REAL HAND: pinch-grab each of the 12 parts from the tray, carry it to its socket, release; each one snaps', async () => {
+    await test.step('REAL HAND: pinch-grab each of the 12 big parts from the tray as its stage opens, carry it to its socket, release; each one snaps', async () => {
       const reports = await assembleByHand(page, hand);
       expect(reports).toHaveLength(MUSIC_BOX_SOCKETS.length);
+      let before = 0;
       reports.forEach((r, i) => {
+        tray.set(r.part.name, r.home);
         expect(r.grabbed, `${r.part.name}: the pinch took the part (Grabbed)`).toBe(true);
         expect(r.releasedAt, `${r.part.name}: released within the 4 cm snap radius of ${r.socket}`).toBeLessThan(0.04);
         expect(r.snapped, `${r.part.name}: SnappedTo after release`).toBe(true);
-        expect(r.seatedAfter, `${r.part.name}: the game counts it`).toBe(i + 1);
+        expect(r.seatedAfter, `${r.part.name}: the game counts it (and the hardware it brings, seated by the game)`).toBeGreaterThan(before);
+        before = r.seatedAfter;
+        void i;
       });
       await waitForMode(page, 'wind');
       const s = await gameState(page);
-      expect(s.build?.seated).toBe(12);
+      expect(s.build?.seated, 'all 34 sockets are filled: 12 parts by hand, 22 pieces of hardware by the game').toBe(34);
       expect(s.mode).toBe('wind');
     });
 
     await test.step('REAL HAND: pull the 20-tooth wheel out of its socket; it leaves, the build reopens, the part goes back to the tray', async () => {
       const wheel = (await listParts(page)).find((p) => p.name.startsWith('gear_spur_20_m1'));
       if (!wheel) throw new Error('no 20-tooth wheel');
-      const home = tray.get(`${wheel.name}#${wheel.index}`) as Vec3;
+      const home = tray.get(wheel.name) as Vec3;
       const pull = await pullByHand(page, hand, wheel, home);
-      expect(pull.seatedBefore).toBe(12);
+      expect(pull.seatedBefore).toBe(34);
       expect(pull.snappedWhileHeld, 'SnappedTo is gone while the hand holds it 10 cm out').toBe(false);
-      expect(pull.seatedWhileHeld, 'the game counts 11').toBe(11);
+      expect(pull.seatedWhileHeld, 'the game counts 32: the wheel, and the pin it carries leaves with it').toBe(32);
       expect(pull.backInTray, 'let go in the air, it returns to its tray slot (metres)').toBeLessThan(0.01);
       expect((await gameState(page)).mode, 'a missing part sends Wind back to Build').toBe('build');
-      expect((await gameState(page)).build?.seated).toBe(11);
+      expect((await gameState(page)).build?.seated).toBe(32);
     });
 
     await test.step('REAL HAND: seat the wheel again; the build completes and Wind opens', async () => {
       const r = await seatByHand(page, hand, 'SOCKET_GearB', 'gear_spur_20_m1');
       expect(r.snapped).toBe(true);
       await waitForMode(page, 'wind');
-      expect((await gameState(page)).build?.seated).toBe(12);
+      expect((await gameState(page)).build?.seated, 'its pin came back on it').toBe(34);
     });
 
     await test.step('REAL HAND: wind by wrist twist (2 x 360 degrees = 8 units); while BUG-1 stands the grab handle of the key is removed first (diagnostic, reported); DEBUG HELPER: press Run', async () => {
@@ -95,7 +102,7 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
       });
       expect(wind.report.units[0], 'first full turn: at least 3 units').toBeGreaterThanOrEqual(3);
       expect(wind.report.units[1], 'second full turn tops it up').toBeGreaterThanOrEqual(7);
-      expect(wind.report.seatedAfter, 'winding leaves all 12 parts seated').toBe(12);
+      expect(wind.report.seatedAfter, 'winding leaves every socket filled').toBe(34);
       expect((await gameState(page)).windUnits).toBe(wind.report.units[1]);
       await runMachine(page);
       const s = await gameState(page);
@@ -125,7 +132,7 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
   // only a pull of the fingertip along its axis takes it out (src/interaction/wind-system.ts, tests/interaction/systems.test.ts).
   test('BUG-1 REAL HAND: a plain pinch on the seated key and a 360 degree wrist twist wind it, and the key stays in its socket', async ({ page }) => {
     const hand = await toBench(page);
-    await page.evaluate(() => (window as unknown as { __wu: { seatAll(): number } }).__wu.seatAll()); // DEBUG HELPER: seat the other 11 parts quickly
+    await seatAllByHelper(page); // DEBUG HELPER: seat the stages quickly
     await waitForMode(page, 'wind');
     await frames(page, 10);
     const key = (await listParts(page)).find((p) => p.name.startsWith('winding_key'));
@@ -133,21 +140,21 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
     const before = (await partPose(page, key)).origin;
     const report = await windByHand(page, hand, 1, 360);
     const after = (await partPose(page, key)).origin;
-    test.info().annotations.push({ type: 'bug-1', description: `grabbed at pinch: ${report.grabbedAtPinch.join(', ') || 'nothing'}; units after the twist: ${report.units.join(',')}; seated after: ${report.seatedAfter} of 12; key moved ${(Math.hypot(after.x - before.x, after.y - before.y, after.z - before.z) * 1000).toFixed(1)} mm` });
+    test.info().annotations.push({ type: 'bug-1', description: `grabbed at pinch: ${report.grabbedAtPinch.join(', ') || 'nothing'}; units after the twist: ${report.units.join(',')}; seated after: ${report.seatedAfter} of 34; key moved ${(Math.hypot(after.x - before.x, after.y - before.y, after.z - before.z) * 1000).toFixed(1)} mm` });
     expect(report.units[0], 'one full wrist turn is at least 3 wind units').toBeGreaterThanOrEqual(3);
-    expect(report.seatedAfter, 'winding leaves all 12 parts seated, the key included').toBe(12);
+    expect(report.seatedAfter, 'winding leaves every socket filled, the key included').toBe(34);
     expect(Math.hypot(after.x - before.x, after.y - before.y, after.z - before.z), 'the key is back in its socket (metres)').toBeLessThan(0.005);
   });
 
   // INTERACTION_SPEC section 9 for the key: pinching it winds it, but a deliberate pull of the fingertip along its axis takes it out.
   test('REAL HAND: a pull of the fingertip 9 cm along the key axis takes the seated key out and the pinch carries it; let go in the air, it returns to the tray and Wind goes back to Build', async ({ page }) => {
     const hand = await toBench(page);
-    const key0 = (await listParts(page)).find((p) => p.name.startsWith('winding_key'));
-    if (!key0) throw new Error('no winding key');
-    const home = (await partPose(page, key0)).origin;
-    await page.evaluate(() => (window as unknown as { __wu: { seatAll(): number } }).__wu.seatAll()); // DEBUG HELPER: seat the parts quickly
+    await seatAllByHelper(page); // DEBUG HELPER: seat the stages quickly
     await waitForMode(page, 'wind');
     await frames(page, 10);
+    const key0 = (await listParts(page)).find((p) => p.name.startsWith('winding_key'));
+    if (!key0) throw new Error('no winding key');
+    const home = (await page.evaluate(() => (window as unknown as { __wu: { homeOf(id: string): Vec3 | null } }).__wu.homeOf('winding_key_polished_brass'))) as Vec3; // the compartment it lay in
     const K = (await partPose(page, key0)).origin;
     const axis = await page.evaluate((name) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,7 +163,7 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
       const a = node.localToWorld(w.camera.position.clone().set(0, 0, 1)).sub(node.getWorldPosition(w.camera.position.clone()));
       return { x: a.x, y: a.y, z: a.z };
     }, 'winding_key');
-    await hand.place({ x: K.x + 0.08, y: K.y, z: K.z }, 'index-tip');
+    await hand.place({ x: K.x, y: K.y + 0.05, z: K.z }, 'index-tip'); // from above: from the right the fingertip crosses the Run plaque and presses it
     await frames(page, 2);
     await hand.glide(K, 0.4, 'index-tip');
     await hand.pinch(1, 0.15);
@@ -166,7 +173,7 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
     await hand.glide({ x: K.x + 0.09 * axis.x, y: K.y + 0.09 * axis.y, z: K.z + 0.09 * axis.z }, 0.5, 'index-tip');
     await frames(page, 4);
     expect(await hasComponent(page, key0, 'SnappedTo'), 'the pull took it out of its socket').toBe(false);
-    expect((await gameState(page)).build?.seated, 'the game counts 11').toBe(11);
+    expect((await gameState(page)).build?.seated, 'the game counts 32: the key, and the screw it carries leaves with it').toBe(32);
     const held = (await partPose(page, key0)).origin;
     expect(Math.hypot(held.x - K.x, held.y - K.y, held.z - K.z), 'the key came out with the hand (metres)').toBeGreaterThan(0.03);
     await hand.pinch(0, 0.1);
@@ -198,7 +205,7 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
 
   test('DIAGNOSTIC REAL HAND: with the key out of the grab system the same wrist twist winds it (isolates BUG-1 to the near-grab): 2 x 360 degrees reach 8 units, then Run works', async ({ page }) => {
     const hand = await toBench(page);
-    await page.evaluate(() => (window as unknown as { __wu: { seatAll(): number } }).__wu.seatAll()); // DEBUG HELPER: seat the other 11 parts quickly
+    await seatAllByHelper(page); // DEBUG HELPER: seat the stages quickly
     await waitForMode(page, 'wind');
     await frames(page, 10);
     await removeKeyGrabHandle(page); // DIAGNOSTIC: the pinch cannot capture the key now
@@ -210,7 +217,7 @@ test.describe('Music Box by hand (IWER hands; UI presses and Run through the deb
     expect(report.units[0]).toBeLessThanOrEqual(4);
     expect(report.units[1], 'second full turn tops it up').toBeGreaterThanOrEqual(7);
     expect(report.units[1]).toBeLessThanOrEqual(8);
-    expect(report.seatedAfter).toBe(12);
+    expect(report.seatedAfter).toBe(34);
     expect((await gameState(page)).windUnits).toBe(report.units[1]);
     await press(page, 'UI_Run'); // DEBUG HELPER
     await waitForMode(page, 'place');

@@ -694,7 +694,13 @@ def build(entry: dict, params: dict):
     obj["wu"] = dict(id=entry["id"], family=FAMILY, teeth=p.teeth, moduleMm=round(p.m * 1000, 4),
                      tipRadiusM=round(p.Ro, 5), rotationAxis="+Z")
     col = empties.add_collider(obj, "Grab", "sphere", params["grab_radius"])
-    return [obj, col], dict(origin=("centre", "centre", "centre"), thin_axis_z=True, closed=True, checks=[geometry_check(p)])
+    # ADR-050: a radial taper pin through the hub, entered from local +Y (up in the Music Box). It sits on the hub boss's exposed band (between the web / spoke
+    # face and the boss end), so the dome head (2.8 mm) clears the web and the washers beside the boss. Seat point = the boss surface (r_B) at that z.
+    import gen_fastener as fast
+    zpin = 0.5 * (p.h_spoke + p.h_boss)
+    pin = fast.hw_socket(obj, "Pin", "pin_taper_2", (0.0, p.r_B, zpin), (0.0, 1.0, 0.0), carried=True, note="radial cross pin through the hub boss and the shaft",
+                         hubRadiusMm=round(p.r_B * 1000, 3), zMm=round(zpin * 1000, 3))
+    return [obj, col, pin], dict(origin=("centre", "centre", "centre"), thin_axis_z=True, closed=True, checks=[geometry_check(p)])
 
 
 if __name__ == "__main__":

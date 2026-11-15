@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wu_common as wu
 from lib import empties
 from gen_mb_common import Builder, finish
+import gen_fastener as fz
 
 FAMILY = "comb"
 
@@ -86,7 +87,13 @@ def build(entry: dict, params: dict):
     obj["wu"] = dict(id=entry["id"], family=FAMILY, tines=n, tinePitchMm=round(pitch * 10, 3), fixed=True, tipLineZMm=0.0)
     # a box over the whole comb (blueprint 7.2): a 20 mm sphere would only catch the middle third of a 58.6 mm part
     col = empties.add_collider(obj, "Grab", "box", p["grab_half"], loc_g=p["grab_centre"])
-    return [obj, col], dict(origin=("centre", "max", "min"), closed=True)
+    # ADR-050: the two angle clips clamp over the rear edge of the block, visible from above: the plate lies on the rear shelf (top y_block = -1.4 mm, z 20.5 to 26.0, between the
+    # clamp plate and the back edge) and the flange hangs down the back face (z_back = 26 mm). Socket axis +Y (up), seat plane on the shelf; the clip's -Y edge (its flange)
+    # then points towards +Z. x = +-10 mm sits between the three pan screws of the shelf (x 0 and +-20 mm); the plate centre z 24.6 puts the flange's inner face on the back face.
+    ys, zc = p["y_block"] * 0.01, 0.0246
+    socks = [fz.hw_socket(obj, "ClipL", "clip_angle_small", (-0.010, ys, zc), (0.0, 1.0, 0.0), slot="clip_comb_l", carried=True, note="rear shelf, left of centre"),
+             fz.hw_socket(obj, "ClipR", "clip_angle_small", (0.010, ys, zc), (0.0, 1.0, 0.0), slot="clip_comb_r", carried=True, note="rear shelf, right of centre")]
+    return [obj, col] + socks, dict(origin=("centre", "max", "min"), closed=True)
 
 
 if __name__ == "__main__":

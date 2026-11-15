@@ -3,7 +3,10 @@ import type { World } from '@iwsdk/core';
 import { FlowUi, type FlowUiOptions } from './flow-ui.js';
 
 export { FlowUi } from './flow-ui.js';
-export type { BlueprintView, FlowEvent, FlowUiOptions } from './flow-ui.js';
+export type { AssemblyOptions, BlueprintView, FlowEvent, FlowUiOptions } from './flow-ui.js';
+export { HELPER_BREATH_S, HELPER_COOLDOWN_S, HELPER_HOLD_S, NO_HELPER, STEP_REVEAL_S } from './assembly.js';
+export type { AssemblyStage, AssemblyStep, AssemblyView, HelperView } from './assembly.js';
+export { DIFFICULTY_COPY, HELPER_COPY, MASTER_AVAILABLE } from './copy.js';
 export { browserShareEnv, createGiftLink, resolveGift } from './gift-flow.js';
 export type { GiftHost, GiftModel, LinkOutcome, ShareEnv } from './gift-flow.js';
 export { mountGiftViewer } from './gift-viewer.js';
