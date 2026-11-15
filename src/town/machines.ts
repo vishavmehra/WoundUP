@@ -9,7 +9,7 @@
  * spring it is fitted to: it is not a node of the solver's graph, so it has no speed of its own).
  */
 import { Quaternion } from '@iwsdk/core';
-import type { Object3D } from '@iwsdk/core';
+import type { Mesh, Object3D } from '@iwsdk/core';
 import type { MachineId } from '../game/content';
 import { BELFRY_BELL_NODE, buildBelfry } from '../machines/belfry/build';
 import { buildClockTower } from '../machines/clock-tower/build';
@@ -20,6 +20,7 @@ import { applyLibraryMaterials } from '../materials';
 import { bakeRig } from './bake';
 import { axisOfGlb, createRig, createRotor, horsePhase, wuField, type MachineRig, type Rotor } from './motion';
 import type { ModelSource } from './scene';
+import { XRAY_SHELL } from './xray-view';
 
 /**
  * Solver socket ids of the nodes that turn when the blueprint does not say otherwise. The Music Box takes its socket ids
@@ -242,12 +243,30 @@ const KEEP_BY_NAME: Partial<Record<MachineId, readonly string[]>> = {
 };
 
 /**
+ * Machines whose whole casing stays unmerged, so X-ray can fade all of it. `XRayShell` finds the casing by mesh name, and the batching
+ * would otherwise merge a casing trim into the brass of the mechanism (the Well's and the Belfry's aged- and polished-brass primitives
+ * merge with the bearing and the handle), which then stays solid while the rest of the casing fades. The cost is two draw calls a machine
+ * (measured: Well 49 to 51, Belfry 47 to 49, the six-machine town 143 to 147). The four older machines keep the merge: keeping their
+ * casing too costs 42 draw calls (143 to 185), so their X-ray fades only the casing meshes the batching left (docs/DECISIONS.md, ADR-048).
+ */
+const KEEP_CASING: ReadonlySet<MachineId> = new Set<MachineId>(['well', 'belfry']);
+
+/** The names of the meshes of `root` that start with one of `prefixes` (`XRAY_SHELL`). */
+function casingNames(root: Object3D, prefixes: readonly string[] = []): string[] {
+  const names: string[] = [];
+  root.traverse((node) => {
+    if ((node as Mesh).isMesh === true && prefixes.some((prefix) => node.name.startsWith(prefix))) names.push(node.name);
+  });
+  return names;
+}
+
+/**
  * Builds the finished machine of `id`, or null for an id this build has no machine for. Its static meshes are baked into one mesh per
  * library material inside each moving node's frame (bake.ts), a fraction of the draw calls of the loose GLB meshes; the rig's rotors,
  * bobbers, pulsers and lid are untouched.
  */
 export async function buildMachine(id: MachineId, source: ModelSource, registry: MaterialRegistry, ids?: SocketIds): Promise<MachineRig | null> {
   const rig = await assemble(id, source, registry, ids);
-  if (rig) bakeRig(rig, KEEP_BY_NAME[id]);
+  if (rig) bakeRig(rig, [...(KEEP_BY_NAME[id] ?? []), ...(KEEP_CASING.has(id) ? casingNames(rig.root, XRAY_SHELL[id]) : [])]);
   return rig;
 }

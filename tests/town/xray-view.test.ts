@@ -288,6 +288,20 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
     });
   }
 
+  // The older four keep the merge for the draw-call budget (machines.ts `KEEP_CASING`): their X-ray fades the casing meshes the batching left.
+  for (const id of ['well', 'belfry'] as const) {
+    it(`${id}: the batching merges no casing mesh into the mechanism's brass (X-ray finds the casing by name)`, async () => {
+      const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
+      if (!rig) throw new Error(`no ${id}`);
+      const merged: string[] = [];
+      rig.root.traverse((n) => {
+        const from = n.userData.bakedFrom as string[] | undefined;
+        if (from) merged.push(...from.filter((name) => XRAY_SHELL[id].some((p) => name.startsWith(p))));
+      });
+      expect(merged, `${id}: casing meshes merged away`).toEqual([]);
+    });
+  }
+
   it('the moving parts of the Music Box, the Carousel, the Windmill, the Well and the Belfry are never casing', async () => {
     for (const id of ['music_box', 'carousel', 'windmill', 'well', 'belfry'] as const) {
       const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);

@@ -115,9 +115,10 @@ export const BELFRY: MachineBlueprint = {
 };
 
 /**
- * What of `belfry_base.glb` covers the works, for the generic X-ray fade (INTERACTION_SPEC §11). The file has one body mesh, `Belfry_Plinth`,
- * with one primitive per library material and no node per piece, so the cap and the arcade are named by their materials: the teal primitive
- * (cap) and the painted-wood one (arcade). The stone plinth, the plate, the corner posts and the beam are not shell: the plinth carries the
- * machine and the beam the bell.
+ * What of `belfry_base.glb` the blueprint calls the shell, kept as the contract test's check that the body mesh has the cap's and the arcade's
+ * primitives. The X-ray fade does not read it: it fades by mesh-name prefix (`XRAY_SHELL` in town/xray-view.ts, `Belfry_Plinth_`), so every
+ * primitive of the body mesh fades (plinth, plate, posts, beam, arcade, cap) and the train, the shaft, the flywheel, the vane and the bell stay
+ * solid. The file has one body mesh, `Belfry_Plinth`, with one primitive per library material; the teal one is the cap, the painted-wood one
+ * the arcade.
  */
 export const BELFRY_SHELL = { node: 'Belfry_Plinth', materials: ['Mat_TealPaint', 'Mat_PaintedWood'] } as const;

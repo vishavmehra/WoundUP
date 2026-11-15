@@ -131,8 +131,9 @@ export const WELL: MachineBlueprint = {
 };
 
 /**
- * What of `well_base.glb` covers the works, for the generic X-ray fade (INTERACTION_SPEC §11). The file has one body mesh, `Well_Plate`, with one
- * primitive per library material and no node per piece, so the roof is named by its material: the teal primitive. The posts, the plate behind,
- * the slab, the basin, the pool and the chute are not shell: the front is open, and the water is what the machine is for.
+ * What of `well_base.glb` the blueprint calls the shell, kept as the contract test's check that the body mesh has the roof's primitive. The
+ * X-ray fade does not read it: it fades by mesh-name prefix (`XRAY_SHELL` in town/xray-view.ts, `Well_Plate_`), so every primitive of the body
+ * mesh fades (slab, posts, basin, roof) and the pump, pulleys, chain and water stay solid. The file has one body mesh, `Well_Plate`, with one
+ * primitive per library material; the teal one is the roof.
  */
 export const WELL_SHELL = { node: 'Well_Plate', materials: ['Mat_TealPaint'] } as const;
