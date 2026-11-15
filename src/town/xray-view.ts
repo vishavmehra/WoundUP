@@ -168,7 +168,7 @@ class Swap {
 }
 
 /**
- * The nodes whose meshes are the moving mechanism of a finished machine: every rotor and every bobbing horse of its rig (whatever the
+ * The nodes whose meshes are the moving mechanism of a finished machine: every rotor, every bobbing horse and every node its own updaters move (`rig.moving`) of its rig (whatever the
  * machine, so a new one gets its glow from the rig it already has), and the named nodes of `XRAY_MECHANISM` for a machine that is moved
  * by its own runtime instead of by rotors. Allocates: call it when X-ray turns on, not every frame.
  */
@@ -176,6 +176,7 @@ export function xrayMovers(rig: MachineRig): Object3D[] {
   const nodes: Object3D[] = [];
   for (const rotor of rig.rotors) nodes.push(rotor.node);
   for (const bobber of rig.bobbers) nodes.push(bobber.node);
+  for (const node of rig.moving) nodes.push(node); // what a machine's own updaters move: the Well's pump rod, pawl and water, the Belfry's bell and clapper
   for (const name of XRAY_MECHANISM[rig.machineId] ?? []) {
     const node = rig.root.getObjectByName(name);
     if (node) nodes.push(node);

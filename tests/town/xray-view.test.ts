@@ -518,6 +518,15 @@ describe.skipIf(!modelsPresent)('the casing of the six machines, on the real GLB
     });
   }
 
+  it('the pump rod and pawl of the Well and the bell and clapper of the Belfry are moving mechanism too (rig.moving), not only the rotors', async () => {
+    for (const [id, names] of [['well', ['Part_Follower', 'Part_Pawl']], ['belfry', ['ClockBell_Bell', 'ClockBell_Striker']]] as const) {
+      const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
+      if (!rig) throw new Error(`no ${id}`);
+      const movers = xrayMovers(rig).map((n) => n.name);
+      for (const name of names) expect(movers, `${id}: ${name}`).toContain(name);
+    }
+  });
+
   it('the moving parts of the Music Box, the Carousel, the Windmill, the Well and the Belfry are never casing', async () => {
     for (const id of ['music_box', 'carousel', 'windmill', 'well', 'belfry'] as const) {
       const rig = await buildMachine(id, realSource, libraryRegistry(), BLUEPRINT_SOCKET_IDS);
