@@ -2,7 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Needs the IWSDK dev runtime (`npm run dev` or `npx @iwsdk/cli dev up --headless`): it injects the emulated Quest 3
 // (IWER) into any browser that loads the page from localhost. Skipped when the runtime is not up (CI, production preview).
-const DEV_URL = 'https://localhost:8081/?debug';
+// WU_DEV_ORIGIN points the spec at another origin, e.g. `npx vite --port 5194 --strictPort` when 8081 belongs to someone else.
+const DEV_ORIGIN = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env.WU_DEV_ORIGIN ?? 'https://localhost:8081'; // no @types/node here
+const DEV_URL = `${DEV_ORIGIN}/?debug`;
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- these reach into the emulator and the ?debug world handle */
 const xrFrames = (page: Page, count: number) =>
@@ -45,7 +47,7 @@ test.describe('emulated Quest 3 (emulator evidence, not hardware evidence)', () 
       (r) => r.ok(),
       () => false,
     );
-    test.skip(!up, 'IWSDK dev runtime is not running on https://localhost:8081');
+    test.skip(!up, `IWSDK dev runtime is not running on ${DEV_ORIGIN}`);
   });
 
   test('APP-02/04/06: Enter starts an immersive-ar session with optional hand tracking, exiting restores the landing', async ({ page }) => {
@@ -140,6 +142,36 @@ test.describe('emulated Quest 3 (emulator evidence, not hardware evidence)', () 
     await page.evaluate(() => ((window as any).IWER_DEVICE.primaryInputMode = 'hand'));
 
     await expect.poll(() => handRequests.length, { timeout: 15_000 }).toBeGreaterThan(0);
-    expect(handRequests.filter((url) => !url.startsWith('https://localhost:8081/'))).toEqual([]);
+    expect(handRequests.filter((url) => !url.startsWith(`${DEV_ORIGIN}/`))).toEqual([]);
+  });
+
+  test('ADR-025: switching the emulated headset to controllers draws them from our own origin and requests nothing outside it', async ({ page }) => {
+    const requests: string[] = [];
+    const warnings: string[] = [];
+    page.on('request', (r) => {
+      if (r.url().startsWith('http')) requests.push(r.url());
+    });
+    page.on('console', (m) => m.text().includes('[xr-input]') && warnings.push(m.text())); // IWSDK's "Failed to load visual asset": the controller would be drawn without a model
+    await page.goto(DEV_URL);
+    await expect(page.locator('.wu')).toHaveAttribute('data-support', 'ar', { timeout: 60_000 }); // the buttons wait for the town to unpack: a cold dev server takes a while
+    await page.getByRole('button', { name: 'Enter mixed reality' }).click();
+    await expect(page.locator('.wu')).toHaveAttribute('data-mode', 'xr', { timeout: 15_000 });
+
+    // IWER's Quest 3 presents the meta-quest-touch-plus profile; IWSDK asks for its models at <public CDN>/meta-quest-touch-plus/{left,right}.glb.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await page.evaluate(() => ((window as any).IWER_DEVICE.primaryInputMode = 'controller'));
+
+    // Both controllers get a visual: the model arrived and IWSDK built it.
+    await expect
+      .poll(
+        () =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          page.evaluate(() => (['left', 'right'] as const).map((side) => (window as any).__world.input.xr.visualAdapters.controller[side].visual != null)),
+        { timeout: 30_000 },
+      )
+      .toEqual([true, true]);
+    expect(requests.filter((url) => !url.startsWith(`${DEV_ORIGIN}/`))).toEqual([]);
+    expect(requests.filter((url) => url.includes('/assets/xr/profiles/meta-quest-touch-plus/'))).not.toHaveLength(0);
+    expect(warnings).toEqual([]);
   });
 });
