@@ -5,7 +5,7 @@ import { frames, gameState, GPU_ARGS, Hand, openGame, press, pressWhenReady, req
 
 /**
  * X-ray in the emulated Quest 3 (IWER; emulator evidence, never headset evidence). The casing of the machine fades to about 15% opacity over
- * 0.3 s and the mechanism stays opaque, for the lens button and for the open palm facing down 5 to 20 cm above the machine, on the
+ * 0.3 s and the mechanism stays opaque and glows a gentle warm (it wears its own copy of the material while X-ray shows), for the lens button and for the open palm facing down 5 to 20 cm above the machine, on the
  * bench, in the hand and on the plot. The lens press and Run go through the debug helper (`window.__wu`); the palm, the carry and the drop
  * are IWER hand input.
  *
@@ -24,7 +24,7 @@ interface Look {
   /** Meshes whose name starts with the Music Box case prefix: how many, and the lowest and highest opacity among them. */
   casing: { count: number; min: number; max: number; transparent: number; depthWrite: number };
   /** Every other mesh under the stage that is part of a machine (gears, shafts, key): the lowest opacity, and how many are transparent. */
-  mechanism: { count: number; min: number; transparent: number };
+  mechanism: { count: number; min: number; transparent: number; lit: number; unlit: number };
 }
 
 /** The look of the Music Box now: casing meshes by name prefix, the seated gears and shafts by theirs. */
@@ -32,7 +32,7 @@ const look = (page: Page): Promise<Look> =>
   page.evaluate(() => {
     const w = (window as any).__world;
     const casing = { count: 0, min: 1, max: 0, transparent: 0, depthWrite: 0 };
-    const mechanism = { count: 0, min: 1, transparent: 0 };
+    const mechanism = { count: 0, min: 1, transparent: 0, lit: 0, unlit: 0 };
     w.getSceneObject('stage').traverse((n: any) => {
       if (!n.isMesh) return;
       const m = Array.isArray(n.material) ? n.material[0] : n.material;
@@ -46,6 +46,10 @@ const look = (page: Page): Promise<Look> =>
         mechanism.count++;
         mechanism.min = Math.min(mechanism.min, m.opacity);
         mechanism.transparent += m.transparent ? 1 : 0;
+        const glow = m.emissive.r * m.emissiveIntensity; // the warm X-ray glow of a moving part (the comb is the case's, it does not move)
+        if (/^Comb/i.test(n.name)) return;
+        if (glow > 0.1 && m.emissive.r > m.emissive.b) mechanism.lit++;
+        else mechanism.unlit++;
       }
     });
     return { casing, mechanism };
@@ -74,6 +78,8 @@ async function expectSeeThrough(page: Page, why: string): Promise<void> {
   expect(l.casing.depthWrite, `${why}: and writes no depth`).toBe(0);
   expect(l.mechanism.min, `${why}: the mechanism stays opaque`).toBe(1);
   expect(l.mechanism.transparent, `${why}: and is not transparent`).toBe(0);
+  expect(l.mechanism.lit, `${why}: the moving parts glow warm`).toBeGreaterThan(0);
+  expect(l.mechanism.unlit, `${why}: every one of them`).toBe(0);
 }
 
 async function expectSolid(page: Page, why: string): Promise<void> {
@@ -81,6 +87,7 @@ async function expectSolid(page: Page, why: string): Promise<void> {
   expect(l.casing.count, `${why}: casing meshes`).toBeGreaterThan(0);
   expect(l.casing.min, `${why}: the casing is as built`).toBe(1);
   expect(l.casing.transparent, `${why}: not transparent`).toBe(0);
+  expect(l.mechanism.lit, `${why}: nothing glows`).toBe(0);
 }
 
 /** Open palm facing down, `above` metres over `at` (the machine's origin), fingers pointing away from the player. IWER: palm is the direction the palm faces. */
@@ -168,7 +175,7 @@ test.describe('X-ray (IWER)', () => {
 
   // The other three machines: the story is played with the debug helper (it needs no hand to show what X-ray does to a machine), the lens
   // is pressed with the helper on the bench and in the hand, and the palm is IWER hand input over the machine standing on its plot.
-  test('the Carousel, the Windmill and the Clock Tower fade their casing on the bench, in the hand and on the plot; everything else keeps its material', async ({ page }) => {
+  test('the Carousel, the Windmill and the Clock Tower fade their casing on the bench, in the hand and on the plot; everything else is as solid as it was', async ({ page }) => {
     test.setTimeout(900_000);
     await openGame(page);
     await Hand.enable(page);
@@ -270,8 +277,9 @@ async function expectFaded(page: Page, id: string, where: 'bench' | 'rig', prefi
       expect(m.opacity, `${why}: ${m.name} is not gone`).toBeGreaterThan(0.1);
       expect(m.transparent, `${why}: ${m.name} is transparent`).toBe(true);
     } else {
-      expect(m.material, `${why}: ${m.name} keeps its material`).toBe(was.material);
+      // The moving parts wear a glowing copy of their material while X-ray shows (the rest keep theirs): either way they stay as solid as they were.
       expect(m.opacity, `${why}: ${m.name} keeps its opacity`).toBe(was.opacity);
+      expect(m.transparent, `${why}: ${m.name} keeps its solidity`).toBe(was.transparent);
     }
   });
 }

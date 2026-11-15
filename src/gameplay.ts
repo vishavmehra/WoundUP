@@ -365,7 +365,12 @@ export class Gameplay {
     const at = benchPoint(this.townScale, BENCH.build);
     const machine = await this.loader.spawnMachine(blueprint.id, { parent: this.stage, position: [at.x, at.y, at.z] });
     if (token !== this.buildToken) return machine.dispose();
-    this.xrayBench = this.town.xray.add({ root: machine.object, prefixes: XRAY_SHELL[blueprint.id] ?? [], lens: () => true });
+    this.xrayBench = this.town.xray.add({
+      root: machine.object,
+      prefixes: XRAY_SHELL[blueprint.id] ?? [],
+      lens: () => true,
+      moving: () => this.seatedParts(), // the gears and shafts in their sockets are the mechanism that glows (they are not children of the housing)
+    });
     this.lid = openLid(machine.object);
 
     // What each socket takes from the player, and what the game seats itself (src/build-plan.ts).
@@ -401,6 +406,11 @@ export class Gameplay {
     this.windUnits = 0;
     for (const socketId of Object.keys(fixed)) this.ui.setSlotFilled(socketId, true);
     this.checkComplete();
+  }
+
+  /** The parts of the bench machine that stand in a socket now. Allocates: X-ray asks when it turns on. */
+  private seatedParts(): Object3D[] {
+    return this.build ? this.build.parts.filter((p) => p.entity.hasComponent(SnappedTo)).map((p) => p.object) : [];
   }
 
   /** Puts each part in its socket the way a hand would: at the socket, held for a frame, then let go (SocketSnapSystem seats it). */
