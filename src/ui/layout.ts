@@ -86,6 +86,12 @@ export const DAILY_SPOT: V3 = v(-0.28, 0.15, 0.2);
  */
 export const LENS_SPOT: V3 = v(0.34, 0.09, 0.3);
 export const LENS_HINT_SPOT: V3 = v(0.34, 0.15, 0.3);
+/**
+ * The slip over the town while its models are still arriving (or could not), and the "Try again" plaque under it: over the middle of the
+ * town, higher than the reading card's line of sight to it, away from the pause and lens buttons beside the bench.
+ */
+export const TOWN_WAIT_SPOT: V3 = v(0, 0.125, 0.04);
+export const TOWN_RETRY_SPOT: V3 = v(0, 0.078, 0.045);
 /** The trunk latch (trunk_main.glb `COL_Latch`) scaled with the town. */
 export const latchSpot = (s: number): V3 => v(0, 0.14 * s, 0.125 * s);
 

@@ -124,6 +124,10 @@ async function installGame(
     materials,
     // The Night setting is the town's; the loop handles every other event.
     onEvent: (event: FlowEvent) => {
+      if (event.type === 'town-retry') {
+        startTownLoad(); // the slip over the town offered it after a load that failed (the flow UI then shows "Waking Tockton…")
+        return;
+      }
       if (event.type === 'setting' && event.key === 'night') {
         night = event.value;
         play.town?.setNight(event.value);
@@ -146,6 +150,7 @@ async function installGame(
   /** Loads the town's models (4.4 MiB of GLBs), builds it under the stage and hands it to the loop. */
   const loadTown = (): Promise<void> =>
     (loading ??= (async () => {
+      play.townLoading();
       try {
         // The town needs the loop's callbacks and the loop needs the town: the loop was made first.
         const town = await installTown(gameWorld, { registry: materials, audio, events: play.townEvents, keepAwake: () => budget.wake(), uniforms: wake });
@@ -160,7 +165,8 @@ async function installGame(
         if (!deferTown) progress(0.92); // a deferred town loads after the landing is usable: progress would lock its buttons again
         budget.wake();
       } catch (error) {
-        play.townFailed(error);
+        loading = null; // a retry loads it again: the files that did arrive are cached, the others are fetched afresh
+        play.townFailed();
         throw error;
       }
     })());
@@ -306,13 +312,17 @@ try {
   landing.setLoading(null);
 }
 
-// The page is usable. A first-time player's town loads now, behind it: nothing they can do before the trunk opens needs it, and the trunk's
-// opening shows it as soon as it is in (src/gameplay.ts `attachTown`). Its shaders are built the moment it is.
-if (deferTown && loadTown && world) {
+/**
+ * Loads a deferred town and builds its shaders the moment it is in. If it cannot be loaded the landing page says so, and so does the slip over
+ * the town (src/ui/flow-ui.ts `townCue`), whose "Try again" calls this again (`installGame`'s `town-retry`).
+ */
+function startTownLoad(): void {
+  if (!loadTown || !world) return;
   const loaded = world;
   void loadTown()
     .then(() => {
       mark('town');
+      landing.clearError(); // a failure reported on the landing page is out of date now
       return compileBehindLanding(loaded.renderer, loaded.scene, loaded.camera);
     })
     .catch((error: unknown) => {
@@ -320,3 +330,7 @@ if (deferTown && loadTown && world) {
       landing.showError('The town could not be unpacked. Reload the page to try again.');
     });
 }
+
+// The page is usable. A first-time player's town loads now, behind it: nothing they can do before the trunk opens needs it, and the trunk's
+// opening shows it as soon as it is in (src/gameplay.ts `attachTown`). Its shaders are built the moment it is.
+if (deferTown) startTownLoad();

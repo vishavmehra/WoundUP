@@ -51,7 +51,8 @@ import { PAD_TOP_M } from './town/layout';
 import type { MachineRig } from './town';
 import type { LidHinge } from './town/motion';
 import { XRAY_SHELL, xrayZoneOf } from './town/xray-view';
-import type { FlowEvent, FlowUi } from './ui';
+import type { FlowEvent, FlowUi, TownLoad } from './ui';
+import { Progress, townRevealScale } from './ui/anim';
 import { BENCH, benchPoint } from './ui/layout';
 import { placeTrayParts } from './tray-layout';
 
@@ -131,10 +132,16 @@ export class Gameplay {
   private runtime: TownRuntime | null = null;
   /** The trunk has opened: the town is to be shown, as soon as there is one. */
   private townShown = false;
-  /** Resolves with the town when `attachTown` has run; rejects when its models could not be loaded (`townFailed`). */
+  /** Whether the town's models are in; the flow UI shows a wait cue, or a retry, once the trunk has opened and they are not. */
+  private townLoad: TownLoad = 'loading';
+  /** The town settling to its size when it arrives after the trunk opened (the player saw the wait cue), rather than appearing at once. */
+  private readonly arrival = new Progress(0.5);
+  /**
+   * Resolves with the town when `attachTown` has run. A failed load does not settle it: the player is told and can try again (`townFailed`,
+   * `townLoading`), and whatever waits for the town (the bench) goes on when a try succeeds, so a retry never leaves an empty workbench.
+   */
   readonly townReady: Promise<TownRuntime>;
   private resolveTown!: (town: TownRuntime) => void;
-  private rejectTown!: (error: unknown) => void;
   private build: Build | null = null;
   /** Unregisters the bench machine from the X-ray view (town.xray): the lens opens it while it is on the bench. */
   private xrayBench: (() => void) | null = null;
@@ -176,11 +183,9 @@ export class Gameplay {
     this.stage = stage;
     this.unsubscribe = interactionIntents.subscribe((intent) => this.onIntent(intent));
     this.unbindTowerAudio = bindClockTowerAudio(opt.audio, clockTowerEvents);
-    this.townReady = new Promise<TownRuntime>((resolve, reject) => {
+    this.townReady = new Promise<TownRuntime>((resolve) => {
       this.resolveTown = resolve;
-      this.rejectTown = reject;
     });
-    this.townReady.catch(() => undefined); // whoever waits for the town hears about a failure; one that does not must not raise an unhandled rejection
   }
 
   /** The town, or null while its models are still loading (see `townReady`). */
@@ -205,6 +210,7 @@ export class Gameplay {
 
   /** What the story needs whether or not the town is in yet: the next letter's models. */
   start(): void {
+    this.ui.setTownLoad(this.townLoad);
     this.preload(this.session.letter);
   }
 
@@ -214,7 +220,14 @@ export class Gameplay {
    */
   async attachTown(town: TownRuntime): Promise<void> {
     this.runtime = town;
+    this.setTownLoad('ready');
     town.town.group.visible = this.townShown || this.session.mode !== 'intro';
+    if (this.townShown) {
+      // The trunk opened before the town was in and the player has been looking at the wait cue: the town settles in instead of appearing.
+      town.town.group.scale.setScalar(this.townScale * townRevealScale(0));
+      this.arrival.jump(0);
+      this.arrival.go(1);
+    }
     const missing = this.doors.resolve(town.town.theatre);
     if (missing.length > 0) console.warn(`[wound-up] the theatre facade has no ${missing.join(', ')}: its doors will not open.`);
     const standing = this.session.save.machines.filter((m) => m.placed && m.plotId);
@@ -243,9 +256,19 @@ export class Gameplay {
     }
   }
 
-  /** The town's models could not be loaded: whatever waits for the town stops waiting (and reports it). */
-  townFailed(error: unknown): void {
-    this.rejectTown(error);
+  /** The town's models could not be loaded: the flow UI says so and offers a retry (`townLoading` is the retry); whatever waits for the town goes on waiting. */
+  townFailed(): void {
+    this.setTownLoad('failed');
+  }
+
+  /** The town's models are being loaded (again): the flow UI shows "Waking Tockton…". */
+  townLoading(): void {
+    this.setTownLoad('loading');
+  }
+
+  private setTownLoad(state: TownLoad): void {
+    this.townLoad = state;
+    this.ui.setTownLoad(state);
   }
 
   /** The town's events (installTown `events`). */
@@ -337,6 +360,7 @@ export class Gameplay {
     const carried = this.carried;
     if (carried?.pending && this.session.mode === 'place') this.commitPlacement(carried, carried.pending.machine, carried.pending.plot);
     this.updateGlow(dt);
+    this.updateArrival(dt);
     this.guide?.update(dt);
     for (let i = this.runs.length - 1; i >= 0; i--) {
       const run = this.runs[i];
@@ -389,6 +413,15 @@ export class Gameplay {
   /** The tower's system, looked up once (it is registered by `installGameplay`, so it exists from the first frame). */
   private clockTower(): ClockTowerSystem | undefined {
     return (this.towerSystem ??= this.world.getSystem(ClockTowerSystem));
+  }
+
+  /** The town that arrived late settles to the scale the stage gives it (read each frame: a table placement may change it meanwhile). */
+  private updateArrival(dt: number): void {
+    const town = this.runtime;
+    if (!this.arrival.moving || !town) return;
+    this.arrival.step(dt);
+    town.town.group.scale.setScalar(this.townScale * townRevealScale(this.arrival.eased));
+    this.opt.keepAwake();
   }
 
   /** The plot of the machine in the hand breathes in lamp light until the machine is put down on it. */
@@ -774,6 +807,8 @@ export class Gameplay {
         return town();
       },
       townReady: this.townReady,
+      /** Whether the town's models are in (`loading`, `ready`) or could not be loaded (`failed`). */
+      townLoad: (): TownLoad => this.townLoad,
       state: () => ({
         mode: this.session.mode,
         build: this.build ? { blueprint: this.build.blueprint.id, parts: this.build.parts.length, seated: Object.keys(this.build.machine.assembly()).length, fixed: Object.keys(this.build.fixed).length } : null,
