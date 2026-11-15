@@ -6,7 +6,14 @@
  *
  * Generic on purpose. A machine lists the name prefixes of its casing meshes in `XRAY_SHELL` and nothing else; a new machine adds
  * one line. A mesh is casing when its own name starts with one of them (the seated parts are meshes of other GLBs with other
- * prefixes, so a gear inside a Music Box case that is its child is never touched).
+ * prefixes, so a gear inside a Music Box case that is its child is never touched) or when it carries `userData.xrayShell`: the static
+ * batching (town/bake.ts) merges a finished machine's casing meshes into meshes flagged so, so a baked machine fades by the flag where its
+ * meshes no longer have their names (`isXRayShell`).
+ *
+ * Two bakes of a baked machine. Where its casing and its mechanism wear the same material the batching drew them as ONE combined mesh
+ * (`userData.xrayCombined`, which keeps the draw calls down in normal play) and kept, hidden, a casing mesh and a mechanism mesh of the same
+ * geometry (`userData.xraySplit`). While X-ray shows (any amount above 0) the split meshes are drawn and the combined ones hidden, so the casing
+ * can fade without the mechanism; once it is fully back (amount 0) the combined ones are drawn again. Flipping `visible` allocates nothing.
  *
  * The mechanism that shows through gets a gentle warm glow (PRODUCT_SPEC section 12: the moving parts are highlighted, INTERACTION_SPEC
  * section 11: the internals glow) so the player sees what moves. What moves is read from the machine, not listed: every node of the rig's
@@ -26,10 +33,15 @@ export const XRAY_SHELL: Readonly<Record<string, readonly string[]>> = {
   music_box: ['MusicBoxCase_'], // the body and the lid
   carousel: ['CarouselBase_', 'CarouselCanopy_'], // the base ring and panels, and the roof over the poles
   windmill: ['WindmillBase_', 'WindmillTower_'], // the base and the tower walls round the millstone
-  clock_tower: ['ClockTowerBase_', 'ClockTower_'], // the base and the shell round the escapement
+  clock_tower: ['ClockTowerBase_', 'ClockTowerBaseWalls_', 'ClockTowerShell_', 'ClockTower_'], // the base, its walls and the shell round the escapement (the walls and the shell are merged by src/machines/clock-tower/bake.ts, under these names)
   well: ['Well_Plate_'], // the basin, its walnut rim and the teal paint; the pump, the pulleys and the chain stay solid
   belfry: ['Belfry_Plinth_'], // the stone and painted plinth bands; the train, the shaft, the flywheel, the vane and the bell stay solid
 };
+
+/** Whether `mesh` is casing: it carries the flag the static batching gives a merged casing mesh, or its name starts with one of `prefixes`. */
+export function isXRayShell(mesh: Object3D, prefixes: readonly string[]): boolean {
+  return mesh.userData.xrayShell === true || prefixes.some((prefix) => mesh.name.startsWith(prefix));
+}
 
 /** Opacity of the casing while X-ray shows ("approximately 15% opaque"). */
 export const XRAY_OPACITY = 0.15;
@@ -190,6 +202,10 @@ export function xrayMovers(rig: MachineRig): Object3D[] {
  */
 export class XRayShell {
   private meshes: Mesh[] | null = null;
+  /** The combined meshes the batching drew in normal play, and the split ones it kept hidden (see the header). Collected with the casing. */
+  private readonly combined: Mesh[] = [];
+  private readonly split: Mesh[] = [];
+  private splitShown = false;
   private readonly casing = new Swap(ghostOf);
   private readonly glow = new Swap(glowOf);
 
@@ -209,8 +225,10 @@ export class XRayShell {
     if (amount <= 0) {
       if (this.casing.swapped) this.casing.restore();
       if (this.glow.swapped) this.glow.restore();
+      this.showSplit(false); // fully opaque again with the shared materials: the combined bake draws
       return;
     }
+    this.showSplit(true); // before the glow is collected: it reads what is drawn
     if (!this.casing.swapped) this.casing.swapIn(this.collect());
     if (!this.glow.swapped) this.glow.swapIn(this.collectGlow());
     for (let i = 0; i < this.casing.list.length; i++) {
@@ -231,7 +249,19 @@ export class XRayShell {
   dispose(): void {
     this.casing.dispose();
     this.glow.dispose();
+    this.showSplit(false);
     this.meshes = null;
+    this.combined.length = 0;
+    this.split.length = 0;
+  }
+
+  /** Draws the split meshes and hides the combined ones, or the other way round. Does nothing for a machine that has none (the bench housing). */
+  private showSplit(on: boolean): void {
+    if (this.splitShown === on) return;
+    this.collect();
+    for (let i = 0; i < this.combined.length; i++) this.combined[i].visible = !on;
+    for (let i = 0; i < this.split.length; i++) this.split[i].visible = on;
+    this.splitShown = on;
   }
 
   private collect(): Mesh[] {
@@ -239,7 +269,10 @@ export class XRayShell {
     const found: Mesh[] = [];
     this.root.traverse((node) => {
       const mesh = node as Mesh;
-      if (mesh.isMesh && this.prefixes.some((prefix) => mesh.name.startsWith(prefix))) found.push(mesh);
+      if (!mesh.isMesh) return;
+      if (isXRayShell(mesh, this.prefixes)) found.push(mesh);
+      if (mesh.userData.xrayCombined === true) this.combined.push(mesh);
+      else if (mesh.userData.xraySplit === true) this.split.push(mesh);
     });
     this.meshes = found;
     return found;
