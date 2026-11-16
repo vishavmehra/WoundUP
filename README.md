@@ -15,7 +15,7 @@ A seated, hands-only mixed-reality clockwork game for Meta Quest 3 and 3S. A min
 [![Blender](https://img.shields.io/badge/models-Blender%20generated-E87D0D.svg?logo=blender&logoColor=white)](blender/scripts)
 [![No backend](https://img.shields.io/badge/backend-none-C9A227.svg)](#privacy-and-security)
 
-**[Play it live](https://wound-up-nu.vercel.app)** · [How it plays](#how-it-plays) · [The machines](#the-six-machines) · [How it works](#how-it-works) · [Run it locally](#run-it-locally)
+**[Play it live](https://wound-up-nu.vercel.app)** · [Film](#film-and-walkthrough) · [How it plays](#how-it-plays) · [The machines](#the-six-machines) · [How it works](#how-it-works) · [Run it locally](#run-it-locally)
 
 Built for the **Meta VR Start Developer Competition**: Gaming track, New Experience.
 
@@ -47,10 +47,52 @@ Built for the **Meta VR Start Developer Competition**: Gaming track, New Experie
 5. Twist your wrist to wind the key, press **Run** and hear the tune.
 6. Carry the Music Box to its plot. A ripple of colour, light and sound spreads through its corner of the town.
 
+### Film and walkthrough
+
+**▶ Cinematic film (3:36):** [Watch Wound Up: the frozen town, the hands that build it, and Tockton waking](https://github.com/vishavmehra/WoundUP/releases/download/film-v1/wound-up-film.mp4) · [Subtitles](https://github.com/vishavmehra/WoundUP/releases/download/film-v1/wound-up-film.srt)
+
+**▶ Full walkthrough (19:31):** [Watch the narrated end-to-end tour of every letter, machine and feature](https://github.com/vishavmehra/WoundUP/releases/download/walkthrough-v1/wound-up-walkthrough.mp4) · [Subtitles](https://github.com/vishavmehra/WoundUP/releases/download/walkthrough-v1/wound-up-walkthrough.srt)
+
+Both were recorded in the browser with the IWER emulated Meta Quest 3, playing the shipped build.
+
+<details>
+<summary><b>Walkthrough chapters</b></summary>
+
+| Time | Chapter |
+|---|---|
+| 0:04 | The landing page |
+| 0:51 | Play in your browser |
+| 1:22 | Ghost hands |
+| 1:46 | The trunk and the frozen town |
+| 2:08 | Letter 1: Mira |
+| 2:28 | Relaxed, Standard or Master |
+| 3:55 | Building the Music Box |
+| 5:54 | The Helper |
+| 6:25 | Wind, run, and wake the town |
+| 7:28 | Letter 2: the worn spring |
+| 8:53 | Letter 3: the Carousel |
+| 10:02 | Letter 4: the Windmill |
+| 11:09 | Letter 5: the wrong gear |
+| 12:09 | Letter 6: the Clock Tower |
+| 13:03 | Letter 7: the Well |
+| 14:07 | Letter 8: the Belfry |
+| 15:12 | The X-ray lens |
+| 15:33 | Night mode |
+| 15:56 | The Pause menu |
+| 16:33 | Gifts |
+| 17:20 | The daily repair |
+| 18:10 | Optional letters |
+| 18:34 | Returning with a save |
+| 18:52 | "Waking Tockton…" |
+| 19:18 | Raise the curtain |
+
+</details>
+
 ---
 
 ## Contents
 
+- [Film and walkthrough](#film-and-walkthrough)
 - [Why we built it](#why-we-built-it)
 - [How it plays](#how-it-plays)
 - [The story: eight letters](#the-story-eight-letters)
