@@ -49,7 +49,7 @@ Built for the **Meta VR Start Developer Competition**: Gaming track, New Experie
 
 ### Film and walkthrough
 
-**▶ Cinematic film (3:36):** [Watch Wound Up: the frozen town, the hands that build it, and Tockton waking](https://github.com/vishavmehra/WoundUP/releases/download/film-v1/wound-up-film.mp4) · [Subtitles](https://github.com/vishavmehra/WoundUP/releases/download/film-v1/wound-up-film.srt)
+**▶ Cinematic film (3:36):** [Watch Wound Up: the frozen town, the hands that build it, and Tockton waking](https://github.com/vishavmehra/WoundUP/releases/download/film-v1/wound-up-film.mp4) · [Subtitles](https://github.com/vishavmehra/WoundUP/releases/download/film-v1/wound-up-film.srt) · [Watch on YouTube](https://youtu.be/FsYzmkCF_I8)
 
 **▶ Full walkthrough (19:31):** [Watch the narrated end-to-end tour of every letter, machine and feature](https://github.com/vishavmehra/WoundUP/releases/download/walkthrough-v1/wound-up-walkthrough.mp4) · [Subtitles](https://github.com/vishavmehra/WoundUP/releases/download/walkthrough-v1/wound-up-walkthrough.srt)
 
